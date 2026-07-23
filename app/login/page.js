@@ -127,7 +127,7 @@ const styles = {
   error: {
     fontSize: 13,
     color: "var(--danger)",
-    background: "#fbeeea",
+    background: "var(--danger-bg)",
     padding: "8px 10px",
     borderRadius: 6,
   },

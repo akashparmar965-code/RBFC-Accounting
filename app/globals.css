@@ -1,17 +1,22 @@
 @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap');
 
 :root {
-  --ink: #12161c;
-  --ink-soft: #4a5261;
-  --paper: #f5f6f4;
-  --panel: #ffffff;
-  --line: #e2e5e1;
-  --ledger: #1f5d4c;
-  --ledger-dark: #16453a;
-  --flag: #c98a2c;
-  --danger: #b3432b;
-  --sidebar: #12161c;
-  --sidebar-soft: #8b93a3;
+  --ink: #eef0f4;
+  --ink-soft: #8890a0;
+  --paper: #0a0b10;
+  --panel: #14161d;
+  --field: #0c0d12;
+  --line: #262a35;
+  --ledger: #22a37b;
+  --ledger-dark: #1c8a68;
+  --flag: #e3a33e;
+  --danger: #e5484d;
+  --danger-bg: rgba(229, 72, 77, 0.14);
+  --warn-bg: rgba(227, 163, 62, 0.14);
+  --warn-text: #e3a33e;
+  --accent-purple: #6d6ae8;
+  --sidebar: #07080c;
+  --sidebar-soft: #7b8394;
 
   --font-display: 'Space Grotesk', sans-serif;
   --font-body: 'Inter', sans-serif;
@@ -34,6 +39,16 @@ a { color: inherit; }
 button {
   font-family: var(--font-body);
   cursor: pointer;
+}
+
+input, select, textarea {
+  background: var(--field);
+  color: var(--ink);
+  border-color: var(--line);
+}
+
+input::placeholder, textarea::placeholder {
+  color: var(--ink-soft);
 }
 
 :focus-visible {

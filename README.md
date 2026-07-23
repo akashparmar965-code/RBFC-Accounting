@@ -101,14 +101,16 @@ created in step 1.
 - ✅ Team login (Supabase Auth)
 - ✅ Store Master: full table view, search, filter by market, add/edit/delete
 - ✅ Your 115 stores ready to import via CSV
-- ✅ Sales Upload: upload the raw sales export, get back QBO-ready journal
-  CSVs split by company (Device / Accessories / Bill Payment-Epay + tax),
-  matched against live Store Master data
-- ⏳ Bills / Payroll / Expenses upload + processing — placeholders in the
+- ✅ JV Entry (`/jv-entry`): a single upload screen with an Entry Type
+  picker — Sales Journal Entry, VIP Device Expense, VIP Service Expense —
+  a JV Date, drag-and-drop upload, an on-page Preview, and CSV/XLSX
+  export either combined ("All-in-One") or split by company
+  ("Company-wise"), all matched against live Store Master data
+- ⏳ Payroll / Expenses upload + processing — placeholders in the
   sidebar, waiting on sample file formats to build the matching and
   calculation logic
 
-### How Sales Upload works
+### How JV Entry works — Sales
 
 1. Upload the raw sales detail export (.xlsx)
 2. It's parsed entirely in your browser (nothing uploaded to a server)
@@ -120,21 +122,49 @@ created in step 1.
 5. Tax is broken out as separate rows per bucket
 6. Stores are matched to your live Store Master by "Elevate Name" to get
    the QBO Class and Company grouping
-7. One CSV downloads per company, ready to import into QuickBooks
+7. Download as one combined file ("All-in-One") or one file per company
+   ("Company-wise"), in CSV or XLSX
 
 If a new accessory vendor gets added later, update the list in
 `lib/salesProcessor.js` (`ACCESSORIES_VENDORS`) — or just ask Claude Code
 to add it.
 
+### How JV Entry works — VIP Device / Service Expense
+
+1. Pick "VIP Device Expense" or "VIP Service Expense" as the Entry Type,
+   then upload the raw VIP export (.xlsx) — only the **Bill** sheet is
+   used; Payment and Credit Note sheets are ignored for now
+2. It's parsed entirely in your browser (nothing uploaded to a server)
+3. Line items are grouped per invoice (by Door Number + Invoice Number).
+   A line counts as a **device** sale when its Memo is just the invoice
+   number restated (VIP does this for straight device orders); anything
+   else (e.g. "Managed Services Fees…") is a **service** line
+4. Only lines matching the selected Entry Type are included — device
+   lines use Expense Account "All Devices"; service lines use "Other
+   Services VIP" and keep their original memo text
+5. Door Number is matched to your live Store Master's "VIP Website No."
+   to get the QBO Class and Company grouping
+6. Every row is stamped with the JV Date you set (not each invoice's own
+   transaction date)
+7. Download as one combined file ("All-in-One") or one file per company
+   ("Company-wise"), in CSV or XLSX, ready to import into QuickBooks as
+   bills
+
 ## Project structure
 
 ```
 app/
-  login/page.js       — sign-in screen
-  stores/page.js       — the Store Master dashboard (main screen)
-  layout.js, page.js   — app shell / redirect
+  login/page.js        — sign-in screen
+  stores/page.js        — the Store Master dashboard (main screen)
+  jv-entry/page.js      — JV Entry: Sales / VIP Device / VIP Service uploads
+  sales/page.js, bills/page.js — redirect to /jv-entry (old links)
+  layout.js, page.js    — app shell / redirect
+components/
+  Sidebar.js             — shared nav
 lib/
-  supabaseClient.js    — Supabase connection helper
+  supabaseClient.js      — Supabase connection helper
+  salesProcessor.js      — Sales Journal Entry parsing/export logic
+  billsProcessor.js      — VIP Device/Service Expense parsing/export logic
 supabase/
   schema.sql            — run once in Supabase SQL Editor
   store_master_import.csv — your store data, ready to import

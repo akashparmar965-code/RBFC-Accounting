@@ -5,8 +5,7 @@ import { createClient } from "@/lib/supabaseClient";
 
 const NAV = [
   { href: "/stores", label: "Store Master", ready: true },
-  { href: "/sales", label: "Sales Upload", ready: true },
-  { href: "#", label: "Bills Upload — soon", ready: false },
+  { href: "/jv-entry", label: "JV Entry", ready: true },
   { href: "#", label: "Payroll Upload — soon", ready: false },
   { href: "#", label: "Expenses Upload — soon", ready: false },
 ];

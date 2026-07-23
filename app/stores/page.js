@@ -354,7 +354,7 @@ const styles = {
     whiteSpace: "nowrap",
   },
   secondaryBtn: {
-    background: "#fff",
+    background: "var(--panel)",
     color: "var(--ink)",
     border: "1px solid var(--line)",
     borderRadius: 6,
@@ -376,10 +376,10 @@ const styles = {
     borderRadius: 6,
     border: "1px solid var(--line)",
     fontSize: 13,
-    background: "#fff",
+    background: "var(--field)",
   },
   errorBanner: {
-    background: "#fbeeea",
+    background: "var(--danger-bg)",
     color: "var(--danger)",
     padding: "10px 14px",
     borderRadius: 6,
@@ -426,7 +426,7 @@ const styles = {
   overlay: {
     position: "fixed",
     inset: 0,
-    background: "rgba(18,22,28,0.5)",
+    background: "rgba(0,0,0,0.6)",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
@@ -434,7 +434,7 @@ const styles = {
     zIndex: 50,
   },
   modal: {
-    background: "#fff",
+    background: "var(--panel)",
     borderRadius: 10,
     padding: 28,
     width: 640,
