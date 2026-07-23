@@ -101,9 +101,30 @@ created in step 1.
 - ✅ Team login (Supabase Auth)
 - ✅ Store Master: full table view, search, filter by market, add/edit/delete
 - ✅ Your 115 stores ready to import via CSV
-- ⏳ Sales / Bills / Payroll / Expenses upload + processing — placeholders
-  in the sidebar, waiting on sample file formats to build the matching and
+- ✅ Sales Upload: upload the raw sales export, get back QBO-ready journal
+  CSVs split by company (Device / Accessories / Bill Payment-Epay + tax),
+  matched against live Store Master data
+- ⏳ Bills / Payroll / Expenses upload + processing — placeholders in the
+  sidebar, waiting on sample file formats to build the matching and
   calculation logic
+
+### How Sales Upload works
+
+1. Upload the raw sales detail export (.xlsx)
+2. It's parsed entirely in your browser (nothing uploaded to a server)
+3. Rows are grouped by store, excluding voided transactions
+4. Each store's totals split into three buckets by vendor:
+   - **Device** — everything except accessory distributors and ePay
+   - **Accessories** — Ondigo, C2 Wireless, VoiceComm
+   - **Bill Payment-Epay** — ePay
+5. Tax is broken out as separate rows per bucket
+6. Stores are matched to your live Store Master by "Elevate Name" to get
+   the QBO Class and Company grouping
+7. One CSV downloads per company, ready to import into QuickBooks
+
+If a new accessory vendor gets added later, update the list in
+`lib/salesProcessor.js` (`ACCESSORIES_VENDORS`) — or just ask Claude Code
+to add it.
 
 ## Project structure
 

@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabaseClient";
+import Sidebar from "@/components/Sidebar";
 
 const FIELDS = [
   { key: "company_name", label: "Company Name" },
@@ -139,27 +140,7 @@ export default function StoresPage() {
 
   return (
     <div style={styles.shell}>
-      <aside style={styles.sidebar}>
-        <div style={styles.sidebarBrand}>
-          <div style={styles.mark}>SO</div>
-          <div>
-            <div style={styles.brandTitle}>Store Ops</div>
-            <div style={styles.brandSub}>{session.user.email}</div>
-          </div>
-        </div>
-
-        <nav style={styles.nav}>
-          <div style={{ ...styles.navItem, ...styles.navItemActive }}>Store Master</div>
-          <div style={styles.navItemDisabled}>Sales Upload — soon</div>
-          <div style={styles.navItemDisabled}>Bills Upload — soon</div>
-          <div style={styles.navItemDisabled}>Payroll Upload — soon</div>
-          <div style={styles.navItemDisabled}>Expenses Upload — soon</div>
-        </nav>
-
-        <button onClick={handleSignOut} style={styles.signOutBtn}>
-          Sign out
-        </button>
-      </aside>
+      <Sidebar userEmail={session.user.email} />
 
       <main style={styles.main}>
         <div style={styles.topRow}>
