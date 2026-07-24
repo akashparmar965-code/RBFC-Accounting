@@ -40,6 +40,7 @@ export default function BillsPage() {
   const [error, setError] = useState("");
   const [result, setResult] = useState(null); // { byCompany, unmatched }
   const [previewOpen, setPreviewOpen] = useState(false);
+  const [selectedCompanies, setSelectedCompanies] = useState(new Set());
   const fileInputRef = useRef(null);
 
   useEffect(() => {
@@ -72,6 +73,7 @@ export default function BillsPage() {
       const groupedLines = aggregateBillLines(rawRows);
       const { byCompany, unmatchedDoors } = buildBillRows(groupedLines, storeMaster, "all");
       setResult({ byCompany, unmatched: unmatchedDoors });
+      setSelectedCompanies(new Set(Object.keys(byCompany)));
     } catch (e) {
       setError(e.message || String(e));
     } finally {
@@ -116,6 +118,19 @@ export default function BillsPage() {
     }
     const blob = await zip.generateAsync({ type: "blob" });
     triggerDownload(blob, `Bills-AllCompanies-${format}.zip`);
+  }
+
+  function toggleCompany(company) {
+    setSelectedCompanies((prev) => {
+      const next = new Set(prev);
+      if (next.has(company)) next.delete(company);
+      else next.add(company);
+      return next;
+    });
+  }
+
+  function toggleSelectAll(allCompanyNames, checked) {
+    setSelectedCompanies(checked ? new Set(allCompanyNames) : new Set());
   }
 
   if (session === undefined) {
@@ -177,7 +192,7 @@ export default function BillsPage() {
           <>
             <div style={styles.actionsRow}>
               <button style={styles.previewBtn} onClick={() => setPreviewOpen((v) => !v)}>
-                👁 {previewOpen ? "Hide preview" : "Preview"}
+                👁 {previewOpen ? "Hide preview" : "Preview selected"}
               </button>
               <button style={styles.xlsxBtn} onClick={() => downloadAllZip("xlsx")}>
                 📘 Download all (XLSX)
@@ -185,6 +200,52 @@ export default function BillsPage() {
               <button style={styles.csvBtnMuted} onClick={() => downloadAllZip("csv")}>
                 Download all (CSV)
               </button>
+            </div>
+
+            <div style={styles.resultsHeader}>
+              <h2 style={styles.h2}>
+                {companyEntries.length} compan{companyEntries.length === 1 ? "y" : "ies"} · {totalRows} bill
+                line{totalRows === 1 ? "" : "s"}
+              </h2>
+              <label style={styles.selectAllLabel}>
+                <input
+                  type="checkbox"
+                  checked={selectedCompanies.size === companyEntries.length && companyEntries.length > 0}
+                  onChange={(e) =>
+                    toggleSelectAll(
+                      companyEntries.map(([company]) => company),
+                      e.target.checked
+                    )
+                  }
+                />
+                Select all
+              </label>
+            </div>
+
+            <div style={styles.companyGrid}>
+              {companyEntries.map(([company, rows]) => (
+                <div key={company} style={styles.companyCard}>
+                  <label style={styles.companyCheckLabel}>
+                    <input
+                      type="checkbox"
+                      checked={selectedCompanies.has(company)}
+                      onChange={() => toggleCompany(company)}
+                    />
+                    <div>
+                      <div style={styles.companyName}>{company}</div>
+                      <div style={styles.companyMeta}>{rows.length} bill line(s)</div>
+                    </div>
+                  </label>
+                  <div style={{ display: "flex", gap: 8 }}>
+                    <button style={styles.secondaryBtn} onClick={() => downloadCompanyXlsx(company, rows)}>
+                      XLSX
+                    </button>
+                    <button style={styles.secondaryBtn} onClick={() => downloadCompanyCsv(company, rows)}>
+                      CSV
+                    </button>
+                  </div>
+                </div>
+              ))}
             </div>
 
             {previewOpen && (
@@ -200,45 +261,22 @@ export default function BillsPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {companyEntries.flatMap(([, rows]) => rows).map((r, i) => (
-                      <tr key={i} style={styles.tr}>
-                        {CSV_COLUMNS.map((c) => (
-                          <td key={c} style={styles.td}>
-                            {r[c]}
-                          </td>
-                        ))}
-                      </tr>
-                    ))}
+                    {companyEntries
+                      .filter(([company]) => selectedCompanies.has(company))
+                      .flatMap(([, rows]) => rows)
+                      .map((r, i) => (
+                        <tr key={i} style={styles.tr}>
+                          {CSV_COLUMNS.map((c) => (
+                            <td key={c} style={styles.td}>
+                              {r[c]}
+                            </td>
+                          ))}
+                        </tr>
+                      ))}
                   </tbody>
                 </table>
               </div>
             )}
-
-            <div style={styles.resultsHeader}>
-              <h2 style={styles.h2}>
-                {companyEntries.length} compan{companyEntries.length === 1 ? "y" : "ies"} · {totalRows} bill
-                line{totalRows === 1 ? "" : "s"}
-              </h2>
-            </div>
-
-            <div style={styles.companyGrid}>
-              {companyEntries.map(([company, rows]) => (
-                <div key={company} style={styles.companyCard}>
-                  <div>
-                    <div style={styles.companyName}>{company}</div>
-                    <div style={styles.companyMeta}>{rows.length} bill line(s)</div>
-                  </div>
-                  <div style={{ display: "flex", gap: 8 }}>
-                    <button style={styles.secondaryBtn} onClick={() => downloadCompanyXlsx(company, rows)}>
-                      XLSX
-                    </button>
-                    <button style={styles.secondaryBtn} onClick={() => downloadCompanyCsv(company, rows)}>
-                      CSV
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
           </>
         )}
       </main>
@@ -328,23 +366,39 @@ const styles = {
     fontSize: 13,
     fontWeight: 600,
   },
-  resultsHeader: { marginBottom: 14 },
+  resultsHeader: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 14,
+    gap: 12,
+  },
+  selectAllLabel: {
+    display: "flex",
+    alignItems: "center",
+    gap: 6,
+    fontSize: 12.5,
+    color: "var(--ink-soft)",
+    fontWeight: 600,
+    cursor: "pointer",
+  },
+  companyCheckLabel: { display: "flex", alignItems: "center", gap: 10, cursor: "pointer" },
   previewWrap: {
     background: "var(--panel)",
     border: "1px solid var(--line)",
     borderRadius: 10,
     overflow: "auto",
-    maxHeight: 420,
-    marginBottom: 20,
+    maxHeight: 240,
+    marginTop: 20,
   },
-  table: { width: "100%", borderCollapse: "collapse", fontSize: 12.5 },
+  table: { width: "100%", borderCollapse: "collapse", fontSize: 11.5 },
   th: {
     textAlign: "left",
-    padding: "10px 14px",
+    padding: "7px 10px",
     borderBottom: "1px solid var(--line)",
     color: "var(--ink-soft)",
     fontWeight: 600,
-    fontSize: 10.5,
+    fontSize: 9.5,
     textTransform: "uppercase",
     letterSpacing: "0.04em",
     whiteSpace: "nowrap",
@@ -354,9 +408,9 @@ const styles = {
   },
   tr: { borderBottom: "1px solid var(--line)" },
   td: {
-    padding: "9px 14px",
+    padding: "6px 10px",
     fontFamily: "var(--font-mono)",
-    fontSize: 12,
+    fontSize: 11,
     whiteSpace: "nowrap",
   },
   companyGrid: { display: "flex", flexDirection: "column", gap: 10 },
