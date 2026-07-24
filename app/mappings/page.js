@@ -4,6 +4,11 @@ import { useEffect, useState, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabaseClient";
 import Sidebar from "@/components/Sidebar";
+import {
+  loadPendingMappings,
+  removePendingDoor,
+  removePendingProductsMatching,
+} from "@/lib/pendingMappings";
 
 const emptyProductDraft = { product_prefix: "", expense_account: "", expense_memo: "", notes: "" };
 const emptyDoorDraft = { door_number: "", company_name: "", qbo_class: "", notes: "" };
@@ -21,6 +26,8 @@ export default function MappingsPage() {
   const [productDraft, setProductDraft] = useState(emptyProductDraft);
   const [doorDraft, setDoorDraft] = useState(emptyDoorDraft);
   const [confirmDelete, setConfirmDelete] = useState(null); // { table, id }
+  const [pendingDoors, setPendingDoors] = useState([]);
+  const [pendingProducts, setPendingProducts] = useState([]);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
@@ -33,6 +40,12 @@ export default function MappingsPage() {
     });
     return () => sub.subscription.unsubscribe();
   }, [supabase, router]);
+
+  useEffect(() => {
+    const pending = loadPendingMappings();
+    setPendingDoors(pending.unmatchedDoors);
+    setPendingProducts(pending.unmappedProducts);
+  }, []);
 
   const loadAll = useCallback(async () => {
     setLoading(true);
@@ -95,7 +108,10 @@ export default function MappingsPage() {
       return;
     }
     setProductRows((prev) => [...prev, ...(data || [])]);
+    const addedPrefix = productDraft.product_prefix.trim();
     setProductDraft(emptyProductDraft);
+    removePendingProductsMatching(addedPrefix);
+    setPendingProducts((prev) => prev.filter((p) => !p.product.toLowerCase().startsWith(addedPrefix.toLowerCase())));
   }
 
   async function addDoorRow() {
@@ -119,7 +135,28 @@ export default function MappingsPage() {
       return;
     }
     setDoorRows((prev) => [...prev, ...(data || [])]);
+    const addedDoor = doorDraft.door_number.trim();
     setDoorDraft(emptyDoorDraft);
+    removePendingDoor(addedDoor);
+    setPendingDoors((prev) => prev.filter((d) => d !== addedDoor));
+  }
+
+  function useDoorSuggestion(doorNumber) {
+    setDoorDraft((d) => ({ ...d, door_number: doorNumber }));
+  }
+
+  function dismissPendingDoor(doorNumber) {
+    removePendingDoor(doorNumber);
+    setPendingDoors((prev) => prev.filter((d) => d !== doorNumber));
+  }
+
+  function useProductSuggestion(product) {
+    setProductDraft((d) => ({ ...d, product_prefix: product }));
+  }
+
+  function dismissPendingProduct(item) {
+    removePendingProductsMatching(item.product);
+    setPendingProducts((prev) => prev.filter((p) => p !== item));
   }
 
   async function handleDelete() {
@@ -165,6 +202,27 @@ export default function MappingsPage() {
                 often generic or inconsistent) — whichever prefix it starts with (case-insensitive)
                 determines the Expense Account. A line matching no prefix is skipped and flagged.
               </div>
+
+              {pendingProducts.length > 0 && (
+                <div style={styles.pendingRow}>
+                  <span style={styles.pendingLabel}>From your last upload:</span>
+                  {pendingProducts.map((p, i) => (
+                    <span key={i} style={styles.chip}>
+                      <button
+                        style={styles.chipMain}
+                        title={`Door ${p.doorNumber} · ${p.invoiceNo}`}
+                        onClick={() => useProductSuggestion(p.product)}
+                      >
+                        {p.product}
+                      </button>
+                      <button style={styles.chipDismiss} onClick={() => dismissPendingProduct(p)}>
+                        ×
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              )}
+
               <div style={styles.tableWrap}>
                 <table style={styles.table}>
                   <thead>
@@ -279,6 +337,23 @@ export default function MappingsPage() {
                 A fallback for VIP Door Numbers that aren't in Store Master yet — lets a bill still match a
                 Company and QBO Class without adding a full store record.
               </div>
+
+              {pendingDoors.length > 0 && (
+                <div style={styles.pendingRow}>
+                  <span style={styles.pendingLabel}>From your last upload:</span>
+                  {pendingDoors.map((d) => (
+                    <span key={d} style={styles.chip}>
+                      <button style={styles.chipMain} onClick={() => useDoorSuggestion(d)}>
+                        {d}
+                      </button>
+                      <button style={styles.chipDismiss} onClick={() => dismissPendingDoor(d)}>
+                        ×
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              )}
+
               <div style={styles.tableWrap}>
                 <table style={styles.table}>
                   <thead>
@@ -439,6 +514,45 @@ const styles = {
   },
   sectionTitle: { fontFamily: "var(--font-display)", fontWeight: 600, fontSize: 15, marginBottom: 6 },
   sectionSub: { fontSize: 12.5, color: "var(--ink-soft)", marginBottom: 14, lineHeight: 1.5 },
+  pendingRow: {
+    display: "flex",
+    flexWrap: "wrap",
+    alignItems: "center",
+    gap: 8,
+    marginBottom: 16,
+    padding: "10px 12px",
+    background: "var(--warn-bg)",
+    borderRadius: 8,
+  },
+  pendingLabel: { fontSize: 11.5, fontWeight: 700, color: "var(--warn-text)", marginRight: 2 },
+  chip: {
+    display: "inline-flex",
+    alignItems: "center",
+    background: "var(--field)",
+    border: "1px solid var(--line)",
+    borderRadius: 6,
+    overflow: "hidden",
+  },
+  chipMain: {
+    background: "transparent",
+    border: "none",
+    color: "var(--ink)",
+    fontFamily: "var(--font-mono)",
+    fontSize: 11.5,
+    padding: "5px 8px",
+    maxWidth: 220,
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap",
+  },
+  chipDismiss: {
+    background: "transparent",
+    border: "none",
+    borderLeft: "1px solid var(--line)",
+    color: "var(--ink-soft)",
+    fontSize: 12,
+    padding: "5px 8px",
+  },
   tableWrap: { overflow: "auto" },
   table: { width: "100%", borderCollapse: "collapse", fontSize: 12.5 },
   th: {

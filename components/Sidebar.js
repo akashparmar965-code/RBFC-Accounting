@@ -2,6 +2,7 @@
 
 import { useRouter, usePathname } from "next/navigation";
 import { createClient } from "@/lib/supabaseClient";
+import { clearPendingMappings } from "@/lib/pendingMappings";
 
 const NAV = [
   { href: "/stores", label: "Store Master", ready: true },
@@ -20,6 +21,7 @@ export default function Sidebar({ userEmail }) {
   async function handleSignOut() {
     const supabase = createClient();
     await supabase.auth.signOut();
+    clearPendingMappings();
     router.push("/login");
   }
 

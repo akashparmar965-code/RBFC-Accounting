@@ -24,6 +24,7 @@ import {
   CSV_COLUMNS as BILLS_COLUMNS,
 } from "@/lib/billsProcessor";
 import { buildExportFileName } from "@/lib/fileNaming";
+import { savePendingMappings } from "@/lib/pendingMappings";
 
 const ENTRY_TYPES = [
   { value: "vip-bills", label: "VIP Bills (Device + Service)" },
@@ -146,6 +147,7 @@ export default function JvEntryPage() {
           doorMappings || []
         );
         setResult({ entryType: type, byCompany, unmatched: unmatchedDoors, unmappedProducts });
+        savePendingMappings({ unmatchedDoors, unmappedProducts });
       }
     } catch (e) {
       setError(e.message || String(e));

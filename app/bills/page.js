@@ -14,6 +14,7 @@ import {
   CSV_COLUMNS,
 } from "@/lib/billsProcessor";
 import { buildExportFileName } from "@/lib/fileNaming";
+import { savePendingMappings } from "@/lib/pendingMappings";
 
 const XLSX_MIME = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
 const CSV_MIME = "text/csv;charset=utf-8;";
@@ -81,6 +82,7 @@ export default function BillsPage() {
       );
       setResult({ byCompany, unmatched: unmatchedDoors, unmappedProducts });
       setSelectedCompanies(new Set(Object.keys(byCompany)));
+      savePendingMappings({ unmatchedDoors, unmappedProducts });
     } catch (e) {
       setError(e.message || String(e));
     } finally {
