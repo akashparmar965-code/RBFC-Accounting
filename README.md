@@ -102,7 +102,8 @@ created in step 1.
 - ✅ Store Master: full table view, search, filter by market, add/edit/delete
 - ✅ Your 115 stores ready to import via CSV
 - ✅ JV Entry (`/jv-entry`): a single upload screen with an Entry Type
-  picker — Sales Journal Entry, VIP Device Expense, VIP Service Expense —
+  picker — Sales Journal Entry, VIP Bills (Device + Service combined),
+  VIP Device Expense only, VIP Service Expense only —
   a JV Date, drag-and-drop upload, an on-page Preview, and CSV/XLSX
   export either combined ("All-in-One") or split by company
   ("Company-wise"), all matched against live Store Master data
@@ -134,17 +135,17 @@ to add it.
 
 ### How JV Entry works — VIP Device / Service Expense
 
-1. Pick "VIP Device Expense" or "VIP Service Expense" as the Entry Type,
-   then upload the raw VIP export (.xlsx) — only the **Bill** sheet is
-   used; Payment and Credit Note sheets are ignored for now
+1. Pick "VIP Bills (Device + Service)" as the Entry Type to get both in
+   one file, or "VIP Device Expense" / "VIP Service Expense" to get just
+   one — then upload the raw VIP export (.xlsx) — only the **Bill** sheet
+   is used; Payment and Credit Note sheets are ignored for now
 2. It's parsed entirely in your browser (nothing uploaded to a server)
 3. Line items are grouped per invoice (by Door Number + Invoice Number).
    A line counts as a **device** sale when its Memo is just the invoice
    number restated (VIP does this for straight device orders); anything
    else (e.g. "Managed Services Fees…") is a **service** line
-4. Only lines matching the selected Entry Type are included — device
-   lines use Expense Account "All Devices"; service lines use "Other
-   Services VIP" and keep their original memo text
+4. Device lines use Expense Account "All Devices"; service lines use
+   "Other Services VIP" and keep their original memo text
 5. Door Number is matched to your live Store Master's "VIP Website No."
    to get the QBO Class and Company grouping
 6. Each row keeps its own invoice's transaction date from the file (the

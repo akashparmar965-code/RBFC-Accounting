@@ -24,10 +24,17 @@ import {
 } from "@/lib/billsProcessor";
 
 const ENTRY_TYPES = [
+  { value: "vip-bills", label: "VIP Bills (Device + Service)" },
   { value: "vip-service", label: "VIP Service Expense" },
   { value: "vip-device", label: "VIP Device Expense" },
   { value: "sales", label: "Sales Journal Entry" },
 ];
+
+const BILL_CATEGORY_BY_TYPE = {
+  "vip-device": "device",
+  "vip-service": "service",
+  "vip-bills": "all",
+};
 
 const XLSX_MIME = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
 const CSV_MIME = "text/csv;charset=utf-8;";
@@ -64,19 +71,21 @@ function processorFor(entryType) {
       filePrefix: "Sales",
     };
   }
+  const filePrefix =
+    entryType === "vip-device" ? "VIP-Device" : entryType === "vip-service" ? "VIP-Service" : "VIP-Bills";
   return {
     rowsToCsv: billsRowsToCsv,
     rowsToXlsxBuffer: billsRowsToXlsxBuffer,
     allInOne: billsAllInOneRows,
     columns: BILLS_COLUMNS,
-    filePrefix: entryType === "vip-device" ? "VIP-Device" : "VIP-Service",
+    filePrefix,
   };
 }
 
 export default function JvEntryPage() {
   const router = useRouter();
   const [session, setSession] = useState(undefined);
-  const [entryType, setEntryType] = useState("vip-service");
+  const [entryType, setEntryType] = useState("vip-bills");
   const [jvDate, setJvDate] = useState(todayIso());
   const [fileName, setFileName] = useState(null);
   const [dragOver, setDragOver] = useState(false);
@@ -126,7 +135,7 @@ export default function JvEntryPage() {
           );
         }
         const groupedLines = aggregateBillLines(rawRows);
-        const category = type === "vip-device" ? "device" : "service";
+        const category = BILL_CATEGORY_BY_TYPE[type] || "all";
         const { byCompany, unmatchedDoors } = buildBillRows(groupedLines, storeMaster, category);
         setResult({ entryType: type, byCompany, unmatched: unmatchedDoors });
       }
