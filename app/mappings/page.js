@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabaseClient";
 import Sidebar from "@/components/Sidebar";
+import StoreMasterPanel from "@/components/StoreMasterPanel";
 import {
   loadPendingMappings,
   removePendingDoor,
@@ -20,7 +21,7 @@ export default function MappingsPage() {
   const supabase = useMemo(() => createClient(), []);
 
   const [session, setSession] = useState(undefined);
-  const [activeTab, setActiveTab] = useState("vip");
+  const [activeTab, setActiveTab] = useState("store");
   const [productRows, setProductRows] = useState([]);
   const [doorRows, setDoorRows] = useState([]);
   const [accountRows, setAccountRows] = useState([]);
@@ -239,12 +240,19 @@ export default function MappingsPage() {
           <div>
             <h1 style={styles.h1}>Mapping Master</h1>
             <p style={styles.pageSub}>
-              The lookup tables Bills and JV Entry use instead of hardcoded lists in code — edit them here
+              Store Master plus the lookup tables Bills and JV Entry use instead of hardcoded lists in
+              code — all editable here
             </p>
           </div>
         </div>
 
         <div style={styles.tabRow}>
+          <button
+            style={activeTab === "store" ? styles.tabActive : styles.tab}
+            onClick={() => setActiveTab("store")}
+          >
+            Store Master
+          </button>
           <button
             style={activeTab === "vip" ? styles.tabActive : styles.tab}
             onClick={() => setActiveTab("vip")}
@@ -259,9 +267,11 @@ export default function MappingsPage() {
           </button>
         </div>
 
-        {error && <div style={styles.errorBanner}>{error}</div>}
+        {activeTab !== "store" && error && <div style={styles.errorBanner}>{error}</div>}
 
-        {loading ? (
+        {activeTab === "store" ? (
+          <StoreMasterPanel />
+        ) : loading ? (
           <div style={styles.emptyState}>Loading…</div>
         ) : activeTab === "vip" ? (
           <>
