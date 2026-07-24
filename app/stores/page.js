@@ -14,7 +14,7 @@ const FIELDS = [
   { key: "epay_address", label: "Epay Address" },
   { key: "vip_website_no", label: "VIP Website No." },
   { key: "vip_address", label: "VIP Address" },
-  { key: "elevate_name_new_qbo_class", label: "Elevate Name-New QBO Class" },
+  { key: "elevate_name_new_qbo_class", label: "QB Class Name" },
   { key: "ondigo_address", label: "Ondigo Address" },
   { key: "salesforce_id", label: "Salesforce ID" },
 ];
