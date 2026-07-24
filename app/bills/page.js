@@ -13,6 +13,14 @@ import {
   rowsToXlsxBuffer,
   CSV_COLUMNS,
 } from "@/lib/billsProcessor";
+import {
+  parseEpayWorkbook,
+  buildEpayRows,
+  rowsToCsv as epayRowsToCsv,
+  rowsToXlsxBuffer as epayRowsToXlsxBuffer,
+  INCOME_COLUMNS,
+  PURCHASE_COLUMNS,
+} from "@/lib/epayProcessor";
 import { buildExportFileName } from "@/lib/fileNaming";
 import { savePendingMappings } from "@/lib/pendingMappings";
 
@@ -33,14 +41,27 @@ function triggerDownload(blob, filename) {
 export default function BillsPage() {
   const router = useRouter();
   const [session, setSession] = useState(undefined);
+  const [activeTab, setActiveTab] = useState("vip");
+
+  // ---- VIP tab state ----
   const [fileName, setFileName] = useState(null);
   const [dragOver, setDragOver] = useState(false);
   const [processing, setProcessing] = useState(false);
   const [error, setError] = useState("");
-  const [result, setResult] = useState(null); // { byCompany, unmatched }
+  const [result, setResult] = useState(null); // { byCompany, unmatched, unmappedProducts }
   const [previewOpen, setPreviewOpen] = useState(false);
   const [selectedCompanies, setSelectedCompanies] = useState(new Set());
   const fileInputRef = useRef(null);
+
+  // ---- Epay tab state ----
+  const [epayFileName, setEpayFileName] = useState(null);
+  const [epayDragOver, setEpayDragOver] = useState(false);
+  const [epayProcessing, setEpayProcessing] = useState(false);
+  const [epayError, setEpayError] = useState("");
+  const [epayResult, setEpayResult] = useState(null); // { incomeByCompany, purchaseByCompany, unmatchedAccounts }
+  const [epayPreviewOpen, setEpayPreviewOpen] = useState(false);
+  const [epaySelectedCompanies, setEpaySelectedCompanies] = useState(new Set());
+  const epayFileInputRef = useRef(null);
 
   useEffect(() => {
     const supabase = createClient();
@@ -49,6 +70,8 @@ export default function BillsPage() {
       if (!data.session) router.push("/login");
     });
   }, [router]);
+
+  // ===================== VIP =====================
 
   const processFile = useCallback(async (file) => {
     setProcessing(true);
@@ -148,6 +171,109 @@ export default function BillsPage() {
     setSelectedCompanies(checked ? new Set(allCompanyNames) : new Set());
   }
 
+  // ===================== Epay =====================
+
+  const processEpayFile = useCallback(async (file) => {
+    setEpayProcessing(true);
+    setEpayError("");
+    setEpayResult(null);
+    setEpayPreviewOpen(false);
+    try {
+      const supabase = createClient();
+      const { data: storeMaster, error: smError } = await supabase.from("stores").select("*");
+      if (smError) throw new Error("Could not load Store Master: " + smError.message);
+      const { data: accountMappings, error: amError } = await supabase
+        .from("epay_account_mappings")
+        .select("*");
+      if (amError) throw new Error("Could not load Epay account mappings: " + amError.message);
+
+      const buffer = await file.arrayBuffer();
+      const rawRows = parseEpayWorkbook(buffer);
+      if (!rawRows.length) throw new Error("No rows found in this file.");
+      if (!("Account Number" in rawRows[0])) {
+        throw new Error("This file doesn't look like an Epay export — no 'Account Number' column found.");
+      }
+
+      const { incomeByCompany, purchaseByCompany, unmatchedAccounts } = buildEpayRows(
+        rawRows,
+        storeMaster,
+        accountMappings || []
+      );
+      setEpayResult({ incomeByCompany, purchaseByCompany, unmatchedAccounts });
+      setEpaySelectedCompanies(
+        new Set([...Object.keys(incomeByCompany), ...Object.keys(purchaseByCompany)])
+      );
+      savePendingMappings({ unmatchedAccounts });
+    } catch (e) {
+      setEpayError(e.message || String(e));
+    } finally {
+      setEpayProcessing(false);
+    }
+  }, []);
+
+  function handleEpayFile(file) {
+    if (!file) return;
+    setEpayFileName(file.name);
+    processEpayFile(file);
+  }
+
+  function handleEpayFileChange(e) {
+    handleEpayFile(e.target.files?.[0]);
+  }
+
+  function handleEpayDrop(e) {
+    e.preventDefault();
+    setEpayDragOver(false);
+    handleEpayFile(e.dataTransfer.files?.[0]);
+  }
+
+  function downloadEpayCompanyXlsx(kind, company, rows) {
+    const columns = kind === "income" ? INCOME_COLUMNS : PURCHASE_COLUMNS;
+    const dateKey = kind === "income" ? "Invoice Date" : "Date";
+    const buf = epayRowsToXlsxBuffer(rows, columns, company);
+    triggerDownload(
+      new Blob([buf], { type: XLSX_MIME }),
+      buildExportFileName(company, kind === "income" ? "Income" : "Purchase", rows, dateKey, "xlsx")
+    );
+  }
+
+  function downloadEpayCompanyCsv(kind, company, rows) {
+    const columns = kind === "income" ? INCOME_COLUMNS : PURCHASE_COLUMNS;
+    const dateKey = kind === "income" ? "Invoice Date" : "Date";
+    triggerDownload(
+      new Blob([epayRowsToCsv(rows, columns)], { type: CSV_MIME }),
+      buildExportFileName(company, kind === "income" ? "Income" : "Purchase", rows, dateKey, "csv")
+    );
+  }
+
+  async function downloadAllEpayZip(format) {
+    const JSZip = (await import("jszip")).default;
+    const zip = new JSZip();
+    for (const [company, rows] of Object.entries(epayResult.incomeByCompany)) {
+      const name = buildExportFileName(company, "Income", rows, "Invoice Date", format);
+      zip.file(name, format === "xlsx" ? epayRowsToXlsxBuffer(rows, INCOME_COLUMNS, company) : epayRowsToCsv(rows, INCOME_COLUMNS));
+    }
+    for (const [company, rows] of Object.entries(epayResult.purchaseByCompany)) {
+      const name = buildExportFileName(company, "Purchase", rows, "Date", format);
+      zip.file(name, format === "xlsx" ? epayRowsToXlsxBuffer(rows, PURCHASE_COLUMNS, company) : epayRowsToCsv(rows, PURCHASE_COLUMNS));
+    }
+    const blob = await zip.generateAsync({ type: "blob" });
+    triggerDownload(blob, `Epay-AllCompanies-${format}.zip`);
+  }
+
+  function toggleEpayCompany(company) {
+    setEpaySelectedCompanies((prev) => {
+      const next = new Set(prev);
+      if (next.has(company)) next.delete(company);
+      else next.add(company);
+      return next;
+    });
+  }
+
+  function toggleEpaySelectAll(allCompanyNames, checked) {
+    setEpaySelectedCompanies(checked ? new Set(allCompanyNames) : new Set());
+  }
+
   if (session === undefined) {
     return <div style={styles.loadingScreen}>Loading…</div>;
   }
@@ -155,6 +281,15 @@ export default function BillsPage() {
 
   const companyEntries = result ? Object.entries(result.byCompany) : [];
   const totalRows = companyEntries.reduce((sum, [, rows]) => sum + rows.length, 0);
+
+  const epayCompanyNames = epayResult
+    ? Array.from(new Set([...Object.keys(epayResult.incomeByCompany), ...Object.keys(epayResult.purchaseByCompany)])).sort()
+    : [];
+  const epayTotalRows = epayCompanyNames.reduce(
+    (sum, c) =>
+      sum + (epayResult.incomeByCompany[c]?.length || 0) + (epayResult.purchaseByCompany[c]?.length || 0),
+    0
+  );
 
   return (
     <div style={styles.shell}>
@@ -165,154 +300,368 @@ export default function BillsPage() {
           <div>
             <h1 style={styles.h1}>Bills</h1>
             <p style={styles.pageSub}>
-              Upload the VIP export — device and service lines come back together, one file per company
+              {activeTab === "vip"
+                ? "Upload the VIP export — device and service lines come back together, one file per company"
+                : "Upload the Epay invoices export — get income and purchase uploads, one pair per company"}
             </p>
           </div>
         </div>
 
-        <div style={styles.card}>
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept=".xlsx,.xls,.csv"
-            onChange={handleFileChange}
-            style={{ display: "none" }}
-          />
-          <div
-            style={{ ...styles.dropzone, ...(dragOver ? styles.dropzoneActive : {}) }}
-            onClick={() => fileInputRef.current?.click()}
-            onDragOver={(e) => {
-              e.preventDefault();
-              setDragOver(true);
-            }}
-            onDragLeave={() => setDragOver(false)}
-            onDrop={handleDrop}
+        <div style={styles.tabRow}>
+          <button
+            style={activeTab === "vip" ? styles.tabActive : styles.tab}
+            onClick={() => setActiveTab("vip")}
           >
-            <div style={styles.dropzoneIcon}>📄</div>
-            <div style={styles.dropzoneText}>{fileName || "Choose or drop VIP export (.xlsx)"}</div>
-          </div>
+            VIP
+          </button>
+          <button
+            style={activeTab === "epay" ? styles.tabActive : styles.tab}
+            onClick={() => setActiveTab("epay")}
+          >
+            Epay
+          </button>
         </div>
 
-        {processing && <div style={styles.info}>Processing…</div>}
-        {error && <div style={styles.errorBanner}>{error}</div>}
-
-        {result && result.unmatched.length > 0 && (
-          <div style={styles.warnBanner}>
-            {result.unmatched.length} door number(s) in the file don't match any store in your Store
-            Master, so they were skipped: <strong>{result.unmatched.join(", ")}</strong>. Add them in{" "}
-            <Link href="/mappings" style={styles.inlineLink}>
-              Door Mapping
-            </Link>{" "}
-            or add the store in Store Master, then re-upload.
-          </div>
-        )}
-
-        {result && result.unmappedProducts.length > 0 && (
-          <div style={styles.errorBanner}>
-            {result.unmappedProducts.length} line(s) have a Product that doesn't match a known mapping, so
-            they were skipped. Add the product text below to{" "}
-            <Link href="/mappings" style={styles.inlineLink}>
-              Product Mapping
-            </Link>{" "}
-            and re-upload:
-            <ul style={styles.unmappedList}>
-              {result.unmappedProducts.map((m, i) => (
-                <li key={i}>
-                  Door {m.doorNumber} · {m.invoiceNo} · "{m.product}"
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
-
-        {result && totalRows > 0 && (
+        {activeTab === "vip" && (
           <>
-            <div style={styles.actionsRow}>
-              <button style={styles.previewBtn} onClick={() => setPreviewOpen((v) => !v)}>
-                👁 {previewOpen ? "Hide preview" : "Preview selected"}
-              </button>
-              <button style={styles.xlsxBtn} onClick={() => downloadAllZip("xlsx")}>
-                📘 Download all (XLSX)
-              </button>
-              <button style={styles.csvBtnMuted} onClick={() => downloadAllZip("csv")}>
-                Download all (CSV)
-              </button>
+            <div style={styles.card}>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".xlsx,.xls,.csv"
+                onChange={handleFileChange}
+                style={{ display: "none" }}
+              />
+              <div
+                style={{ ...styles.dropzone, ...(dragOver ? styles.dropzoneActive : {}) }}
+                onClick={() => fileInputRef.current?.click()}
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  setDragOver(true);
+                }}
+                onDragLeave={() => setDragOver(false)}
+                onDrop={handleDrop}
+              >
+                <div style={styles.dropzoneIcon}>📄</div>
+                <div style={styles.dropzoneText}>{fileName || "Choose or drop VIP export (.xlsx)"}</div>
+              </div>
             </div>
 
-            <div style={styles.resultsHeader}>
-              <h2 style={styles.h2}>
-                {companyEntries.length} compan{companyEntries.length === 1 ? "y" : "ies"} · {totalRows} bill
-                line{totalRows === 1 ? "" : "s"}
-              </h2>
-              <label style={styles.selectAllLabel}>
-                <input
-                  type="checkbox"
-                  checked={selectedCompanies.size === companyEntries.length && companyEntries.length > 0}
-                  onChange={(e) =>
-                    toggleSelectAll(
-                      companyEntries.map(([company]) => company),
-                      e.target.checked
-                    )
-                  }
-                />
-                Select all
-              </label>
-            </div>
+            {processing && <div style={styles.info}>Processing…</div>}
+            {error && <div style={styles.errorBanner}>{error}</div>}
 
-            <div style={styles.companyGrid}>
-              {companyEntries.map(([company, rows]) => (
-                <div key={company} style={styles.companyCard}>
-                  <label style={styles.companyCheckLabel}>
+            {result && result.unmatched.length > 0 && (
+              <div style={styles.warnBanner}>
+                {result.unmatched.length} door number(s) in the file don't match any store in your Store
+                Master, so they were skipped: <strong>{result.unmatched.join(", ")}</strong>. Add them in{" "}
+                <Link href="/mappings" style={styles.inlineLink}>
+                  Door Mapping
+                </Link>{" "}
+                or add the store in Store Master, then re-upload.
+              </div>
+            )}
+
+            {result && result.unmappedProducts.length > 0 && (
+              <div style={styles.errorBanner}>
+                {result.unmappedProducts.length} line(s) have a Product that doesn't match a known mapping,
+                so they were skipped. Add the product text below to{" "}
+                <Link href="/mappings" style={styles.inlineLink}>
+                  Product Mapping
+                </Link>{" "}
+                and re-upload:
+                <ul style={styles.unmappedList}>
+                  {result.unmappedProducts.map((m, i) => (
+                    <li key={i}>
+                      Door {m.doorNumber} · {m.invoiceNo} · "{m.product}"
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {result && totalRows > 0 && (
+              <>
+                <div style={styles.actionsRow}>
+                  <button style={styles.previewBtn} onClick={() => setPreviewOpen((v) => !v)}>
+                    👁 {previewOpen ? "Hide preview" : "Preview selected"}
+                  </button>
+                  <button style={styles.xlsxBtn} onClick={() => downloadAllZip("xlsx")}>
+                    📘 Download all (XLSX)
+                  </button>
+                  <button style={styles.csvBtnMuted} onClick={() => downloadAllZip("csv")}>
+                    Download all (CSV)
+                  </button>
+                </div>
+
+                <div style={styles.resultsHeader}>
+                  <h2 style={styles.h2}>
+                    {companyEntries.length} compan{companyEntries.length === 1 ? "y" : "ies"} · {totalRows}{" "}
+                    bill line{totalRows === 1 ? "" : "s"}
+                  </h2>
+                  <label style={styles.selectAllLabel}>
                     <input
                       type="checkbox"
-                      checked={selectedCompanies.has(company)}
-                      onChange={() => toggleCompany(company)}
+                      checked={selectedCompanies.size === companyEntries.length && companyEntries.length > 0}
+                      onChange={(e) =>
+                        toggleSelectAll(
+                          companyEntries.map(([company]) => company),
+                          e.target.checked
+                        )
+                      }
                     />
-                    <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
-                      <span style={styles.companyName}>{company}</span>
-                      <span style={styles.companyMeta}>{rows.length} bill line(s)</span>
-                    </div>
+                    Select all
                   </label>
-                  <div style={{ display: "flex", gap: 6 }}>
-                    <button style={styles.secondaryBtn} onClick={() => downloadCompanyXlsx(company, rows)}>
-                      XLSX
-                    </button>
-                    <button style={styles.secondaryBtn} onClick={() => downloadCompanyCsv(company, rows)}>
-                      CSV
-                    </button>
-                  </div>
                 </div>
-              ))}
-            </div>
 
-            {previewOpen && (
-              <div style={styles.previewWrap}>
-                <table style={styles.table}>
-                  <thead>
-                    <tr>
-                      {CSV_COLUMNS.map((c) => (
-                        <th key={c} style={styles.th}>
-                          {c}
-                        </th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {companyEntries
-                      .filter(([company]) => selectedCompanies.has(company))
-                      .flatMap(([, rows]) => rows)
-                      .map((r, i) => (
-                        <tr key={i} style={styles.tr}>
+                <div style={styles.companyGrid}>
+                  {companyEntries.map(([company, rows]) => (
+                    <div key={company} style={styles.companyCard}>
+                      <label style={styles.companyCheckLabel}>
+                        <input
+                          type="checkbox"
+                          checked={selectedCompanies.has(company)}
+                          onChange={() => toggleCompany(company)}
+                        />
+                        <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
+                          <span style={styles.companyName}>{company}</span>
+                          <span style={styles.companyMeta}>{rows.length} bill line(s)</span>
+                        </div>
+                      </label>
+                      <div style={{ display: "flex", gap: 6 }}>
+                        <button style={styles.secondaryBtn} onClick={() => downloadCompanyXlsx(company, rows)}>
+                          XLSX
+                        </button>
+                        <button style={styles.secondaryBtn} onClick={() => downloadCompanyCsv(company, rows)}>
+                          CSV
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                {previewOpen && (
+                  <div style={styles.previewWrap}>
+                    <table style={styles.table}>
+                      <thead>
+                        <tr>
                           {CSV_COLUMNS.map((c) => (
-                            <td key={c} style={styles.td}>
-                              {r[c]}
-                            </td>
+                            <th key={c} style={styles.th}>
+                              {c}
+                            </th>
                           ))}
                         </tr>
-                      ))}
-                  </tbody>
-                </table>
+                      </thead>
+                      <tbody>
+                        {companyEntries
+                          .filter(([company]) => selectedCompanies.has(company))
+                          .flatMap(([, rows]) => rows)
+                          .map((r, i) => (
+                            <tr key={i} style={styles.tr}>
+                              {CSV_COLUMNS.map((c) => (
+                                <td key={c} style={styles.td}>
+                                  {r[c]}
+                                </td>
+                              ))}
+                            </tr>
+                          ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </>
+            )}
+          </>
+        )}
+
+        {activeTab === "epay" && (
+          <>
+            <div style={styles.card}>
+              <input
+                ref={epayFileInputRef}
+                type="file"
+                accept=".xlsx,.xls,.csv"
+                onChange={handleEpayFileChange}
+                style={{ display: "none" }}
+              />
+              <div
+                style={{ ...styles.dropzone, ...(epayDragOver ? styles.dropzoneActive : {}) }}
+                onClick={() => epayFileInputRef.current?.click()}
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  setEpayDragOver(true);
+                }}
+                onDragLeave={() => setEpayDragOver(false)}
+                onDrop={handleEpayDrop}
+              >
+                <div style={styles.dropzoneIcon}>📄</div>
+                <div style={styles.dropzoneText}>{epayFileName || "Choose or drop Epay invoices export (.csv/.xlsx)"}</div>
               </div>
+            </div>
+
+            {epayProcessing && <div style={styles.info}>Processing…</div>}
+            {epayError && <div style={styles.errorBanner}>{epayError}</div>}
+
+            {epayResult && epayResult.unmatchedAccounts.length > 0 && (
+              <div style={styles.warnBanner}>
+                {epayResult.unmatchedAccounts.length} account number(s) in the file don't match any store's
+                "Epay" field, so they were skipped: <strong>{epayResult.unmatchedAccounts.join(", ")}</strong>.
+                Add them in{" "}
+                <Link href="/mappings" style={styles.inlineLink}>
+                  Epay Account Mapping
+                </Link>{" "}
+                or add the store in Store Master, then re-upload.
+              </div>
+            )}
+
+            {epayResult && epayTotalRows > 0 && (
+              <>
+                <div style={styles.actionsRow}>
+                  <button style={styles.previewBtn} onClick={() => setEpayPreviewOpen((v) => !v)}>
+                    👁 {epayPreviewOpen ? "Hide preview" : "Preview selected"}
+                  </button>
+                  <button style={styles.xlsxBtn} onClick={() => downloadAllEpayZip("xlsx")}>
+                    📘 Download all (XLSX)
+                  </button>
+                  <button style={styles.csvBtnMuted} onClick={() => downloadAllEpayZip("csv")}>
+                    Download all (CSV)
+                  </button>
+                </div>
+
+                <div style={styles.resultsHeader}>
+                  <h2 style={styles.h2}>
+                    {epayCompanyNames.length} compan{epayCompanyNames.length === 1 ? "y" : "ies"} ·{" "}
+                    {epayTotalRows} line{epayTotalRows === 1 ? "" : "s"}
+                  </h2>
+                  <label style={styles.selectAllLabel}>
+                    <input
+                      type="checkbox"
+                      checked={epaySelectedCompanies.size === epayCompanyNames.length && epayCompanyNames.length > 0}
+                      onChange={(e) => toggleEpaySelectAll(epayCompanyNames, e.target.checked)}
+                    />
+                    Select all
+                  </label>
+                </div>
+
+                <div style={styles.companyGrid}>
+                  {epayCompanyNames.map((company) => {
+                    const incomeRows = epayResult.incomeByCompany[company] || [];
+                    const purchaseRows = epayResult.purchaseByCompany[company] || [];
+                    return (
+                      <div key={company} style={styles.companyCard}>
+                        <label style={styles.companyCheckLabel}>
+                          <input
+                            type="checkbox"
+                            checked={epaySelectedCompanies.has(company)}
+                            onChange={() => toggleEpayCompany(company)}
+                          />
+                          <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
+                            <span style={styles.companyName}>{company}</span>
+                            <span style={styles.companyMeta}>
+                              {incomeRows.length} income · {purchaseRows.length} purchase
+                            </span>
+                          </div>
+                        </label>
+                        <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                          {incomeRows.length > 0 && (
+                            <>
+                              <button
+                                style={styles.secondaryBtn}
+                                onClick={() => downloadEpayCompanyXlsx("income", company, incomeRows)}
+                              >
+                                Income XLSX
+                              </button>
+                              <button
+                                style={styles.secondaryBtn}
+                                onClick={() => downloadEpayCompanyCsv("income", company, incomeRows)}
+                              >
+                                Income CSV
+                              </button>
+                            </>
+                          )}
+                          {purchaseRows.length > 0 && (
+                            <>
+                              <button
+                                style={styles.secondaryBtn}
+                                onClick={() => downloadEpayCompanyXlsx("purchase", company, purchaseRows)}
+                              >
+                                Purchase XLSX
+                              </button>
+                              <button
+                                style={styles.secondaryBtn}
+                                onClick={() => downloadEpayCompanyCsv("purchase", company, purchaseRows)}
+                              >
+                                Purchase CSV
+                              </button>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {epayPreviewOpen && (
+                  <>
+                    <div style={styles.previewSectionTitle}>Income</div>
+                    <div style={styles.previewWrap}>
+                      <table style={styles.table}>
+                        <thead>
+                          <tr>
+                            {INCOME_COLUMNS.map((c) => (
+                              <th key={c} style={styles.th}>
+                                {c}
+                              </th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {epayCompanyNames
+                            .filter((c) => epaySelectedCompanies.has(c))
+                            .flatMap((c) => epayResult.incomeByCompany[c] || [])
+                            .map((r, i) => (
+                              <tr key={i} style={styles.tr}>
+                                {INCOME_COLUMNS.map((c) => (
+                                  <td key={c} style={styles.td}>
+                                    {r[c]}
+                                  </td>
+                                ))}
+                              </tr>
+                            ))}
+                        </tbody>
+                      </table>
+                    </div>
+
+                    <div style={styles.previewSectionTitle}>Purchase</div>
+                    <div style={styles.previewWrap}>
+                      <table style={styles.table}>
+                        <thead>
+                          <tr>
+                            {PURCHASE_COLUMNS.map((c) => (
+                              <th key={c} style={styles.th}>
+                                {c}
+                              </th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {epayCompanyNames
+                            .filter((c) => epaySelectedCompanies.has(c))
+                            .flatMap((c) => epayResult.purchaseByCompany[c] || [])
+                            .map((r, i) => (
+                              <tr key={i} style={styles.tr}>
+                                {PURCHASE_COLUMNS.map((c) => (
+                                  <td key={c} style={styles.td}>
+                                    {r[c]}
+                                  </td>
+                                ))}
+                              </tr>
+                            ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </>
+                )}
+              </>
             )}
           </>
         )}
@@ -331,10 +680,29 @@ const styles = {
   },
   shell: { display: "flex", minHeight: "100vh" },
   main: { flex: 1, padding: "36px 44px", maxWidth: 1200 },
-  topRow: { marginBottom: 24 },
+  topRow: { marginBottom: 20 },
   h1: { fontFamily: "var(--font-display)", fontSize: 26, margin: 0 },
   h2: { fontFamily: "var(--font-display)", fontSize: 16, margin: 0 },
   pageSub: { fontSize: 13, color: "var(--ink-soft)", margin: "4px 0 0" },
+  tabRow: { display: "flex", gap: 8, marginBottom: 20 },
+  tab: {
+    background: "transparent",
+    color: "var(--ink-soft)",
+    border: "1px solid var(--line)",
+    borderRadius: 7,
+    padding: "8px 18px",
+    fontSize: 13,
+    fontWeight: 600,
+  },
+  tabActive: {
+    background: "var(--ledger)",
+    color: "#fff",
+    border: "1px solid var(--ledger)",
+    borderRadius: 7,
+    padding: "8px 18px",
+    fontSize: 13,
+    fontWeight: 600,
+  },
   card: {
     background: "var(--panel)",
     border: "1px solid var(--line)",
@@ -428,13 +796,20 @@ const styles = {
     cursor: "pointer",
   },
   companyCheckLabel: { display: "flex", alignItems: "center", gap: 10, cursor: "pointer" },
+  previewSectionTitle: {
+    fontFamily: "var(--font-display)",
+    fontWeight: 600,
+    fontSize: 13,
+    color: "var(--ink-soft)",
+    margin: "16px 0 8px",
+  },
   previewWrap: {
     background: "var(--panel)",
     border: "1px solid var(--line)",
     borderRadius: 10,
     overflow: "auto",
     maxHeight: 240,
-    marginTop: 20,
+    marginTop: 4,
   },
   table: { width: "100%", borderCollapse: "collapse", fontSize: 11.5 },
   th: {
@@ -467,6 +842,8 @@ const styles = {
     display: "flex",
     justifyContent: "space-between",
     alignItems: "center",
+    gap: 12,
+    flexWrap: "wrap",
   },
   companyName: { fontFamily: "var(--font-display)", fontWeight: 600, fontSize: 12.5 },
   companyMeta: { fontSize: 10.5, color: "var(--ink-soft)" },

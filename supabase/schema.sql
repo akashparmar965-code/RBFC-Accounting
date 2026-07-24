@@ -212,3 +212,50 @@ create policy "Authenticated users can delete door_mappings"
   on door_mappings for delete
   to authenticated
   using (true);
+
+-- Epay Account Mapping: fallback for Epay Account Numbers not yet in Store
+-- Master's `epay` field, so an Epay invoice can still match a Company +
+-- QBO Class without a full store record. Same idea as door_mappings, kept
+-- separate since Epay's Account Number and VIP's Door Number are
+-- different ID spaces.
+create table if not exists epay_account_mappings (
+  id uuid primary key default gen_random_uuid(),
+  account_number text not null,
+  company_name text not null,
+  qbo_class text not null,
+  notes text,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+drop trigger if exists trg_epay_account_mappings_updated_at on epay_account_mappings;
+create trigger trg_epay_account_mappings_updated_at
+before update on epay_account_mappings
+for each row execute function set_updated_at();
+
+alter table epay_account_mappings enable row level security;
+
+drop policy if exists "Authenticated users can read epay_account_mappings" on epay_account_mappings;
+create policy "Authenticated users can read epay_account_mappings"
+  on epay_account_mappings for select
+  to authenticated
+  using (true);
+
+drop policy if exists "Authenticated users can insert epay_account_mappings" on epay_account_mappings;
+create policy "Authenticated users can insert epay_account_mappings"
+  on epay_account_mappings for insert
+  to authenticated
+  with check (true);
+
+drop policy if exists "Authenticated users can update epay_account_mappings" on epay_account_mappings;
+create policy "Authenticated users can update epay_account_mappings"
+  on epay_account_mappings for update
+  to authenticated
+  using (true)
+  with check (true);
+
+drop policy if exists "Authenticated users can delete epay_account_mappings" on epay_account_mappings;
+create policy "Authenticated users can delete epay_account_mappings"
+  on epay_account_mappings for delete
+  to authenticated
+  using (true);

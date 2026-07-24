@@ -107,15 +107,18 @@ created in step 1.
   a JV Date, drag-and-drop upload, an on-page Preview, and CSV/XLSX
   export either combined ("All-in-One") or split by company
   ("Company-wise"), all matched against live Store Master data
-- ✅ Bills (`/bills`): a dedicated, no-picker-needed VIP upload — device
-  and service lines always come back combined, one file per company
+- ✅ Bills (`/bills`): two sub-tabs —
+  **VIP** (device + service lines always come back combined, one file per
+  company) and **Epay** (splits each invoice into an Income upload and a
+  Purchase upload, one pair of files per company)
 - ✅ Checklist (`/checklist`): your monthly reconciliation & recurring-task
   tracker, per company — click a month cell to mark it done, add or delete
   items freely
-- ✅ Mapping Master (`/mappings`): the lookup tables Bills/JV Entry use to
-  classify VIP line items by their Products text (Product Mapping) and
-  match door numbers that aren't in Store Master yet (Door Mapping) —
-  fully editable, no code changes needed
+- ✅ Mapping Master (`/mappings`): the lookup tables Bills/JV Entry use
+  instead of hardcoded lists in code — Product Mapping (classifies VIP
+  line items by their Products text), Door Mapping (VIP Door Numbers not
+  yet in Store Master), and Epay Account Mapping (Epay Account Numbers
+  not yet in Store Master) — all fully editable
 - ⏳ Payroll / Expenses upload + processing — placeholders in the
   sidebar, waiting on sample file formats to build the matching and
   calculation logic
@@ -166,6 +169,23 @@ to add it.
    ("Company-wise"), in CSV or XLSX, ready to import into QuickBooks as
    bills
 
+### How Bills works — Epay
+
+1. On the Bills page, switch to the **Epay** tab and upload the raw Epay
+   invoices export (.csv or .xlsx) — columns: Store Name, Account Number,
+   Invoice Date, Invoice Number, Credit Amount, Debit Amount
+2. It's parsed entirely in your browser (nothing uploaded to a server)
+3. Each row becomes an **Income** row (if Credit Amount > 0) or a
+   **Purchase** row (if Debit Amount > 0) — Income rows post as "Rebate"
+   sales to customer "PAYSPOT INC SALES"; Purchase rows post as
+   "Bill Payment-Epay" bills from vendor "PAYSPOT INC"
+4. Account Number is matched to your live Store Master's "Epay" field to
+   get the same QBO Class used by VIP; if it's not there, **Epay Account
+   Mapping** (`/mappings`) is checked as a fallback before the row is
+   flagged as unmatched
+5. Download as one combined file ("All-in-One") or one Income + one
+   Purchase file per company ("Company-wise"), in CSV or XLSX
+
 ## Project structure
 
 ```
@@ -173,9 +193,9 @@ app/
   login/page.js        — sign-in screen
   stores/page.js        — the Store Master dashboard (main screen)
   jv-entry/page.js      — JV Entry: Sales / VIP Device / VIP Service uploads
-  bills/page.js          — Bills: dedicated combined VIP Device+Service upload
+  bills/page.js          — Bills: VIP and Epay sub-tabs
   checklist/page.js      — Accounting Checklist
-  mappings/page.js       — Mapping Master: Product Mapping + Door Mapping
+  mappings/page.js       — Mapping Master: Product / Door / Epay Account Mapping
   sales/page.js           — redirects to /jv-entry (old link)
   layout.js, page.js    — app shell / redirect
 components/
@@ -184,6 +204,7 @@ lib/
   supabaseClient.js      — Supabase connection helper
   salesProcessor.js      — Sales Journal Entry parsing/export logic
   billsProcessor.js      — VIP Device/Service Expense parsing/export logic
+  epayProcessor.js       — Epay Income/Purchase parsing/export logic
   fileNaming.js           — shared export filename builder
 supabase/
   schema.sql            — run once in Supabase SQL Editor

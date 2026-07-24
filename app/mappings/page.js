@@ -7,11 +7,13 @@ import Sidebar from "@/components/Sidebar";
 import {
   loadPendingMappings,
   removePendingDoor,
+  removePendingAccount,
   removePendingProductsMatching,
 } from "@/lib/pendingMappings";
 
 const emptyProductDraft = { product_prefix: "", expense_account: "", expense_memo: "", notes: "" };
 const emptyDoorDraft = { door_number: "", company_name: "", qbo_class: "", notes: "" };
+const emptyAccountDraft = { account_number: "", company_name: "", qbo_class: "", notes: "" };
 
 export default function MappingsPage() {
   const router = useRouter();
@@ -20,14 +22,17 @@ export default function MappingsPage() {
   const [session, setSession] = useState(undefined);
   const [productRows, setProductRows] = useState([]);
   const [doorRows, setDoorRows] = useState([]);
+  const [accountRows, setAccountRows] = useState([]);
   const [companyOptions, setCompanyOptions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [productDraft, setProductDraft] = useState(emptyProductDraft);
   const [doorDraft, setDoorDraft] = useState(emptyDoorDraft);
+  const [accountDraft, setAccountDraft] = useState(emptyAccountDraft);
   const [confirmDelete, setConfirmDelete] = useState(null); // { table, id }
   const [pendingDoors, setPendingDoors] = useState([]);
   const [pendingProducts, setPendingProducts] = useState([]);
+  const [pendingAccounts, setPendingAccounts] = useState([]);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
@@ -45,20 +50,24 @@ export default function MappingsPage() {
     const pending = loadPendingMappings();
     setPendingDoors(pending.unmatchedDoors);
     setPendingProducts(pending.unmappedProducts);
+    setPendingAccounts(pending.unmatchedAccounts);
   }, []);
 
   const loadAll = useCallback(async () => {
     setLoading(true);
     setError("");
-    const [productRes, doorRes, checklistRes] = await Promise.all([
+    const [productRes, doorRes, accountRes, checklistRes] = await Promise.all([
       supabase.from("product_mappings").select("*").order("product_prefix", { ascending: true }),
       supabase.from("door_mappings").select("*").order("door_number", { ascending: true }),
+      supabase.from("epay_account_mappings").select("*").order("account_number", { ascending: true }),
       supabase.from("checklist_items").select("company"),
     ]);
     if (productRes.error) setError(productRes.error.message);
     else setProductRows(productRes.data || []);
     if (doorRes.error) setError(doorRes.error.message);
     else setDoorRows(doorRes.data || []);
+    if (accountRes.error) setError(accountRes.error.message);
+    else setAccountRows(accountRes.data || []);
     if (!checklistRes.error) {
       setCompanyOptions(Array.from(new Set((checklistRes.data || []).map((r) => r.company))).sort());
     }
@@ -141,6 +150,51 @@ export default function MappingsPage() {
     setPendingDoors((prev) => prev.filter((d) => d !== addedDoor));
   }
 
+  async function updateAccountField(id, field, value) {
+    setAccountRows((prev) => prev.map((r) => (r.id === id ? { ...r, [field]: value } : r)));
+    const { error } = await supabase
+      .from("epay_account_mappings")
+      .update({ [field]: value || null })
+      .eq("id", id);
+    if (error) setError(error.message);
+  }
+
+  async function addAccountRow() {
+    if (!accountDraft.account_number.trim() || !accountDraft.company_name.trim() || !accountDraft.qbo_class.trim()) {
+      setError("Account Number, Company Name, and QBO Class are required.");
+      return;
+    }
+    const { data, error } = await supabase
+      .from("epay_account_mappings")
+      .insert([
+        {
+          account_number: accountDraft.account_number.trim(),
+          company_name: accountDraft.company_name.trim(),
+          qbo_class: accountDraft.qbo_class.trim(),
+          notes: accountDraft.notes.trim() || null,
+        },
+      ])
+      .select();
+    if (error) {
+      setError(error.message);
+      return;
+    }
+    setAccountRows((prev) => [...prev, ...(data || [])]);
+    const addedAccount = accountDraft.account_number.trim();
+    setAccountDraft(emptyAccountDraft);
+    removePendingAccount(addedAccount);
+    setPendingAccounts((prev) => prev.filter((a) => a !== addedAccount));
+  }
+
+  function useAccountSuggestion(accountNumber) {
+    setAccountDraft((d) => ({ ...d, account_number: accountNumber }));
+  }
+
+  function dismissPendingAccount(accountNumber) {
+    removePendingAccount(accountNumber);
+    setPendingAccounts((prev) => prev.filter((a) => a !== accountNumber));
+  }
+
   function useDoorSuggestion(doorNumber) {
     setDoorDraft((d) => ({ ...d, door_number: doorNumber }));
   }
@@ -165,7 +219,8 @@ export default function MappingsPage() {
     const { error } = await supabase.from(table).delete().eq("id", id);
     if (error) setError(error.message);
     if (table === "product_mappings") setProductRows((prev) => prev.filter((r) => r.id !== id));
-    else setDoorRows((prev) => prev.filter((r) => r.id !== id));
+    else if (table === "door_mappings") setDoorRows((prev) => prev.filter((r) => r.id !== id));
+    else setAccountRows((prev) => prev.filter((r) => r.id !== id));
     setConfirmDelete(null);
   }
 
@@ -468,6 +523,152 @@ export default function MappingsPage() {
                       </td>
                       <td style={styles.td}>
                         <button style={styles.addBtn} onClick={addDoorRow}>
+                          + Add
+                        </button>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <div style={styles.sectionCard}>
+              <div style={styles.sectionTitle}>Epay Account Mapping</div>
+              <div style={styles.sectionSub}>
+                A fallback for Epay Account Numbers that aren't in Store Master's "Epay" field yet — lets
+                an Epay invoice still match a Company and QBO Class without adding a full store record.
+              </div>
+
+              {pendingAccounts.length > 0 && (
+                <div style={styles.pendingRow}>
+                  <span style={styles.pendingLabel}>From your last upload:</span>
+                  {pendingAccounts.map((a) => (
+                    <span key={a} style={styles.chip}>
+                      <button style={styles.chipMain} onClick={() => useAccountSuggestion(a)}>
+                        {a}
+                      </button>
+                      <button style={styles.chipDismiss} onClick={() => dismissPendingAccount(a)}>
+                        ×
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              )}
+
+              <div style={styles.tableWrap}>
+                <table style={styles.table}>
+                  <thead>
+                    <tr>
+                      <th style={{ ...styles.th, textAlign: "left" }}>Account Number</th>
+                      <th style={{ ...styles.th, textAlign: "left" }}>Company Name</th>
+                      <th style={{ ...styles.th, textAlign: "left" }}>QBO Class</th>
+                      <th style={{ ...styles.th, textAlign: "left" }}>Notes</th>
+                      <th style={styles.th}></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {accountRows.map((r) => (
+                      <tr key={r.id} style={styles.tr}>
+                        <td style={styles.td}>
+                          <input
+                            style={styles.cellInput}
+                            defaultValue={r.account_number}
+                            onBlur={(e) => updateAccountField(r.id, "account_number", e.target.value)}
+                          />
+                        </td>
+                        <td style={styles.td}>
+                          <select
+                            style={styles.cellInput}
+                            value={r.company_name}
+                            onChange={(e) => updateAccountField(r.id, "company_name", e.target.value)}
+                          >
+                            <option value="">— Select —</option>
+                            {companyOptions.map((c) => (
+                              <option key={c} value={c}>
+                                {c}
+                              </option>
+                            ))}
+                            {r.company_name && !companyOptions.includes(r.company_name) && (
+                              <option value={r.company_name}>{r.company_name}</option>
+                            )}
+                          </select>
+                        </td>
+                        <td style={styles.td}>
+                          <input
+                            style={styles.cellInput}
+                            defaultValue={r.qbo_class}
+                            onBlur={(e) => updateAccountField(r.id, "qbo_class", e.target.value)}
+                          />
+                        </td>
+                        <td style={styles.td}>
+                          <input
+                            style={styles.cellInput}
+                            defaultValue={r.notes || ""}
+                            onBlur={(e) => updateAccountField(r.id, "notes", e.target.value)}
+                          />
+                        </td>
+                        <td style={{ ...styles.td, whiteSpace: "nowrap" }}>
+                          {confirmDelete?.table === "epay_account_mappings" && confirmDelete.id === r.id ? (
+                            <>
+                              <button style={{ ...styles.linkBtn, color: "var(--danger)" }} onClick={handleDelete}>
+                                Confirm
+                              </button>
+                              <button style={styles.linkBtn} onClick={() => setConfirmDelete(null)}>
+                                Cancel
+                              </button>
+                            </>
+                          ) : (
+                            <button
+                              style={{ ...styles.linkBtn, color: "var(--danger)" }}
+                              onClick={() => setConfirmDelete({ table: "epay_account_mappings", id: r.id })}
+                            >
+                              Delete
+                            </button>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                    <tr>
+                      <td style={styles.td}>
+                        <input
+                          style={styles.cellInput}
+                          placeholder="e.g. 502329"
+                          value={accountDraft.account_number}
+                          onChange={(e) => setAccountDraft((d) => ({ ...d, account_number: e.target.value }))}
+                        />
+                      </td>
+                      <td style={styles.td}>
+                        <select
+                          style={styles.cellInput}
+                          value={accountDraft.company_name}
+                          onChange={(e) => setAccountDraft((d) => ({ ...d, company_name: e.target.value }))}
+                        >
+                          <option value="">— Select —</option>
+                          {companyOptions.map((c) => (
+                            <option key={c} value={c}>
+                              {c}
+                            </option>
+                          ))}
+                        </select>
+                      </td>
+                      <td style={styles.td}>
+                        <input
+                          style={styles.cellInput}
+                          placeholder="e.g. SP - Bridgeville-2307"
+                          value={accountDraft.qbo_class}
+                          onChange={(e) => setAccountDraft((d) => ({ ...d, qbo_class: e.target.value }))}
+                        />
+                      </td>
+                      <td style={styles.td}>
+                        <input
+                          style={styles.cellInput}
+                          placeholder="(optional)"
+                          value={accountDraft.notes}
+                          onChange={(e) => setAccountDraft((d) => ({ ...d, notes: e.target.value }))}
+                        />
+                      </td>
+                      <td style={styles.td}>
+                        <button style={styles.addBtn} onClick={addAccountRow}>
                           + Add
                         </button>
                       </td>
