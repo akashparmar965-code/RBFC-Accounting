@@ -115,3 +115,99 @@ create policy "Authenticated users can delete checklist_items"
   on checklist_items for delete
   to authenticated
   using (true);
+
+-- Mapping Master: editable lookup tables used by Bills/JV Entry instead of
+-- hardcoded lists in code.
+
+-- Memo Mapping: a VIP Bill line whose Memo starts with memo_prefix is
+-- classified under expense_account (device lines, where Memo restates the
+-- Invoice Number, are handled automatically and don't need a row here).
+create table if not exists memo_mappings (
+  id uuid primary key default gen_random_uuid(),
+  memo_prefix text not null,
+  expense_account text not null,
+  expense_memo text,
+  notes text,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+drop trigger if exists trg_memo_mappings_updated_at on memo_mappings;
+create trigger trg_memo_mappings_updated_at
+before update on memo_mappings
+for each row execute function set_updated_at();
+
+alter table memo_mappings enable row level security;
+
+drop policy if exists "Authenticated users can read memo_mappings" on memo_mappings;
+create policy "Authenticated users can read memo_mappings"
+  on memo_mappings for select
+  to authenticated
+  using (true);
+
+drop policy if exists "Authenticated users can insert memo_mappings" on memo_mappings;
+create policy "Authenticated users can insert memo_mappings"
+  on memo_mappings for insert
+  to authenticated
+  with check (true);
+
+drop policy if exists "Authenticated users can update memo_mappings" on memo_mappings;
+create policy "Authenticated users can update memo_mappings"
+  on memo_mappings for update
+  to authenticated
+  using (true)
+  with check (true);
+
+drop policy if exists "Authenticated users can delete memo_mappings" on memo_mappings;
+create policy "Authenticated users can delete memo_mappings"
+  on memo_mappings for delete
+  to authenticated
+  using (true);
+
+insert into memo_mappings (memo_prefix, expense_account, expense_memo, notes) values
+('Managed Services Fees', 'Other Services VIP', null, 'Seeded default'),
+('Xfinity Advantage Activations', 'Other Services VIP', null, 'Seeded default');
+
+-- Door Mapping: fallback for VIP Door Numbers not yet in Store Master, so
+-- a bill can still match a Company + QBO Class without a full store record.
+create table if not exists door_mappings (
+  id uuid primary key default gen_random_uuid(),
+  door_number text not null,
+  company_name text not null,
+  qbo_class text not null,
+  notes text,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+drop trigger if exists trg_door_mappings_updated_at on door_mappings;
+create trigger trg_door_mappings_updated_at
+before update on door_mappings
+for each row execute function set_updated_at();
+
+alter table door_mappings enable row level security;
+
+drop policy if exists "Authenticated users can read door_mappings" on door_mappings;
+create policy "Authenticated users can read door_mappings"
+  on door_mappings for select
+  to authenticated
+  using (true);
+
+drop policy if exists "Authenticated users can insert door_mappings" on door_mappings;
+create policy "Authenticated users can insert door_mappings"
+  on door_mappings for insert
+  to authenticated
+  with check (true);
+
+drop policy if exists "Authenticated users can update door_mappings" on door_mappings;
+create policy "Authenticated users can update door_mappings"
+  on door_mappings for update
+  to authenticated
+  using (true)
+  with check (true);
+
+drop policy if exists "Authenticated users can delete door_mappings" on door_mappings;
+create policy "Authenticated users can delete door_mappings"
+  on door_mappings for delete
+  to authenticated
+  using (true);

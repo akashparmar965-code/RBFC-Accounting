@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { createClient } from "@/lib/supabaseClient";
 import Sidebar from "@/components/Sidebar";
 import {
@@ -57,6 +58,10 @@ export default function BillsPage() {
       const supabase = createClient();
       const { data: storeMaster, error: smError } = await supabase.from("stores").select("*");
       if (smError) throw new Error("Could not load Store Master: " + smError.message);
+      const { data: memoMappings, error: mmError } = await supabase.from("memo_mappings").select("*");
+      if (mmError) throw new Error("Could not load memo mappings: " + mmError.message);
+      const { data: doorMappings, error: dmError } = await supabase.from("door_mappings").select("*");
+      if (dmError) throw new Error("Could not load door mappings: " + dmError.message);
 
       const buffer = await file.arrayBuffer();
       const rawRows = parseVipWorkbook(buffer);
@@ -67,8 +72,13 @@ export default function BillsPage() {
         );
       }
 
-      const groupedLines = aggregateBillLines(rawRows);
-      const { byCompany, unmatchedDoors, unmappedMemos } = buildBillRows(groupedLines, storeMaster, "all");
+      const groupedLines = aggregateBillLines(rawRows, memoMappings || []);
+      const { byCompany, unmatchedDoors, unmappedMemos } = buildBillRows(
+        groupedLines,
+        storeMaster,
+        "all",
+        doorMappings || []
+      );
       setResult({ byCompany, unmatched: unmatchedDoors, unmappedMemos });
       setSelectedCompanies(new Set(Object.keys(byCompany)));
     } catch (e) {
@@ -187,15 +197,22 @@ export default function BillsPage() {
         {result && result.unmatched.length > 0 && (
           <div style={styles.warnBanner}>
             {result.unmatched.length} door number(s) in the file don't match any store in your Store
-            Master, so they were skipped: <strong>{result.unmatched.join(", ")}</strong>.
+            Master, so they were skipped: <strong>{result.unmatched.join(", ")}</strong>. Add them in{" "}
+            <Link href="/mappings" style={styles.inlineLink}>
+              Door Mapping
+            </Link>{" "}
+            or add the store in Store Master, then re-upload.
           </div>
         )}
 
         {result && result.unmappedMemos.length > 0 && (
           <div style={styles.errorBanner}>
             {result.unmappedMemos.length} line(s) have a Memo that doesn't match a known device or service
-            pattern, so they were skipped — add the new memo text to <code>KNOWN_SERVICE_MEMO_PREFIXES</code>{" "}
-            in <code>lib/billsProcessor.js</code> to include them:
+            pattern, so they were skipped. Add the memo text below to{" "}
+            <Link href="/mappings" style={styles.inlineLink}>
+              Memo Mapping
+            </Link>{" "}
+            and re-upload:
             <ul style={styles.unmappedList}>
               {result.unmappedMemos.map((m, i) => (
                 <li key={i}>
@@ -354,6 +371,7 @@ const styles = {
     fontFamily: "var(--font-mono)",
     fontSize: 12,
   },
+  inlineLink: { textDecoration: "underline", fontWeight: 600 },
   warnBanner: {
     background: "var(--warn-bg)",
     color: "var(--warn-text)",

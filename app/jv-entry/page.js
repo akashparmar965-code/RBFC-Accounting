@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { createClient } from "@/lib/supabaseClient";
 import Sidebar from "@/components/Sidebar";
 import {
@@ -124,6 +125,11 @@ export default function JvEntryPage() {
         const { byCompany, unmatchedStores } = buildJournalRows(totals, storeMaster, jvDateObj);
         setResult({ entryType: type, byCompany, unmatched: unmatchedStores, unmappedMemos: [] });
       } else {
+        const { data: memoMappings, error: mmError } = await supabase.from("memo_mappings").select("*");
+        if (mmError) throw new Error("Could not load memo mappings: " + mmError.message);
+        const { data: doorMappings, error: dmError } = await supabase.from("door_mappings").select("*");
+        if (dmError) throw new Error("Could not load door mappings: " + dmError.message);
+
         const rawRows = parseVipWorkbook(buffer);
         if (!rawRows.length) throw new Error("No rows found in the Bill sheet of this file.");
         if (!("Door Number" in rawRows[0])) {
@@ -131,9 +137,14 @@ export default function JvEntryPage() {
             "This file doesn't look like a VIP export — no 'Door Number' column found in the Bill sheet."
           );
         }
-        const groupedLines = aggregateBillLines(rawRows);
+        const groupedLines = aggregateBillLines(rawRows, memoMappings || []);
         const category = BILL_CATEGORY_BY_TYPE[type] || "all";
-        const { byCompany, unmatchedDoors, unmappedMemos } = buildBillRows(groupedLines, storeMaster, category);
+        const { byCompany, unmatchedDoors, unmappedMemos } = buildBillRows(
+          groupedLines,
+          storeMaster,
+          category,
+          doorMappings || []
+        );
         setResult({ entryType: type, byCompany, unmatched: unmatchedDoors, unmappedMemos });
       }
     } catch (e) {
@@ -326,14 +337,27 @@ export default function JvEntryPage() {
             {result.unmatched.length} {result.entryType === "sales" ? "store name(s)" : "door number(s)"} in
             the file don't match any store in your Store Master, so they were skipped:{" "}
             <strong>{result.unmatched.join(", ")}</strong>.
+            {result.entryType !== "sales" && (
+              <>
+                {" "}
+                Add them in{" "}
+                <Link href="/mappings" style={styles.inlineLink}>
+                  Door Mapping
+                </Link>{" "}
+                or add the store in Store Master, then re-upload.
+              </>
+            )}
           </div>
         )}
 
         {result && result.unmappedMemos.length > 0 && (
           <div style={styles.errorBanner}>
             {result.unmappedMemos.length} line(s) have a Memo that doesn't match a known device or service
-            pattern, so they were skipped — add the new memo text to <code>KNOWN_SERVICE_MEMO_PREFIXES</code>{" "}
-            in <code>lib/billsProcessor.js</code> to include them:
+            pattern, so they were skipped. Add the memo text below to{" "}
+            <Link href="/mappings" style={styles.inlineLink}>
+              Memo Mapping
+            </Link>{" "}
+            and re-upload:
             <ul style={styles.unmappedList}>
               {result.unmappedMemos.map((m, i) => (
                 <li key={i}>
@@ -520,6 +544,7 @@ const styles = {
     fontFamily: "var(--font-mono)",
     fontSize: 12,
   },
+  inlineLink: { textDecoration: "underline", fontWeight: 600 },
   warnBanner: {
     background: "var(--warn-bg)",
     color: "var(--warn-text)",

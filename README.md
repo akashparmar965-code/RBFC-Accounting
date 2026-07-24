@@ -112,6 +112,9 @@ created in step 1.
 - ✅ Checklist (`/checklist`): your monthly reconciliation & recurring-task
   tracker, per company — click a month cell to mark it done, add or delete
   items freely
+- ✅ Mapping Master (`/mappings`): the lookup tables Bills/JV Entry use to
+  classify VIP memos (Memo Mapping) and match door numbers that aren't in
+  Store Master yet (Door Mapping) — fully editable, no code changes needed
 - ⏳ Payroll / Expenses upload + processing — placeholders in the
   sidebar, waiting on sample file formats to build the matching and
   calculation logic
@@ -144,12 +147,17 @@ to add it.
 2. It's parsed entirely in your browser (nothing uploaded to a server)
 3. Line items are grouped per invoice (by Door Number + Invoice Number).
    A line counts as a **device** sale when its Memo is just the invoice
-   number restated (VIP does this for straight device orders); anything
-   else (e.g. "Managed Services Fees…") is a **service** line
-4. Device lines use Expense Account "All Devices"; service lines use
-   "Other Services VIP" and keep their original memo text
-5. Door Number is matched to your live Store Master's "VIP Website No."
-   to get the QBO Class and Company grouping
+   number restated (VIP does this for straight device orders); everything
+   else is checked against **Memo Mapping** (`/mappings`) — if its Memo
+   starts with a mapped prefix it's a service line using that rule's
+   Expense Account; if not, it's excluded and shown as an error so you can
+   add the new memo pattern instead of it being guessed at
+4. Device lines use Expense Account "All Devices"; mapped service lines
+   use whatever Expense Account that rule specifies, and keep their
+   original memo text unless the rule overrides it
+5. Door Number is matched to your live Store Master's "VIP Website No.";
+   if it's not there, **Door Mapping** (`/mappings`) is checked as a
+   fallback before the line is flagged as unmatched
 6. Each row keeps its own invoice's transaction date from the file (the
    JV Date field only applies to Sales Journal Entry)
 7. Download as one combined file ("All-in-One") or one file per company
@@ -163,7 +171,10 @@ app/
   login/page.js        — sign-in screen
   stores/page.js        — the Store Master dashboard (main screen)
   jv-entry/page.js      — JV Entry: Sales / VIP Device / VIP Service uploads
-  sales/page.js, bills/page.js — redirect to /jv-entry (old links)
+  bills/page.js          — Bills: dedicated combined VIP Device+Service upload
+  checklist/page.js      — Accounting Checklist
+  mappings/page.js       — Mapping Master: Memo Mapping + Door Mapping
+  sales/page.js           — redirects to /jv-entry (old link)
   layout.js, page.js    — app shell / redirect
 components/
   Sidebar.js             — shared nav
@@ -171,6 +182,7 @@ lib/
   supabaseClient.js      — Supabase connection helper
   salesProcessor.js      — Sales Journal Entry parsing/export logic
   billsProcessor.js      — VIP Device/Service Expense parsing/export logic
+  fileNaming.js           — shared export filename builder
 supabase/
   schema.sql            — run once in Supabase SQL Editor
   store_master_import.csv — your store data, ready to import
