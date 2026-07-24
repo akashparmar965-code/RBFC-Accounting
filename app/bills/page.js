@@ -68,8 +68,8 @@ export default function BillsPage() {
       }
 
       const groupedLines = aggregateBillLines(rawRows);
-      const { byCompany, unmatchedDoors } = buildBillRows(groupedLines, storeMaster, "all");
-      setResult({ byCompany, unmatched: unmatchedDoors });
+      const { byCompany, unmatchedDoors, unmappedMemos } = buildBillRows(groupedLines, storeMaster, "all");
+      setResult({ byCompany, unmatched: unmatchedDoors, unmappedMemos });
       setSelectedCompanies(new Set(Object.keys(byCompany)));
     } catch (e) {
       setError(e.message || String(e));
@@ -188,6 +188,21 @@ export default function BillsPage() {
           <div style={styles.warnBanner}>
             {result.unmatched.length} door number(s) in the file don't match any store in your Store
             Master, so they were skipped: <strong>{result.unmatched.join(", ")}</strong>.
+          </div>
+        )}
+
+        {result && result.unmappedMemos.length > 0 && (
+          <div style={styles.errorBanner}>
+            {result.unmappedMemos.length} line(s) have a Memo that doesn't match a known device or service
+            pattern, so they were skipped — add the new memo text to <code>KNOWN_SERVICE_MEMO_PREFIXES</code>{" "}
+            in <code>lib/billsProcessor.js</code> to include them:
+            <ul style={styles.unmappedList}>
+              {result.unmappedMemos.map((m, i) => (
+                <li key={i}>
+                  Door {m.doorNumber} · {m.invoiceNo} · "{m.memo}"
+                </li>
+              ))}
+            </ul>
           </div>
         )}
 
@@ -331,6 +346,13 @@ const styles = {
     borderRadius: 6,
     fontSize: 13,
     marginBottom: 16,
+    lineHeight: 1.5,
+  },
+  unmappedList: {
+    margin: "8px 0 0",
+    paddingLeft: 18,
+    fontFamily: "var(--font-mono)",
+    fontSize: 12,
   },
   warnBanner: {
     background: "var(--warn-bg)",

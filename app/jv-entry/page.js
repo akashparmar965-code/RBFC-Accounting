@@ -122,7 +122,7 @@ export default function JvEntryPage() {
         }
         const { totals } = aggregateByStore(rawRows);
         const { byCompany, unmatchedStores } = buildJournalRows(totals, storeMaster, jvDateObj);
-        setResult({ entryType: type, byCompany, unmatched: unmatchedStores });
+        setResult({ entryType: type, byCompany, unmatched: unmatchedStores, unmappedMemos: [] });
       } else {
         const rawRows = parseVipWorkbook(buffer);
         if (!rawRows.length) throw new Error("No rows found in the Bill sheet of this file.");
@@ -133,8 +133,8 @@ export default function JvEntryPage() {
         }
         const groupedLines = aggregateBillLines(rawRows);
         const category = BILL_CATEGORY_BY_TYPE[type] || "all";
-        const { byCompany, unmatchedDoors } = buildBillRows(groupedLines, storeMaster, category);
-        setResult({ entryType: type, byCompany, unmatched: unmatchedDoors });
+        const { byCompany, unmatchedDoors, unmappedMemos } = buildBillRows(groupedLines, storeMaster, category);
+        setResult({ entryType: type, byCompany, unmatched: unmatchedDoors, unmappedMemos });
       }
     } catch (e) {
       setError(e.message || String(e));
@@ -329,6 +329,21 @@ export default function JvEntryPage() {
           </div>
         )}
 
+        {result && result.unmappedMemos.length > 0 && (
+          <div style={styles.errorBanner}>
+            {result.unmappedMemos.length} line(s) have a Memo that doesn't match a known device or service
+            pattern, so they were skipped — add the new memo text to <code>KNOWN_SERVICE_MEMO_PREFIXES</code>{" "}
+            in <code>lib/billsProcessor.js</code> to include them:
+            <ul style={styles.unmappedList}>
+              {result.unmappedMemos.map((m, i) => (
+                <li key={i}>
+                  Door {m.doorNumber} · {m.invoiceNo} · "{m.memo}"
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
         {result && totalRows > 0 && (
           <>
             <div style={styles.resultsHeader}>
@@ -497,6 +512,13 @@ const styles = {
     borderRadius: 6,
     fontSize: 13,
     marginBottom: 16,
+    lineHeight: 1.5,
+  },
+  unmappedList: {
+    margin: "8px 0 0",
+    paddingLeft: 18,
+    fontFamily: "var(--font-mono)",
+    fontSize: 12,
   },
   warnBanner: {
     background: "var(--warn-bg)",
