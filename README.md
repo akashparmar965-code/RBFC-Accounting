@@ -147,8 +147,8 @@ to add it.
    Services VIP" and keep their original memo text
 5. Door Number is matched to your live Store Master's "VIP Website No."
    to get the QBO Class and Company grouping
-6. Every row is stamped with the JV Date you set (not each invoice's own
-   transaction date)
+6. Each row keeps its own invoice's transaction date from the file (the
+   JV Date field only applies to Sales Journal Entry)
 7. Download as one combined file ("All-in-One") or one file per company
    ("Company-wise"), in CSV or XLSX, ready to import into QuickBooks as
    bills

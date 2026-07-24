@@ -39,12 +39,6 @@ function todayIso() {
   return `${d.getFullYear()}-${mm}-${dd}`;
 }
 
-function formatMMDDYYYY(date) {
-  const mm = String(date.getMonth() + 1).padStart(2, "0");
-  const dd = String(date.getDate()).padStart(2, "0");
-  return `${mm}/${dd}/${date.getFullYear()}`;
-}
-
 function safeName(s) {
   return String(s).replace(/[^a-z0-9]+/gi, "_");
 }
@@ -134,10 +128,6 @@ export default function JvEntryPage() {
         const groupedLines = aggregateBillLines(rawRows);
         const category = type === "vip-device" ? "device" : "service";
         const { byCompany, unmatchedDoors } = buildBillRows(groupedLines, storeMaster, category);
-        const stampedDate = formatMMDDYYYY(jvDateObj);
-        for (const rows of Object.values(byCompany)) {
-          for (const r of rows) r["Date"] = stampedDate;
-        }
         setResult({ entryType: type, byCompany, unmatched: unmatchedDoors });
       }
     } catch (e) {
