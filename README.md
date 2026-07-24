@@ -107,6 +107,8 @@ created in step 1.
   a JV Date, drag-and-drop upload, an on-page Preview, and CSV/XLSX
   export either combined ("All-in-One") or split by company
   ("Company-wise"), all matched against live Store Master data
+- ✅ Bills (`/bills`): a dedicated, no-picker-needed VIP upload — device
+  and service lines always come back combined, one file per company
 - ✅ Checklist (`/checklist`): your monthly reconciliation & recurring-task
   tracker, per company — click a month cell to mark it done, add or delete
   items freely
