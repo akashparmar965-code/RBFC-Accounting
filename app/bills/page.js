@@ -231,12 +231,12 @@ export default function BillsPage() {
                       checked={selectedCompanies.has(company)}
                       onChange={() => toggleCompany(company)}
                     />
-                    <div>
-                      <div style={styles.companyName}>{company}</div>
-                      <div style={styles.companyMeta}>{rows.length} bill line(s)</div>
+                    <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
+                      <span style={styles.companyName}>{company}</span>
+                      <span style={styles.companyMeta}>{rows.length} bill line(s)</span>
                     </div>
                   </label>
-                  <div style={{ display: "flex", gap: 8 }}>
+                  <div style={{ display: "flex", gap: 6 }}>
                     <button style={styles.secondaryBtn} onClick={() => downloadCompanyXlsx(company, rows)}>
                       XLSX
                     </button>
@@ -413,25 +413,25 @@ const styles = {
     fontSize: 11,
     whiteSpace: "nowrap",
   },
-  companyGrid: { display: "flex", flexDirection: "column", gap: 10 },
+  companyGrid: { display: "flex", flexDirection: "column", gap: 5 },
   companyCard: {
     background: "var(--panel)",
     border: "1px solid var(--line)",
-    borderRadius: 8,
-    padding: "14px 18px",
+    borderRadius: 6,
+    padding: "7px 14px",
     display: "flex",
     justifyContent: "space-between",
     alignItems: "center",
   },
-  companyName: { fontFamily: "var(--font-display)", fontWeight: 600, fontSize: 14 },
-  companyMeta: { fontSize: 12, color: "var(--ink-soft)", marginTop: 2 },
+  companyName: { fontFamily: "var(--font-display)", fontWeight: 600, fontSize: 12.5 },
+  companyMeta: { fontSize: 10.5, color: "var(--ink-soft)" },
   secondaryBtn: {
     background: "transparent",
     color: "var(--ink)",
     border: "1px solid var(--line)",
-    borderRadius: 6,
-    padding: "8px 14px",
-    fontSize: 12.5,
+    borderRadius: 5,
+    padding: "5px 10px",
+    fontSize: 11,
     fontWeight: 600,
   },
 };
