@@ -20,6 +20,18 @@ const MONTHS = [
   { key: "dec", label: "Dec" },
 ];
 
+const STATUS_OPTIONS = [
+  { value: "Done", bg: "#d7f2d1", color: "#2e7d32" },
+  { value: "No", bg: "#c0392b", color: "#ffffff" },
+  { value: "Import", bg: "#e6d6f5", color: "#6a3fa0" },
+  { value: "Categorized", bg: "#f8d3b0", color: "#a15c1e" },
+  { value: "Pending", bg: "#6b4423", color: "#ffffff" },
+];
+
+function statusStyle(value) {
+  return STATUS_OPTIONS.find((o) => o.value === value);
+}
+
 export default function ChecklistPage() {
   const router = useRouter();
   const supabase = useMemo(() => createClient(), []);
@@ -32,6 +44,7 @@ export default function ChecklistPage() {
   const [error, setError] = useState("");
   const [confirmDeleteId, setConfirmDeleteId] = useState(null);
   const [newItemText, setNewItemText] = useState({}); // section -> draft text
+  const [openCell, setOpenCell] = useState(null); // { itemId, monthKey, top, left }
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
@@ -94,13 +107,18 @@ export default function ChecklistPage() {
     return Array.from(map.entries()); // [ [sectionName, items[]], ... ]
   }, [items]);
 
-  async function toggleMonth(item, monthKey) {
-    const nextValue = item[monthKey] ? "" : "Done";
-    setItems((prev) => prev.map((i) => (i.id === item.id ? { ...i, [monthKey]: nextValue } : i)));
+  function openStatusMenu(e, item, monthKey) {
+    const rect = e.currentTarget.getBoundingClientRect();
+    setOpenCell({ itemId: item.id, monthKey, top: rect.bottom + 4, left: rect.left });
+  }
+
+  async function selectStatus(itemId, monthKey, value) {
+    setOpenCell(null);
+    setItems((prev) => prev.map((i) => (i.id === itemId ? { ...i, [monthKey]: value } : i)));
     const { error } = await supabase
       .from("checklist_items")
-      .update({ [monthKey]: nextValue || null })
-      .eq("id", item.id);
+      .update({ [monthKey]: value || null })
+      .eq("id", itemId);
     if (error) setError(error.message);
   }
 
@@ -182,17 +200,24 @@ export default function ChecklistPage() {
                     {sectionItems.map((item) => (
                       <tr key={item.id} style={styles.tr}>
                         <td style={{ ...styles.td, textAlign: "left" }}>{item.item_name}</td>
-                        {MONTHS.map((m) => (
-                          <td key={m.key} style={styles.td}>
-                            <button
-                              style={item[m.key] ? styles.monthDone : styles.monthEmpty}
-                              onClick={() => toggleMonth(item, m.key)}
-                              title={item[m.key] || "Mark done"}
-                            >
-                              {item[m.key] ? "✓" : ""}
-                            </button>
-                          </td>
-                        ))}
+                        {MONTHS.map((m) => {
+                          const st = statusStyle(item[m.key]);
+                          return (
+                            <td key={m.key} style={styles.td}>
+                              <button
+                                style={
+                                  st
+                                    ? { ...styles.monthPill, background: st.bg, color: st.color }
+                                    : styles.monthEmpty
+                                }
+                                onClick={(e) => openStatusMenu(e, item, m.key)}
+                                title={item[m.key] || "Set status"}
+                              >
+                                {item[m.key] || ""}
+                              </button>
+                            </td>
+                          );
+                        })}
                         <td style={{ ...styles.td, whiteSpace: "nowrap" }}>
                           {confirmDeleteId === item.id ? (
                             <>
@@ -247,6 +272,29 @@ export default function ChecklistPage() {
           ))
         )}
       </main>
+
+      {openCell && (
+        <>
+          <div style={styles.menuOverlay} onClick={() => setOpenCell(null)} />
+          <div style={{ ...styles.statusMenu, top: openCell.top, left: openCell.left }}>
+            <button
+              style={styles.statusMenuClear}
+              onClick={() => selectStatus(openCell.itemId, openCell.monthKey, "")}
+            >
+              — Clear —
+            </button>
+            {STATUS_OPTIONS.map((o) => (
+              <button
+                key={o.value}
+                style={{ ...styles.statusMenuOption, background: o.bg, color: o.color }}
+                onClick={() => selectStatus(openCell.itemId, openCell.monthKey, o.value)}
+              >
+                {o.value}
+              </button>
+            ))}
+          </div>
+        </>
+      )}
     </div>
   );
 }
@@ -324,22 +372,57 @@ const styles = {
     textAlign: "center",
     whiteSpace: "nowrap",
   },
-  monthDone: {
-    width: 26,
-    height: 26,
+  monthPill: {
+    minWidth: 78,
+    height: 28,
     borderRadius: 6,
-    border: "1px solid var(--ledger)",
-    background: "rgba(34,163,123,0.16)",
-    color: "var(--ledger)",
-    fontWeight: 700,
-    fontSize: 13,
+    border: "none",
+    fontWeight: 600,
+    fontSize: 11.5,
+    padding: "0 10px",
   },
   monthEmpty: {
-    width: 26,
-    height: 26,
+    minWidth: 78,
+    height: 28,
     borderRadius: 6,
     border: "1px solid var(--line)",
     background: "transparent",
+  },
+  menuOverlay: {
+    position: "fixed",
+    inset: 0,
+    zIndex: 90,
+  },
+  statusMenu: {
+    position: "fixed",
+    zIndex: 100,
+    background: "var(--panel)",
+    border: "1px solid var(--line)",
+    borderRadius: 8,
+    padding: 6,
+    display: "flex",
+    flexDirection: "column",
+    gap: 4,
+    minWidth: 140,
+    boxShadow: "0 8px 24px rgba(0,0,0,0.5)",
+  },
+  statusMenuClear: {
+    textAlign: "left",
+    padding: "7px 10px",
+    borderRadius: 6,
+    border: "1px solid var(--line)",
+    background: "transparent",
+    color: "var(--ink-soft)",
+    fontSize: 12.5,
+    fontWeight: 600,
+  },
+  statusMenuOption: {
+    textAlign: "left",
+    padding: "7px 10px",
+    borderRadius: 6,
+    border: "none",
+    fontSize: 12.5,
+    fontWeight: 600,
   },
   linkBtn: {
     background: "none",
