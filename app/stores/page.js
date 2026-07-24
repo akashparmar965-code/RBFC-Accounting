@@ -34,6 +34,7 @@ export default function StoresPage() {
   const [error, setError] = useState("");
   const [search, setSearch] = useState("");
   const [marketFilter, setMarketFilter] = useState("all");
+  const [companyFilter, setCompanyFilter] = useState("all");
 
   const [modalOpen, setModalOpen] = useState(false);
   const [editingId, setEditingId] = useState(null);
@@ -84,18 +85,24 @@ export default function StoresPage() {
   }, [session, supabase]);
 
   const markets = useMemo(() => {
-    const set = new Set(stores.map((s) => s.rbfc_market).filter(Boolean));
+    const set = new Set(stores.map((s) => (s.rbfc_market || "").trim()).filter(Boolean));
+    return ["all", ...Array.from(set).sort()];
+  }, [stores]);
+
+  const companies = useMemo(() => {
+    const set = new Set(stores.map((s) => (s.company_name || "").trim()).filter(Boolean));
     return ["all", ...Array.from(set).sort()];
   }, [stores]);
 
   const filtered = useMemo(() => {
     return stores.filter((s) => {
-      if (marketFilter !== "all" && s.rbfc_market !== marketFilter) return false;
+      if (marketFilter !== "all" && (s.rbfc_market || "").trim() !== marketFilter) return false;
+      if (companyFilter !== "all" && (s.company_name || "").trim() !== companyFilter) return false;
       if (!search.trim()) return true;
       const q = search.toLowerCase();
       return FIELDS.some((f) => (s[f.key] || "").toString().toLowerCase().includes(q));
     });
-  }, [stores, search, marketFilter]);
+  }, [stores, search, marketFilter, companyFilter]);
 
   function openAdd() {
     setEditingId(null);
@@ -181,6 +188,17 @@ export default function StoresPage() {
             {markets.map((m) => (
               <option key={m} value={m}>
                 {m === "all" ? "All markets" : m}
+              </option>
+            ))}
+          </select>
+          <select
+            style={styles.select}
+            value={companyFilter}
+            onChange={(e) => setCompanyFilter(e.target.value)}
+          >
+            {companies.map((c) => (
+              <option key={c} value={c}>
+                {c === "all" ? "All companies" : c}
               </option>
             ))}
           </select>
