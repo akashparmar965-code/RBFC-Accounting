@@ -43,6 +43,7 @@ export default function StoresPage() {
   const [form, setForm] = useState(emptyForm());
   const [saving, setSaving] = useState(false);
   const [confirmDeleteId, setConfirmDeleteId] = useState(null);
+  const [companyOptions, setCompanyOptions] = useState([]);
 
   // auth guard
   useEffect(() => {
@@ -72,6 +73,18 @@ export default function StoresPage() {
   useEffect(() => {
     if (session) loadStores();
   }, [session, loadStores]);
+
+  useEffect(() => {
+    if (!session) return;
+    supabase
+      .from("checklist_items")
+      .select("company")
+      .then(({ data, error }) => {
+        if (error) return;
+        const unique = Array.from(new Set((data || []).map((r) => r.company))).sort();
+        setCompanyOptions(unique);
+      });
+  }, [session, supabase]);
 
   const markets = useMemo(() => {
     const set = new Set(stores.map((s) => s.rbfc_market).filter(Boolean));
@@ -244,16 +257,37 @@ export default function StoresPage() {
             <h2 style={styles.modalTitle}>{editingId ? "Edit store" : "Add store"}</h2>
             <form onSubmit={handleSave}>
               <div style={styles.formGrid}>
-                {FIELDS.map((f) => (
-                  <label key={f.key} style={styles.formLabel}>
-                    {f.label}
-                    <input
-                      style={styles.formInput}
-                      value={form[f.key]}
-                      onChange={(e) => setForm({ ...form, [f.key]: e.target.value })}
-                    />
-                  </label>
-                ))}
+                {FIELDS.map((f) =>
+                  f.key === "company_name" ? (
+                    <label key={f.key} style={styles.formLabel}>
+                      {f.label}
+                      <select
+                        style={styles.formInput}
+                        value={form[f.key]}
+                        onChange={(e) => setForm({ ...form, [f.key]: e.target.value })}
+                      >
+                        <option value="">— Select company —</option>
+                        {companyOptions.map((c) => (
+                          <option key={c} value={c}>
+                            {c}
+                          </option>
+                        ))}
+                        {form[f.key] && !companyOptions.includes(form[f.key]) && (
+                          <option value={form[f.key]}>{form[f.key]}</option>
+                        )}
+                      </select>
+                    </label>
+                  ) : (
+                    <label key={f.key} style={styles.formLabel}>
+                      {f.label}
+                      <input
+                        style={styles.formInput}
+                        value={form[f.key]}
+                        onChange={(e) => setForm({ ...form, [f.key]: e.target.value })}
+                      />
+                    </label>
+                  )
+                )}
               </div>
               <div style={styles.modalActions}>
                 <button
