@@ -106,6 +106,9 @@ created in step 1.
   a JV Date, drag-and-drop upload, an on-page Preview, and CSV/XLSX
   export either combined ("All-in-One") or split by company
   ("Company-wise"), all matched against live Store Master data
+- ✅ Checklist (`/checklist`): your monthly reconciliation & recurring-task
+  tracker, per company — click a month cell to mark it done, add or delete
+  items freely
 - ⏳ Payroll / Expenses upload + processing — placeholders in the
   sidebar, waiting on sample file formats to build the matching and
   calculation logic

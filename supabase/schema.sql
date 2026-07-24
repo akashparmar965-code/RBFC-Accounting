@@ -62,3 +62,59 @@ create policy "Authenticated users can delete stores"
   on stores for delete
   to authenticated
   using (true);
+
+-- Accounting Checklist: monthly reconciliation & task tracker, per company.
+create table if not exists checklist_items (
+  id uuid primary key default gen_random_uuid(),
+  company text not null,
+  section text not null,
+  item_name text not null,
+  sort_order integer not null default 0,
+  section_order integer not null default 0,
+  jan text,
+  feb text,
+  mar text,
+  apr text,
+  may text,
+  jun text,
+  jul text,
+  aug text,
+  sep text,
+  oct text,
+  nov text,
+  dec text,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+drop trigger if exists trg_checklist_items_updated_at on checklist_items;
+create trigger trg_checklist_items_updated_at
+before update on checklist_items
+for each row execute function set_updated_at();
+
+alter table checklist_items enable row level security;
+
+drop policy if exists "Authenticated users can read checklist_items" on checklist_items;
+create policy "Authenticated users can read checklist_items"
+  on checklist_items for select
+  to authenticated
+  using (true);
+
+drop policy if exists "Authenticated users can insert checklist_items" on checklist_items;
+create policy "Authenticated users can insert checklist_items"
+  on checklist_items for insert
+  to authenticated
+  with check (true);
+
+drop policy if exists "Authenticated users can update checklist_items" on checklist_items;
+create policy "Authenticated users can update checklist_items"
+  on checklist_items for update
+  to authenticated
+  using (true)
+  with check (true);
+
+drop policy if exists "Authenticated users can delete checklist_items" on checklist_items;
+create policy "Authenticated users can delete checklist_items"
+  on checklist_items for delete
+  to authenticated
+  using (true);
