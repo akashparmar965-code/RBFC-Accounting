@@ -22,6 +22,7 @@ import {
   buildAllInOneRows as billsAllInOneRows,
   CSV_COLUMNS as BILLS_COLUMNS,
 } from "@/lib/billsProcessor";
+import { buildExportFileName } from "@/lib/fileNaming";
 
 const ENTRY_TYPES = [
   { value: "vip-bills", label: "VIP Bills (Device + Service)" },
@@ -46,10 +47,6 @@ function todayIso() {
   return `${d.getFullYear()}-${mm}-${dd}`;
 }
 
-function safeName(s) {
-  return String(s).replace(/[^a-z0-9]+/gi, "_");
-}
-
 function triggerDownload(blob, filename) {
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
@@ -68,17 +65,17 @@ function processorFor(entryType) {
       rowsToXlsxBuffer: salesRowsToXlsxBuffer,
       allInOne: salesAllInOneRows,
       columns: SALES_COLUMNS,
-      filePrefix: "Sales",
+      kind: "Sale",
+      dateKey: "Invoice Date",
     };
   }
-  const filePrefix =
-    entryType === "vip-device" ? "VIP-Device" : entryType === "vip-service" ? "VIP-Service" : "VIP-Bills";
   return {
     rowsToCsv: billsRowsToCsv,
     rowsToXlsxBuffer: billsRowsToXlsxBuffer,
     allInOne: billsAllInOneRows,
     columns: BILLS_COLUMNS,
-    filePrefix,
+    kind: "Exp",
+    dateKey: "Date",
   };
 }
 
@@ -183,13 +180,19 @@ export default function JvEntryPage() {
     const fns = processorFor(result.entryType);
     const combined = fns.allInOne(result.byCompany);
     const buf = fns.rowsToXlsxBuffer(combined, "JV");
-    triggerDownload(new Blob([buf], { type: XLSX_MIME }), `JV-${fns.filePrefix}-AllCompanies.xlsx`);
+    triggerDownload(
+      new Blob([buf], { type: XLSX_MIME }),
+      buildExportFileName("AllCompanies", fns.kind, combined, fns.dateKey, "xlsx")
+    );
   }
 
   function handleAllInOneCsv() {
     const fns = processorFor(result.entryType);
     const combined = fns.allInOne(result.byCompany);
-    triggerDownload(new Blob([fns.rowsToCsv(combined)], { type: CSV_MIME }), `JV-${fns.filePrefix}-AllCompanies.csv`);
+    triggerDownload(
+      new Blob([fns.rowsToCsv(combined)], { type: CSV_MIME }),
+      buildExportFileName("AllCompanies", fns.kind, combined, fns.dateKey, "csv")
+    );
   }
 
   async function handleCompanyWiseXlsx() {
@@ -198,16 +201,19 @@ export default function JvEntryPage() {
     if (companies.length <= 1) {
       const [company, rows] = companies[0];
       const buf = fns.rowsToXlsxBuffer(rows, company);
-      triggerDownload(new Blob([buf], { type: XLSX_MIME }), `JV-${fns.filePrefix}-${safeName(company)}.xlsx`);
+      triggerDownload(
+        new Blob([buf], { type: XLSX_MIME }),
+        buildExportFileName(company, fns.kind, rows, fns.dateKey, "xlsx")
+      );
       return;
     }
     const JSZip = (await import("jszip")).default;
     const zip = new JSZip();
     for (const [company, rows] of companies) {
-      zip.file(`JV-${fns.filePrefix}-${safeName(company)}.xlsx`, fns.rowsToXlsxBuffer(rows, company));
+      zip.file(buildExportFileName(company, fns.kind, rows, fns.dateKey, "xlsx"), fns.rowsToXlsxBuffer(rows, company));
     }
     const blob = await zip.generateAsync({ type: "blob" });
-    triggerDownload(blob, `JV-${fns.filePrefix}-CompanyWise.zip`);
+    triggerDownload(blob, "JV-CompanyWise.zip");
   }
 
   async function handleCompanyWiseCsv() {
@@ -217,17 +223,17 @@ export default function JvEntryPage() {
       const [company, rows] = companies[0];
       triggerDownload(
         new Blob([fns.rowsToCsv(rows)], { type: CSV_MIME }),
-        `JV-${fns.filePrefix}-${safeName(company)}.csv`
+        buildExportFileName(company, fns.kind, rows, fns.dateKey, "csv")
       );
       return;
     }
     const JSZip = (await import("jszip")).default;
     const zip = new JSZip();
     for (const [company, rows] of companies) {
-      zip.file(`JV-${fns.filePrefix}-${safeName(company)}.csv`, fns.rowsToCsv(rows));
+      zip.file(buildExportFileName(company, fns.kind, rows, fns.dateKey, "csv"), fns.rowsToCsv(rows));
     }
     const blob = await zip.generateAsync({ type: "blob" });
-    triggerDownload(blob, `JV-${fns.filePrefix}-CompanyWise.zip`);
+    triggerDownload(blob, "JV-CompanyWise.zip");
   }
 
   if (session === undefined) {

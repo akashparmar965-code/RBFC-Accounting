@@ -12,13 +12,10 @@ import {
   rowsToXlsxBuffer,
   CSV_COLUMNS,
 } from "@/lib/billsProcessor";
+import { buildExportFileName } from "@/lib/fileNaming";
 
 const XLSX_MIME = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
 const CSV_MIME = "text/csv;charset=utf-8;";
-
-function safeName(s) {
-  return String(s).replace(/[^a-z0-9]+/gi, "_");
-}
 
 function triggerDownload(blob, filename) {
   const url = URL.createObjectURL(blob);
@@ -99,11 +96,17 @@ export default function BillsPage() {
 
   async function downloadCompanyXlsx(company, rows) {
     const buf = rowsToXlsxBuffer(rows, company);
-    triggerDownload(new Blob([buf], { type: XLSX_MIME }), `Bills-${safeName(company)}.xlsx`);
+    triggerDownload(
+      new Blob([buf], { type: XLSX_MIME }),
+      buildExportFileName(company, "Exp", rows, "Date", "xlsx")
+    );
   }
 
   function downloadCompanyCsv(company, rows) {
-    triggerDownload(new Blob([rowsToCsv(rows)], { type: CSV_MIME }), `Bills-${safeName(company)}.csv`);
+    triggerDownload(
+      new Blob([rowsToCsv(rows)], { type: CSV_MIME }),
+      buildExportFileName(company, "Exp", rows, "Date", "csv")
+    );
   }
 
   async function downloadAllZip(format) {
@@ -111,9 +114,9 @@ export default function BillsPage() {
     const zip = new JSZip();
     for (const [company, rows] of Object.entries(result.byCompany)) {
       if (format === "xlsx") {
-        zip.file(`Bills-${safeName(company)}.xlsx`, rowsToXlsxBuffer(rows, company));
+        zip.file(buildExportFileName(company, "Exp", rows, "Date", "xlsx"), rowsToXlsxBuffer(rows, company));
       } else {
-        zip.file(`Bills-${safeName(company)}.csv`, rowsToCsv(rows));
+        zip.file(buildExportFileName(company, "Exp", rows, "Date", "csv"), rowsToCsv(rows));
       }
     }
     const blob = await zip.generateAsync({ type: "blob" });
