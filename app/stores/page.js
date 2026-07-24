@@ -19,7 +19,7 @@ const FIELDS = [
   { key: "salesforce_id", label: "Salesforce ID" },
 ];
 
-const TABLE_COLUMNS = ["elevate_name", "rbfc_market", "asm", "qbo_class_name", "epay", "vip_website_no"];
+const TABLE_COLUMNS = ["elevate_name", "rbfc_market", "asm", "company_name", "epay", "vip_website_no"];
 
 const emptyForm = () =>
   FIELDS.reduce((acc, f) => ({ ...acc, [f.key]: "" }), {});

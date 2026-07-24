@@ -1,116 +1,116 @@
-epay_address,epay,vip_website_no,vip_address,company,elevate_name,company_name,qbo_class_name,new_qbo_class,elevate_name_new_qbo_class,ondigo_address,salesforce_id,rbfc_market,asm
-"112 12th St NW, Canton, OH, 44703",493901,7869027,112 12th St NW,Youngstown,AK - 12th,Youngstown,Canton 7524,7524,AK - 12th-7524,"112 12th St NW, Canton, OH 44703-1803, US",0018000001HbIKnAAN,Akron,Nick
-"1400 S Arlington St, Akron, OH, 44306",493899,7869031,1400 S Arlington St Unit 14,Youngstown,AK - Arlington,Youngstown,Arlingtone 7511,7511,AK - Arlington-7511,"1400 S Arlington St, STE 14, Akron, OH 44306-3772, US",00180000016arsWAAQ,Akron,Nick
-"921 E Market St, Akron, OH, 44305",493914,7869001,921 E Market St,Youngstown,AK - Market,Youngstown,E market 7553,7553,AK - Market-7553,"921 E Market St, Akron, OH 44305-2425, US",0018000001HbMjgAAF,Akron,Nick
-"2236 Tuscarawas St W, Canton, OH, 44708",493896,7869037,2236 Tuscarawas St W,Youngstown,AK - Tusc,Youngstown,tuscarawas 7540,7540,AK - Tusc-7540,"2236 Tuscarawas St W, Canton, OH 44708-4748, US",0018000000uzv8BAAQ,Akron,Nick
-"2105 S Union Ave, Alliance, OH, 44601",493897,7869035,2105 S Union Ave,Youngstown,AK - Union,Youngstown,Union 7537,7537,AK - Union-7537,"2105 S Union Ave, Alliance, OH 44601-4961, US",0018000000RhKbVAAV,Akron,Nick
-"3 N Bridge St, Chillicothe, OH, 45601",493920,7868987,3 N Bridge St,Columbus,CB - Bridge St,Columbus,Chillicothe 6520,6520,CB - Bridge St-6520,"3 N Bridge St, Chillicothe, OH 45601-2615, US",0018000001WZ268AAD,Columbus,Cristina
-"3350 Cleveland Ave, Columbus, OH, 43224",493919,7868989,3350 Cleveland Ave,Columbus,CB - Cleveland Ave,Columbus,Cleveland 7676,7676,CB - Cleveland Ave-7676,"3350 Cleveland Ave, STE 1956, Columbus, OH 43224-3677, US",0018000000kt0JxAAI,Columbus,Cristina
-"755 Georgesville Rd, Columbus, OH, 43228",493915,7868997,755 Georgesville Rd,Columbus,CB - Georgesville,Columbus,Georgesville 6579,6579,CB - Georgesville-6579,"755 Georgesville Rd, Columbus, OH 43228-2826, US",00180000016arrxAAA,Columbus,Cristina
-"534 Norton Rd, Columbus, OH, 43228",489900,7868098,534 Norton Rd,Columbus,CB - Michoacana,Columbus,Mex-3544,3544,CB - Michoacana-3544,"534 Norton Rd, Columbus, OH 43228-2617, US",0018000000shMTCAA2,Columbus,Cristina
-"4378 Cleveland Ave, Columbus, OH, 43224",493917,7868993,4378 Cleveland Ave,Columbus,CB - Morse,Columbus,Hyde Park 6546,6546,CB - Morse-6546,"4378 Cleveland Ave, Columbus, OH 43224-1578, US",0013000000G82PFAAZ,Columbus,Cristina
-"1060 Mt Vernon Rd, Newark, OH, 43055",489902,7868094,1060 Mount Vernon Rd,Columbus,CB - Newark,Columbus,Newark- 3593,3593,CB - Newark-3593,"1060 Mount Vernon Rd, Newark, OH 43055-3029, US",0018000000wH3MqAAK,Columbus,Cristina
-"1110 Norton Road, Columbus, OH, 43228",492437,7868117,1110 Norton Rd,Columbus,CB - Norton Plaza,Columbus,NortonPlaza- 3668,3668,CB - Norton Plaza-3668,"1110 Norton Rd, Columbus, OH 43228, US",0018000000RhKYDAA3,Columbus,Cristina
-"3639 W Broad St, Columbus, OH, 43228",493918,7868991,3639 W Broad St,Columbus,CB - West Broad,Columbus,Wborad 7689,7689,CB - West Broad-7689,"3639 W Broad St, Columbus, OH 43228-1450, US",0013000000G82PIAAZ,Columbus,Cristina
-"1063 Linden Ave, Zanesville, OH, 43701",489907,7868102,1063 Linden Ave,Columbus,CB - Zanesville,Columbus,Zanesville- 3726,3726,CB - Zanesville-3726,"1063 Linden Ave, Zanesville, OH 43701-3050, US",0018000000kt0JwAAI,Columbus,Cristina
-"1626 E Prospect Rd, Ashtabula, OH, 44004",493898,7869033,1626 E Prospect Rd,Cleveland,CL - Ashtabula,Cleveland,Ashtabula 7498,7498,CL - Ashtabula-7498,"1626 E Prospect Rd, Ashtabula, OH 44004-5829, US",0018000001HZuimAAD,Cleveland,Jill
-"6630 Broadway Ave, Cleveland, OH, 44105",493894,7868999,6630 Broadway Ave,Cleveland,CL - Broadway,Cleveland,Broadway 7702,7702,CL - Broadway-7702,"6630 Broadway Ave, Cleveland, OH 44105-1310, US",0018000000wHsDkAAK,Cleveland,Jill
-"11600 Buckeye Rd, Cleveland, OH, 44120",493900,7869029,11600 Buckeye Rd,Cleveland,CL - Buckeye,Cleveland,Buckeye 7485,7485,CL - Buckeye-7485,"11600 Buckeye Rd, Cleveland, OH 44120-2617, US",0013000000GjsNVAAZ,Cleveland,Jill
-"1027 State Street, Erie, PA, 16501",470667,7483252,1027 State St,PA,CL - Erie,PA,State St 1675,1675,CL - Erie-1675,"1027 State St, Erie, PA 16501-1803, US",0012E00001u48zfQAA,Cleveland,Jill
-"24 Public Sq, Cleveland, OH, 44113",493895,7869039,24 Public Sq,Cleveland,CL - Public Square,Cleveland,Public 7692,7692,CL - Public Square-7692,"24 Public Sq, STE 100, Cleveland, OH 44113-2213, US",0018000001aLGgyAAG,Cleveland,Jill
-"1052 Cleveland Rd, Sandusky, OH, 44870",493924,7868979,1052 Cleveland Rd,Cleveland,CL - Sandusky,Cleveland,Sandusky 6413,6413,CL - Sandusky-6413,"1052 Cleveland Rd, Sandusky, OH 44870-4034, US",0018000001DPcHjAAL,Cleveland,Jill
-"10933 Superior Ave, Cleveland, OH, 44106",493902,7869025,10933 Superior Ave,Cleveland,CL - Superior,Cleveland,Superior 7472,7472,CL - Superior-7472,"10933 Superior Ave, UNIT B, Cleveland, OH 44106-1272, US",0018000001Z5PzYAAV,Cleveland,Jill
-"1101 Brownsville Road, Mt Oliver, PA, 15210",470674,7483256,1101 Brownsville Rd,PA,SP - Brownsville,PA,Brownsvile 5304,5304,SP - Brownsville-5304,"1101 Brownsville Rd, BOOST MOBILE, Pittsburgh, PA 15210-3648, US",0018000001bOY8PAAW,South PA,Anthony
-"709 Liberty Ave, Pittsburgh, PA, 15222",488350,7867892,709 Liberty Ave,PA,NP - Liberty,PA,Liberty 6681,6681,NP - Liberty-6681,"709 Liberty Ave, Ste 105, Pittsburgh, PA 15222, US",0018000001bYk3VAAS,North PA,Vikas
-"2802 Lafayette Rd, Indianapolis, IN, 46222",493912,7869005,2802 Lafayette Rd,Indiana,IN - Eagledale,Indiana,Lafayette 7812,7812,IN - Eagledale-7812,"2802 Lafayette Rd, STE 16, Indianapolis, IN 46222-2112, US",0018000000hsp7ZAAQ,Indianapolis,Imad
-"3923 N High School Rd, Indianapolis, IN, 46254",493910,7869009,3923 N High School Rd,Indiana,IN - High School,Indiana,North HS 7728,7728,IN - High School-7728,"3923 N High School Rd, Indianapolis, IN 46254-2710, US",0018000001BoqrmAAB,Indianapolis,Imad
-"3701 N Post Rd, Indianapolis, IN, 46226",493911,7869007,3701 N Post Rd,Indiana,IN - Post Rd,Indiana,Post 7595,7595,IN - Post Rd-7595,"3701 N Post Rd, Indianapolis, IN 46226-6063, US",0018000000wGh6cAAC,Indianapolis,Imad
-"3940 S Keystone Ave, Indianapolis, IN, 46227",493909,7869011,3940 S Keystone Ave,Indiana,IN - S Keystone,Indiana,Keystone 7825,7825,IN - S Keystone-7825,"3940 S Keystone Ave, STE 7, Indianapolis, IN 46227-3580, US",0018000000nljDAAAY,Indianapolis,Imad
-"444 E Sumner Ave, Indianapolis, IN, 46227",493906,7869017,444 E Sumner Ave,Indiana,IN - Sumner,Indiana,Sumner 7841,7841,IN - Sumner-7841,"444 E Sumner Ave, STE E, Indianapolis, IN 46227-7218, US",0018000000wFpDTAA0,Indianapolis,Imad
-"600 Twin Aire Dr, Indianapolis, IN, 46203",493904,7869021,600 Twin Aire Dr,Indiana,IN - Twin Aire,Indiana,Aire 7618,7618,IN - Twin Aire-7618,"600 Twin Aire Dr, Indianapolis, IN 46203-1450, US",0018000000nljDCAAY,Indianapolis,Imad
-"8975 E Washington St, Indianapolis, IN, 46219",493903,7869023,8975 E Washington St,Indiana,IN - Washington,Indiana,Washington 7621,7621,IN - Washington-7621,"8975 E Washington St, STE 104, Indianapolis, IN 46219-6852, US",0018000000njPfjAAE,Indianapolis,Imad
-"1908 E 53rd St, Anderson, IN, 46013",493913,7869003,1908 E 53rd St,Indiana,NI - E 53rd,Indiana,East St 7473,7473,NI - E 53rd-7473,"1908 E 53rd St, Anderson, IN 46013-2832, US",0018000001BrgiXAAR,North Indy,Ashlie
-"4240 N Franklin Rd, Indianapolis, IN, 46226",493908,7869013,4240 N Franklin Rd,Indiana,NI - Franklin,Indiana,Franklin 7605,7605,NI - Franklin-7605,"4240 N Franklin Rd, STE 105, Indianapolis, IN 46226-4273, US",0018000000nljDBAAY,North Indy,Ashlie
-"533 S Reed Rd, Kokomo, IN, 46901",493905,7869019,533 S Reed Rd,Indiana,NI - Kokomo,Indiana,Kokomo 7502,7502,NI - Kokomo-7502,"533 S Reed Rd, Kokomo, IN 46901-5692, US",0018000001IiPRrAAN,North Indy,Ashlie
-"4401 E 10th St, Indianapolis, IN, 46201",493907,7869015,4401 E 10th St,Indiana,NI - Linwood,Indiana,E10 7838,7838,NI - Linwood-7838,"4401 E 10th St, STE 14, Indianapolis, IN 46201-2754, US",0018000000nljCjAAI,North Indy,Ashlie
-"1908 S Scatterfield Rd, Anderson, IN, 46016",493925,7868977,1908 S Scatterfield Rd,Indiana,NI - Scatterfield,Indiana,Scatterfield 7481,7481,NI - Scatterfield-7481,"1908 S Scatterfield Rd, Anderson, IN 46016-5725, US",00180000016b0uFAAQ,North Indy,Ashlie
-"2687 Broadhead Road, Aliquippa, PA, 15001",470676,7483257,2687 Brodhead Rd,PA,NP - Aliquippa,PA,Aliquippa 9475,9475,NP - Aliquippa-9475,"2687 Brodhead Rd, Aliquippa, PA 15001-2767, US",0018000001XXFC1AAP,North PA,Vikas
-"16280 Dresden Ave, Calcutta, OH, 43920",488488,7867907,16280 Dresden Ave,Youngstown,NP - Calcutta,Youngstown,Calcutta 4073,4073,NP - Calcutta-4073,"16280 Dresden Ave, East Liverpool, OH 43920, US",0018000001IiWQJAA3,North PA,Vikas
-"1964 E State St, Hermitage, PA, 16148",479228,7798844,1964 E State St,PA,YT - Hermitage,PA,Hermitage 5636,5636,YT - Hermitage-5636,"1964 E State St, Hermitage, PA 16148-1815, US",0018000000sgh4oAAA,Youngstown,Eddie
-"12 N Mill St, New Castle, PA, 16101",479227,7798845,12 N Mill St,PA,YT - New Castle,PA,New Castle 5644,5644,YT - New Castle-5644,"12 N Mill St, New Castle, PA 16101-3610, US",0018000000sgh4kAAA,Youngstown,Eddie
-"688 Albright Road, Rock Hill, SC, 29730",470679,7485459,688 Albright Rd,SC,SC - Albright,SC,Albright X1191,1191,SC - Albright-1191,"688 Albright Rd, STE 103, Rock Hill, SC 29730-6290, US",0018000000UvUtjAAF,South Carolina,Pedro
-"578 Anderson Road N, Rock Hill, SC, 29730",470678,7485458,578 Anderson Rd N,SC,SC - Anderson,SC,Anderson 1212,1212,SC - Anderson-1212,"578 Anderson Rd N, Rock Hill, SC 29730-7300, US",0018000001GX9wWAAT,South Carolina,Pedro
-"401 Saluda Street, Rock Hill, SC, 29730",470677,7485460,401 Saluda St,SC,SC - Saluda,SC,Saluda 1204,1204,SC - Saluda-1204,"401 Saluda St, Rock Hill, SC 29730-5309, US",0018000001Jc3aeAAB,South Carolina,Pedro
-"11501 Hoffman Blvd, West Mifflin, PA, 15122",470666,7483260,1204 Hoffman Blvd,PA,SP - Hoffman,PA,Hoffman 4833,4833,SP - Hoffman-4833,"1204 Hoffman Blvd, ste 1800, West Mifflin, PA 15122-2305, US",0018000000ZjJcrAAF,South PA,Anthony
-"118 E 8th Avenue, Homestead, PA, 15120",470671,7483259,118 E 8th Ave,PA,SP - Homestead,PA,Homestead 4866,4866,SP - Homestead-4866,"118 E 8th Ave, boost mobile, Homestead, PA 15120-1504, US",0018000000rPvBtAAK,South PA,Anthony
-"217 Mall Circle Drive, Monroeville, PA, 15146",470670,7483262,234 Monroeville Mall,PA,EP - Monroeville,PA,MonroeMall 9097,9097,EP - Monroeville-9097,"234 Monroeville Mall, ste 234, Monroeville, PA 15146-2223, US",0018000001JeIyWAAV,East PA,Mohammed
-"5905 Penn Avenue, Pittsburgh, PA, 15206",470669,7483251,5905 Penn Ave,PA,EP - Penn Ave,PA,Penn Ave 1667,1667,EP - Penn Ave-1667,"5905 Penn Ave, Pittsburgh, PA 15206-3818, US",0012E00001u2rnOQAQ,East PA,Mohammed
-"11607 Penn Hills Drive, Pittsburgh, PA, 15235",470668,7483255,11607 Penn Hills Dr,PA,EP - Penn Hills,PA,RBFC Penn Hills 5296,5296,EP - Penn Hills-5296,"11607 Penn Hills Dr, BOOST MOBILE, Pittsburgh, PA 15235-3329, US",0018000000xoRAsAAM,East PA,Mohammed
-"762 Penn Ave, Pittsburgh, PA, 15221",479230,7798842,762 Penn Ave,PA,EP - Wilkinsburg,PA,Wilkins 5669,5669,EP - Wilkinsburg-5669,"762 Penn Ave, Pittsburgh, PA 15221-2217, US",0018000001Je3LUAAZ,East PA,Mohammed
-"4224 Asheville Hwy, Knoxville, TN, 37914",494516,7869185,4224 Asheville Hwy,Nashville,TE - Asheville Hwy,Nashville,6544 Asheville,6544,TE - Asheville Hwy-6544,"4224 Asheville Hwy, Knoxville, TN 37914, US",0018000001Igvd7AAB,Tennessee East,TBD
-"4409 Chapman Hwy, Suite 5, Knoxville, TN, 37920",474396,7756391,4409 Chapman Hwy,Knoxville,TE - Chapman,Knoxville,Chapman-0699,0699,TE - Chapman-0699,"4409 Chapman Highway, Suite V, Knoxville, TN 37920-4357, US",0018000001JboQEAAZ,Tennessee East,TBD
-"6739 Clinton Hwy, Knoxville, TN, 37912",474166,7749438,6739 Clinton Hwy,Knoxville,TE - Clinton,Knoxville,Clinton -0664,0664,TE - Clinton-0664,"6739 Clinton Hwy, Knoxville, TN 37912-1000, US",0018000001aJJQcAAO,Tennessee East,TBD
-"7019 Kingston Pike, Knoxville, TN, 37919",474163,7749746,7019 Kingston Pike,Knoxville,TE - Kingston,Knoxville,Kingston-0710,0710,TE - Kingston-0710,"7019 Kingston Pike, Knoxville, TN 37919-5706, US",00180000016ZHeUAAW,Tennessee East,TBD
-"2001 N Broadway Street, Knoxville, TN, 37917",494527,7869187,2001 N Broadway St,Nashville,TE - North Broadway,Nashville,6552 Broadway,6552,TE - North Broadway-6552,"2001 N Broadway Street, Suite F, Knoxville, TN 37917, US",0018000001Jcz4EAAR,Tennessee East,TBD
-"1338 Parkway, STE 8, Sevierville, TN, 37862",494500,7869183,1338 Parkway,Nashville,TE - Sevierville,Nashville,6528 Sevierville,6528,TE - Sevierville-6528,"1338 Parkway, STE 8, Sevierville, TN 37862-4000, US",0018000001Oo9cPAAR,Tennessee East,TBD
-"3613 Western Avenue, Knoxville, TN, 37921",494538,7869189,3613 Western Ave,Nashville,TE - Western Ave,Nashville,6536 Western,6536,TE - Western Ave-6536,"3613 Western Avenue, Knoxville, TN 37921, US",0018000001LWNBvAAP,Tennessee East,TBD
-"3056 Dickerson Pike, Nashville, TN, 37207",477459,7776010,3056 Dickerson Pike,Nashville,TW - Dickerson Pike,Nashville,DP 6614,6614,TW - Dickerson Pike-6614,"3056 Dickerson Pike, STE B, Nashville, TN 37207-2902, US",00180000010KTYvAAO,Tennessee West,Bhupen
-"2412 E Broadway Ave, Maryville, TN, 37804",474156,7749236,2412 E Broadway Ave,Knoxville,TW - East Broadway,Knoxville,E Broadway-0680,0680,TW - East Broadway-0680,"2412 E Broadway Ave, Maryville, TN 37804-2759, US",0018000001RdM4NAAV,Tennessee West,Bhupen
-"1128 Murfreesboro Pike, Nashville, TN, 37217",477455,7776007,1128 Murfreesboro Pike,Nashville,TW - Murfreesboro Pike,Nashville,MP 6592,6592,TW - Murfreesboro Pike-6592,"1128 Murfreesboro Pike, STE 102, Nashville, TN 37217-2129, US",0018000000LphJ2AAJ,Tennessee West,Bhupen
-"1183 Oak Ridge Tpk, Oak Ridge, TN, 37830",474168,7749442,1183 Oak Ridge Tpke,Knoxville,TW - Oak Ridge,Knoxville,Oakridge-0672,0672,TW - Oak Ridge-0672,"1183 Oak Ridge Tpke, Oak Ridge, TN 37830-6442, US",0018000001UCPQUAA5,Tennessee West,Bhupen
-"202 N Thompson Lane, Murfreesboro, TN, 37129",477457,7776009,202 N Thompson Ln,Nashville,TW - Thompson Ln,Nashville,TL 6606,6606,TW - Thompson Ln-6606,"202 N Thompson Ln, STE A, Murfreesboro, TN 37129-4327, US",00180000016Z6N2AAK,Tennessee West,Bhupen
-"1807 West Broadway Ave, Maryville, TN, 37801",474176,7749744,1807 W Broadway Ave,Knoxville,TW - West Broadway,Knoxville,W Broadway -0702,0702,TW - West Broadway-0702,"1807 W Broadway Ave, Maryville, TN 37801-5511, US",0018000001FPZUNAA5,Tennessee West,Bhupen
-"1408 N Main St, Findlay, OH, 45840",493922,7868983,1408 N Main St,Columbus,WO - Findlay,Columbus,Findlay 7579,7579,WO - Findlay-7579,"1408 N Main St, Findlay, OH 45840-3730, US",0018000000sfrvFAAQ,Western Ohio,Michael
-"200 N Metcalf St, Lima, OH, 45801",493921,7868985,200 N Metcalf St,Columbus,WO - Lima,Columbus,Lima 7582,7582,WO - Lima-7582,"200 N Metcalf St, STE C, Lima, OH 45801-4257, US",0018000000ogxxTAAQ,Western Ohio,Michael
-"1071 Park Ave West, Mansfield, OH, 44906",489906,7868092,1071 Park Ave W,Columbus,WO - Mansfield,Columbus,Mansfield -3486,3486,WO - Mansfield-3486,"1071 Park Ave W, Mansfield, OH 44906-2811, US",0018000000sgMr6AAE,Western Ohio,Michael
-"1295 Mount Vernon Ave, Suite 100, Marion, OH, 43302",489898,7868100,1295 Mount Vernon Ave,Columbus,WO - Marion,Columbus,Marion- 3502,3502,WO - Marion-3502,"1295 Mount Vernon Ave, STE 100, Marion, OH 43302-5660, US",0018000000pM0YfAAK,Western Ohio,Michael
-"561 N Vandemark Rd, Sidney, OH, 45365",493916,7868995,561 N Vandemark Rd,Columbus,WO - Sidney,Columbus,Sidney 6470,6470,WO - Sidney-6470,"561 N Vandemark Rd, Sidney, OH 45365-2454, US",0018000001HbIMUAA3,Western Ohio,Michael
-"1063 N Bechtle Ave, Springfield, OH, 45504",493923,7868981,1063 N Bechtle Ave,Columbus,WO - Springfield,Columbus,Springfiled 7566,7566,WO - Springfield-7566,"1063 N Bechtle Ave, Springfield, OH 45504-2007, US",00180000016arr4AAA,Western Ohio,Michael
-"5221 Mahoning Ave, Austintown, OH, 44515",489027,7867962,5221 Mahoning Ave,Youngstown,YT - Austintown,Youngstown,Ausintown 1337,1337,YT - Austintown-1337,"5221 Mahoning Ave, Austintown, OH 44515-1807, US",0018000000xoxMUAAY,Youngstown,Eddie
-"3900 Belmont Ave, Youngstown, OH, 44505",487447,7865964,3900 Belmont Ave,Youngstown,YT - Belmont,Youngstown,Belmont 6923,6923,YT - Belmont-6923,"3900 Belmont Ave, Youngstown, OH 44505-1410, US",00180000016ZYdjAAG,Youngstown,Eddie
-"104 Boardman-Poland Rd, Boardman, OH, 44512",487449,7868104,104 Boardman Poland Road,Youngstown,YT - Boardman,Youngstown,Boardman 6709,6709,YT - Boardman-6709,"104 Boardman Poland Road, Youngstown, OH 44512-4603, US",0018000000k0PIwAAM,Youngstown,Eddie
-"669 Gypsy Lane, Youngstown, OH, 44505",492407,7868628,669 Gypsy Lane,Youngstown,YT - Gypsy Lane,Youngstown,Gypsy 1843,1843,YT - Gypsy Lane-1843,"669 Gypsy Ln, Youngstown, OH 44505-2409, US",0013t00002HIZHwAAP,Youngstown,0
-"3304 Mahoning Ave, Youngstown, OH, 44509",487450,7866267,3304 Mahoning Ave,Youngstown,YT - Mahoning,Youngstown,Mahoning 6816,6816,YT - Mahoning-6816,"3304 Mahoning Ave, Youngstown, OH 44509-2616, US",0018000000qWd2iAAC,Youngstown,Eddie
-"669 McCartney Rd, Youngstown, OH, 44505",487453,7866269,669 McCartney Rd,Youngstown,YT - McCartney,Youngstown,McCartney 6774,6774,YT - McCartney-6774,"669 McCartney Rd, STE 1, Youngstown, OH 44505-5048, US",0018000000njChiAAE,Youngstown,Eddie
-"5855 Youngstown Warren Rd, Niles, OH, 44446",487452,7866268,5580 Youngstown Warren Rd,Youngstown,YT - Niles,Youngstown,Niles 6857,6857,YT - Niles-6857,"5580 Youngstown Warren Rd, STE 9, Niles, OH 44446-4800, US",0018000000tiVvKAAU,Youngstown,Eddie
-"2815 Youngstown Rd, Warren, OH, 44484",487448,7865965,2815 Youngstown Rd SE,Youngstown,YT - Warren,Youngstown,Warren 6873,6873,YT - Warren-6873,"2815 Youngstown Rd SE, Warren, OH 44484-5079, US",0018000000xpClXAAU,Youngstown,Eddie
-"917 W Market St, Warren, OH, 44481",487446,7865863,917 W Market St,Youngstown,YT - West Market,Youngstown,W Market 6907,6907,YT - West Market-6907,"917 W Market St, Warren, OH 44481-1041, US",00180000016ZJdwAAG,Youngstown,Eddie
-"3008 Sullivant Avenue, Columbus, OH, 43204",489903,7868096,3008 Sullivant Avenue,Columbus,CB - Sullivant,Columbus,Sullivant- 3718,3718,CB - Sullivant-3718,"3008 Sullivant Ave, Columbus, OH 43204-2423, US",0018000001LVsU6AAL,Columbus,Vae
-"920 Main Street, Pittsburgh, PA, 15215",499292,7869858,920 Main St,PA,EP - Main Street,PA,Main Street 7267,7267,EP - Main Street-7267,"920 Main Street, Pittsburgh, PA 15215, US",0013t00002AJbLjAAL,East PA,Mohammed
-"717 Broadway Ave, McKees Rocks, PA, 15136",499317,7869863,717 Broadway Ave,PA,NP - Mckees Rocks,PA,Mckees Rocks 7598,7598,NP - Mckees Rocks-7598,"717 Broadway Ave, Mc Kees Rocks, PA 15136, US",0018000000kw6gYAAQ,North PA,Vikas
-"6006 Broad St, East Liberty, PA, 15206",499311,7869860,6006 Broad St,PA,EP - East Liberty,PA,East Liberty 7614,7614,EP - East Liberty-7614,"6006 Broad St, East Liberty, PA 15206, US",0018000000pOKl7AAG,East PA,Mohammed
-"2012 Noble Street, Swissvale, PA 15218",499319,7869868,2012 Noble St,PA,SP - Swissvale,PA,Swissvale 7630,7630,SP - Swissvale-7630,"2012 Noble Street, Swissvale, PA 15218, US",0018000000rPvBwAAK,South PA,Anthony
-"408 Lysle Blvd, McKeesport, PA, 15132",499321,7869870,408 Lysle Blvd,PA,SP - Mckeesport,PA,Lysle 7689,7689,SP - Mckeesport-7689,"408 Lysle Blvd, McKeesport, PA 15132, US",0018000000tiVvYAAU,South PA,Anthony
-"411 Smithfield St, Pittsburgh, PA 15222",499323,7869874,411 Smithfield St,PA,NP - Smithfield,PA,Smithfield 7812,7812,NP - Smithfield-7812,"411 Smithfield St., Pittsburgh, PA 15222, US",0018000001AAaqGAAT,North PA,Vikas
-"1726 Greensburg Ave, North Versailles, PA, 15137",499322,7869872,1726 Greensburg Ave,PA,EP - North Versailles,PA,North Versailles 7820,7820,EP - North Versailles-7820,"1726 Greensburg Ave, North Versailles, PA 15137, US",0018000001GUTbrAAH,East PA,Mohammed
-"89 Tarentum Bridge Road, New Kensington, PA, 15068",499325,7869876,89 Tarentum Bridge Rd,PA,EP - New Ken,PA,New Ken 7846,7846,EP - New Ken-7846,"89 Tarentum Bridge Road, New Kensington, PA 15068, US",0018000001NnmhPAAR,East PA,Mohammed
-"2000 Wharton Street, Pittsburgh, PA, 15203",499291,7869851,2000 Wharton St,PA,WP - Southside,PA,Southside 7853,7853,WP - Southside-7853,"2000 Wharton Street, STE 100, Pittsburgh, PA 15203, US",0018000001Vwn8AAAR,West PA,Ramona
-"4313 Walnut St, McKeesport, PA, 15132",499326,7869880,4313 Walnut St,PA,Walnut St,PA,Walnut St,t St,Walnut St-t St,,,,
-"529 East Manhattan Boulevard Toledo, OH 43608",499780,7870127,529 East Manhattan Boulevard,Cleveland,WO - Manhattan,Cleveland,Manhattan 8322,8322,WO - Manhattan-8322,"529 East Manhattan Boulevard, Toledo, OH 43608, US",0014z00001tEeKTAA0,Western Ohio,Michael
-"5409 Dorr Street Toledo, OH, 43615",499762,7870117,5409 Dorr St,Cleveland,WO - Dorr Street,Cleveland,Dorr 8319,8319,WO - Dorr Street-8319,"5409 Dorr Streete, Toledo, OH 43615, US",0018000001bNbOIAA0,Western Ohio,Michael
-"2310 Woodville Road Oregon, OH 43616",500036,7870214,2310 Woodville Rd,Cleveland,WO - Woodville,Cleveland,Oregon 8903,8903,WO - Woodville-8903,"2310 Woodville Road, Oregon, OH, 43616, US",0018000001c623sAAA,Western Ohio,Michael
-"5800 N Sharon Amity Rd Charlotte, NC 28215",500008,7870204,5800 N Sharon Amity Rd,NC,SC - East Town,NC,East Town Market-9198,9198,SC - East Town-9198,"5800 N Sharon Amity Rd, STE H, Charlotte, NC 28215, US",001U100000cN2zLIAS,South Carolina,Pedro
-"5106 Butler Street Pittsburgh, PA 15201",500072,7870239,5106 Butler St Apt 1,PA,WP - Butler,PA,Butler 6652,6652,WP - Butler-6652,"5106 Butler Street, Pittsburgh, PA 15201, US",0018000001OlWiFAAV,East PA,Mohammed
-"4625 Liberty Ave Pittsburgh, PA 15224",500073,7870241,4625 Liberty Ave,PA,EP - Bloomfield,PA,Bloomfield 6645,6645,EP - Bloomfield-6645,"4625 Liberty Ave, Pittsburgh, PA 15224, US",0012E00001u3ZGcQAM,East PA,Mohammed
-"943 5th ave Coraopolis, PA 15108",500081,7870245,943 5th Ave Apt 1,PA,NP - Coraopolis,PA,Coraopolis 6660,6660,NP - Coraopolis-6660,"943 5th ave, Coraopolis, PA 15108, US",0012E00002JdArvQAF,North PA,Vikas
-"2516 Bethel Rd Columbus, OH, 43220",500168,7870290,2516 Bethel Rd,Columbus,CB - Bethel Rd,Columbus,Bethel 8555,8555,CB - Bethel Rd-8555,"2500 Bethel Rd, Columbus, OH 43220, US",001U100000dU5gdIAC,Columbus,Cristina
-"5965 S Sunbury Rd Westerville, OH, 43081",500186,7870299,5965 S Sunbury Rd,Columbus,CB - Westerville,Columbus,Sunbury 4902,4902,CB - Westerville-4902,"5965 S Sunbury Rd, Westerville, OH 43081, US",001U100000bYv8GIAS,Columbus,Cristina
-,500230,7870307,514 Chartiers Ave,PA,NP - Chartiers,PA,Chartier 5651,5651,NP - Chartiers-5651,"514 Chartiers Ave, Mc Kees Rocks, PA 15136, US",0018000001XEZitAAH,North PA,Vikas
-,500238,7870312,1726 E Carson St Fl 1,PA,WP - East Carson,PA,East Carson 6694,6694,WP - East Carson-6694,"1726 East Carson St, FL 1, Pittsburgh, PA 15203, US",0018000001LUxRyAAL,West PA,Ramona
-,,7867960,2750 Mahoning Ave,Youngstown,YT - Jamestown Village,Youngstown,Jamestown 1287,1287,YT - Jamestown Village-1287,,,,
-,,7870243,639 Merchant Street,PA,,PA,,,-,,,,
-,500239,7870316,4135 Brownsville Rd,PA,SP - Brentwood,PA,Brentwood 6678,6678,SP - Brentwood-6678,,0018000001bLh4eAAC,South PA,Anthony
-,,7870267,2794 Robinson BLVD,PA,,PA, , ,- ,,,,
-,500235,7870310,6136 Saltsburg Rd,PA,,PA,,,-,,,,
-,,7870237,28 W Steuben St,PA,,PA,,,-,,,,
-,500399,7870379,402 E Ohio Street,PA,NP - East Ohio,PA,,6744,NP - East Ohio-6744,,0018000000T932yAAB,North PA,Vikas
-,500400,7870383,247 Three Springs Dr,Youngstown,WP - Weirton,Youngstown,,8338,WP - Weirton-8338,,0018000001VxCemAAF,West PA,Ramona
-,500397,7870381,750 Brookline Blvd,PA,SP - Brookline,PA,,6751,SP - Brookline-6751,,0018000001OlVKCAA3,South PA,Anthony
-,500398,7870377,1609 Broadway Ave,PA,SP - Beechview,PA,,6637,SP - Beechview-6637,,0012E000024bC0kQAE,South PA,Anthony
-,501103,7870484,5021 Turney Road,Cleveland,CL - Garfield,Cleveland,,8911,CL - Garfield-8911,,001U100000HgJ1GIAV,Cleveland,Jill
-,501377,7870717,228 Brownsville Road,PA,SP - Knoxville,PA,,6702,SP - Knoxville-6702,,0012E00001tiNDWQA2,South PA,Anthony
-,,,,Cleveland,CL - S Euclid,Cleveland,,5629,CL - S Euclid-5629,,0018000001JdwwGAAR,Cleveland,Jill
-,,,,Cleveland,CL - Willowick,Cleveland,,5616,CL - Willowick-5616,,0018000001LXIDzAAP,Cleveland,Jill
-,,,,Cleveland,CL - Parma,Cleveland,,5632,CL - Parma-5632,,00180000016bFLnAAM,Cleveland,Jill
-,,,,PA,NP - Bellevue,PA,,,NP - Bellevue-,,001U100000u03yZIAQ,North PA ,Vikas
-,,,1155 Washington Pike,PA,SP - Bridgeville,PA,,,SP - Bridgeville-,,001U100000tzyKcIAI,South PA,Anthony
+epay_address,epay,vip_website_no,vip_address,elevate_name,company_name,elevate_name_new_qbo_class,ondigo_address,salesforce_id,rbfc_market,asm
+"112 12th St NW, Canton, OH, 44703",493901,7869027,112 12th St NW,AK - 12th,Youngstown,AK - 12th-7524,"112 12th St NW, Canton, OH 44703-1803, US",0018000001HbIKnAAN,Akron,Nick
+"1400 S Arlington St, Akron, OH, 44306",493899,7869031,1400 S Arlington St Unit 14,AK - Arlington,Youngstown,AK - Arlington-7511,"1400 S Arlington St, STE 14, Akron, OH 44306-3772, US",00180000016arsWAAQ,Akron,Nick
+"921 E Market St, Akron, OH, 44305",493914,7869001,921 E Market St,AK - Market,Youngstown,AK - Market-7553,"921 E Market St, Akron, OH 44305-2425, US",0018000001HbMjgAAF,Akron,Nick
+"2236 Tuscarawas St W, Canton, OH, 44708",493896,7869037,2236 Tuscarawas St W,AK - Tusc,Youngstown,AK - Tusc-7540,"2236 Tuscarawas St W, Canton, OH 44708-4748, US",0018000000uzv8BAAQ,Akron,Nick
+"2105 S Union Ave, Alliance, OH, 44601",493897,7869035,2105 S Union Ave,AK - Union,Youngstown,AK - Union-7537,"2105 S Union Ave, Alliance, OH 44601-4961, US",0018000000RhKbVAAV,Akron,Nick
+"3 N Bridge St, Chillicothe, OH, 45601",493920,7868987,3 N Bridge St,CB - Bridge St,Columbus,CB - Bridge St-6520,"3 N Bridge St, Chillicothe, OH 45601-2615, US",0018000001WZ268AAD,Columbus,Cristina
+"3350 Cleveland Ave, Columbus, OH, 43224",493919,7868989,3350 Cleveland Ave,CB - Cleveland Ave,Columbus,CB - Cleveland Ave-7676,"3350 Cleveland Ave, STE 1956, Columbus, OH 43224-3677, US",0018000000kt0JxAAI,Columbus,Cristina
+"755 Georgesville Rd, Columbus, OH, 43228",493915,7868997,755 Georgesville Rd,CB - Georgesville,Columbus,CB - Georgesville-6579,"755 Georgesville Rd, Columbus, OH 43228-2826, US",00180000016arrxAAA,Columbus,Cristina
+"534 Norton Rd, Columbus, OH, 43228",489900,7868098,534 Norton Rd,CB - Michoacana,Columbus,CB - Michoacana-3544,"534 Norton Rd, Columbus, OH 43228-2617, US",0018000000shMTCAA2,Columbus,Cristina
+"4378 Cleveland Ave, Columbus, OH, 43224",493917,7868993,4378 Cleveland Ave,CB - Morse,Columbus,CB - Morse-6546,"4378 Cleveland Ave, Columbus, OH 43224-1578, US",0013000000G82PFAAZ,Columbus,Cristina
+"1060 Mt Vernon Rd, Newark, OH, 43055",489902,7868094,1060 Mount Vernon Rd,CB - Newark,Columbus,CB - Newark-3593,"1060 Mount Vernon Rd, Newark, OH 43055-3029, US",0018000000wH3MqAAK,Columbus,Cristina
+"1110 Norton Road, Columbus, OH, 43228",492437,7868117,1110 Norton Rd,CB - Norton Plaza,Columbus,CB - Norton Plaza-3668,"1110 Norton Rd, Columbus, OH 43228, US",0018000000RhKYDAA3,Columbus,Cristina
+"3639 W Broad St, Columbus, OH, 43228",493918,7868991,3639 W Broad St,CB - West Broad,Columbus,CB - West Broad-7689,"3639 W Broad St, Columbus, OH 43228-1450, US",0013000000G82PIAAZ,Columbus,Cristina
+"1063 Linden Ave, Zanesville, OH, 43701",489907,7868102,1063 Linden Ave,CB - Zanesville,Columbus,CB - Zanesville-3726,"1063 Linden Ave, Zanesville, OH 43701-3050, US",0018000000kt0JwAAI,Columbus,Cristina
+"1626 E Prospect Rd, Ashtabula, OH, 44004",493898,7869033,1626 E Prospect Rd,CL - Ashtabula,Cleveland,CL - Ashtabula-7498,"1626 E Prospect Rd, Ashtabula, OH 44004-5829, US",0018000001HZuimAAD,Cleveland,Jill
+"6630 Broadway Ave, Cleveland, OH, 44105",493894,7868999,6630 Broadway Ave,CL - Broadway,Cleveland,CL - Broadway-7702,"6630 Broadway Ave, Cleveland, OH 44105-1310, US",0018000000wHsDkAAK,Cleveland,Jill
+"11600 Buckeye Rd, Cleveland, OH, 44120",493900,7869029,11600 Buckeye Rd,CL - Buckeye,Cleveland,CL - Buckeye-7485,"11600 Buckeye Rd, Cleveland, OH 44120-2617, US",0013000000GjsNVAAZ,Cleveland,Jill
+"1027 State Street, Erie, PA, 16501",470667,7483252,1027 State St,CL - Erie,PA,CL - Erie-1675,"1027 State St, Erie, PA 16501-1803, US",0012E00001u48zfQAA,Cleveland,Jill
+"24 Public Sq, Cleveland, OH, 44113",493895,7869039,24 Public Sq,CL - Public Square,Cleveland,CL - Public Square-7692,"24 Public Sq, STE 100, Cleveland, OH 44113-2213, US",0018000001aLGgyAAG,Cleveland,Jill
+"1052 Cleveland Rd, Sandusky, OH, 44870",493924,7868979,1052 Cleveland Rd,CL - Sandusky,Cleveland,CL - Sandusky-6413,"1052 Cleveland Rd, Sandusky, OH 44870-4034, US",0018000001DPcHjAAL,Cleveland,Jill
+"10933 Superior Ave, Cleveland, OH, 44106",493902,7869025,10933 Superior Ave,CL - Superior,Cleveland,CL - Superior-7472,"10933 Superior Ave, UNIT B, Cleveland, OH 44106-1272, US",0018000001Z5PzYAAV,Cleveland,Jill
+"1101 Brownsville Road, Mt Oliver, PA, 15210",470674,7483256,1101 Brownsville Rd,SP - Brownsville,PA,SP - Brownsville-5304,"1101 Brownsville Rd, BOOST MOBILE, Pittsburgh, PA 15210-3648, US",0018000001bOY8PAAW,South PA,Anthony
+"709 Liberty Ave, Pittsburgh, PA, 15222",488350,7867892,709 Liberty Ave,NP - Liberty,PA,NP - Liberty-6681,"709 Liberty Ave, Ste 105, Pittsburgh, PA 15222, US",0018000001bYk3VAAS,North PA,Vikas
+"2802 Lafayette Rd, Indianapolis, IN, 46222",493912,7869005,2802 Lafayette Rd,IN - Eagledale,Indiana,IN - Eagledale-7812,"2802 Lafayette Rd, STE 16, Indianapolis, IN 46222-2112, US",0018000000hsp7ZAAQ,Indianapolis,Imad
+"3923 N High School Rd, Indianapolis, IN, 46254",493910,7869009,3923 N High School Rd,IN - High School,Indiana,IN - High School-7728,"3923 N High School Rd, Indianapolis, IN 46254-2710, US",0018000001BoqrmAAB,Indianapolis,Imad
+"3701 N Post Rd, Indianapolis, IN, 46226",493911,7869007,3701 N Post Rd,IN - Post Rd,Indiana,IN - Post Rd-7595,"3701 N Post Rd, Indianapolis, IN 46226-6063, US",0018000000wGh6cAAC,Indianapolis,Imad
+"3940 S Keystone Ave, Indianapolis, IN, 46227",493909,7869011,3940 S Keystone Ave,IN - S Keystone,Indiana,IN - S Keystone-7825,"3940 S Keystone Ave, STE 7, Indianapolis, IN 46227-3580, US",0018000000nljDAAAY,Indianapolis,Imad
+"444 E Sumner Ave, Indianapolis, IN, 46227",493906,7869017,444 E Sumner Ave,IN - Sumner,Indiana,IN - Sumner-7841,"444 E Sumner Ave, STE E, Indianapolis, IN 46227-7218, US",0018000000wFpDTAA0,Indianapolis,Imad
+"600 Twin Aire Dr, Indianapolis, IN, 46203",493904,7869021,600 Twin Aire Dr,IN - Twin Aire,Indiana,IN - Twin Aire-7618,"600 Twin Aire Dr, Indianapolis, IN 46203-1450, US",0018000000nljDCAAY,Indianapolis,Imad
+"8975 E Washington St, Indianapolis, IN, 46219",493903,7869023,8975 E Washington St,IN - Washington,Indiana,IN - Washington-7621,"8975 E Washington St, STE 104, Indianapolis, IN 46219-6852, US",0018000000njPfjAAE,Indianapolis,Imad
+"1908 E 53rd St, Anderson, IN, 46013",493913,7869003,1908 E 53rd St,NI - E 53rd,Indiana,NI - E 53rd-7473,"1908 E 53rd St, Anderson, IN 46013-2832, US",0018000001BrgiXAAR,North Indy,Ashlie
+"4240 N Franklin Rd, Indianapolis, IN, 46226",493908,7869013,4240 N Franklin Rd,NI - Franklin,Indiana,NI - Franklin-7605,"4240 N Franklin Rd, STE 105, Indianapolis, IN 46226-4273, US",0018000000nljDBAAY,North Indy,Ashlie
+"533 S Reed Rd, Kokomo, IN, 46901",493905,7869019,533 S Reed Rd,NI - Kokomo,Indiana,NI - Kokomo-7502,"533 S Reed Rd, Kokomo, IN 46901-5692, US",0018000001IiPRrAAN,North Indy,Ashlie
+"4401 E 10th St, Indianapolis, IN, 46201",493907,7869015,4401 E 10th St,NI - Linwood,Indiana,NI - Linwood-7838,"4401 E 10th St, STE 14, Indianapolis, IN 46201-2754, US",0018000000nljCjAAI,North Indy,Ashlie
+"1908 S Scatterfield Rd, Anderson, IN, 46016",493925,7868977,1908 S Scatterfield Rd,NI - Scatterfield,Indiana,NI - Scatterfield-7481,"1908 S Scatterfield Rd, Anderson, IN 46016-5725, US",00180000016b0uFAAQ,North Indy,Ashlie
+"2687 Broadhead Road, Aliquippa, PA, 15001",470676,7483257,2687 Brodhead Rd,NP - Aliquippa,PA,NP - Aliquippa-9475,"2687 Brodhead Rd, Aliquippa, PA 15001-2767, US",0018000001XXFC1AAP,North PA,Vikas
+"16280 Dresden Ave, Calcutta, OH, 43920",488488,7867907,16280 Dresden Ave,NP - Calcutta,Youngstown,NP - Calcutta-4073,"16280 Dresden Ave, East Liverpool, OH 43920, US",0018000001IiWQJAA3,North PA,Vikas
+"1964 E State St, Hermitage, PA, 16148",479228,7798844,1964 E State St,YT - Hermitage,PA,YT - Hermitage-5636,"1964 E State St, Hermitage, PA 16148-1815, US",0018000000sgh4oAAA,Youngstown,Eddie
+"12 N Mill St, New Castle, PA, 16101",479227,7798845,12 N Mill St,YT - New Castle,PA,YT - New Castle-5644,"12 N Mill St, New Castle, PA 16101-3610, US",0018000000sgh4kAAA,Youngstown,Eddie
+"688 Albright Road, Rock Hill, SC, 29730",470679,7485459,688 Albright Rd,SC - Albright,SC,SC - Albright-1191,"688 Albright Rd, STE 103, Rock Hill, SC 29730-6290, US",0018000000UvUtjAAF,South Carolina,Pedro
+"578 Anderson Road N, Rock Hill, SC, 29730",470678,7485458,578 Anderson Rd N,SC - Anderson,SC,SC - Anderson-1212,"578 Anderson Rd N, Rock Hill, SC 29730-7300, US",0018000001GX9wWAAT,South Carolina,Pedro
+"401 Saluda Street, Rock Hill, SC, 29730",470677,7485460,401 Saluda St,SC - Saluda,SC,SC - Saluda-1204,"401 Saluda St, Rock Hill, SC 29730-5309, US",0018000001Jc3aeAAB,South Carolina,Pedro
+"11501 Hoffman Blvd, West Mifflin, PA, 15122",470666,7483260,1204 Hoffman Blvd,SP - Hoffman,PA,SP - Hoffman-4833,"1204 Hoffman Blvd, ste 1800, West Mifflin, PA 15122-2305, US",0018000000ZjJcrAAF,South PA,Anthony
+"118 E 8th Avenue, Homestead, PA, 15120",470671,7483259,118 E 8th Ave,SP - Homestead,PA,SP - Homestead-4866,"118 E 8th Ave, boost mobile, Homestead, PA 15120-1504, US",0018000000rPvBtAAK,South PA,Anthony
+"217 Mall Circle Drive, Monroeville, PA, 15146",470670,7483262,234 Monroeville Mall,EP - Monroeville,PA,EP - Monroeville-9097,"234 Monroeville Mall, ste 234, Monroeville, PA 15146-2223, US",0018000001JeIyWAAV,East PA,Mohammed
+"5905 Penn Avenue, Pittsburgh, PA, 15206",470669,7483251,5905 Penn Ave,EP - Penn Ave,PA,EP - Penn Ave-1667,"5905 Penn Ave, Pittsburgh, PA 15206-3818, US",0012E00001u2rnOQAQ,East PA,Mohammed
+"11607 Penn Hills Drive, Pittsburgh, PA, 15235",470668,7483255,11607 Penn Hills Dr,EP - Penn Hills,PA,EP - Penn Hills-5296,"11607 Penn Hills Dr, BOOST MOBILE, Pittsburgh, PA 15235-3329, US",0018000000xoRAsAAM,East PA,Mohammed
+"762 Penn Ave, Pittsburgh, PA, 15221",479230,7798842,762 Penn Ave,EP - Wilkinsburg,PA,EP - Wilkinsburg-5669,"762 Penn Ave, Pittsburgh, PA 15221-2217, US",0018000001Je3LUAAZ,East PA,Mohammed
+"4224 Asheville Hwy, Knoxville, TN, 37914",494516,7869185,4224 Asheville Hwy,TE - Asheville Hwy,Nashville,TE - Asheville Hwy-6544,"4224 Asheville Hwy, Knoxville, TN 37914, US",0018000001Igvd7AAB,Tennessee East,TBD
+"4409 Chapman Hwy, Suite 5, Knoxville, TN, 37920",474396,7756391,4409 Chapman Hwy,TE - Chapman,Knoxville,TE - Chapman-0699,"4409 Chapman Highway, Suite V, Knoxville, TN 37920-4357, US",0018000001JboQEAAZ,Tennessee East,TBD
+"6739 Clinton Hwy, Knoxville, TN, 37912",474166,7749438,6739 Clinton Hwy,TE - Clinton,Knoxville,TE - Clinton-0664,"6739 Clinton Hwy, Knoxville, TN 37912-1000, US",0018000001aJJQcAAO,Tennessee East,TBD
+"7019 Kingston Pike, Knoxville, TN, 37919",474163,7749746,7019 Kingston Pike,TE - Kingston,Knoxville,TE - Kingston-0710,"7019 Kingston Pike, Knoxville, TN 37919-5706, US",00180000016ZHeUAAW,Tennessee East,TBD
+"2001 N Broadway Street, Knoxville, TN, 37917",494527,7869187,2001 N Broadway St,TE - North Broadway,Nashville,TE - North Broadway-6552,"2001 N Broadway Street, Suite F, Knoxville, TN 37917, US",0018000001Jcz4EAAR,Tennessee East,TBD
+"1338 Parkway, STE 8, Sevierville, TN, 37862",494500,7869183,1338 Parkway,TE - Sevierville,Nashville,TE - Sevierville-6528,"1338 Parkway, STE 8, Sevierville, TN 37862-4000, US",0018000001Oo9cPAAR,Tennessee East,TBD
+"3613 Western Avenue, Knoxville, TN, 37921",494538,7869189,3613 Western Ave,TE - Western Ave,Nashville,TE - Western Ave-6536,"3613 Western Avenue, Knoxville, TN 37921, US",0018000001LWNBvAAP,Tennessee East,TBD
+"3056 Dickerson Pike, Nashville, TN, 37207",477459,7776010,3056 Dickerson Pike,TW - Dickerson Pike,Nashville,TW - Dickerson Pike-6614,"3056 Dickerson Pike, STE B, Nashville, TN 37207-2902, US",00180000010KTYvAAO,Tennessee West,Bhupen
+"2412 E Broadway Ave, Maryville, TN, 37804",474156,7749236,2412 E Broadway Ave,TW - East Broadway,Knoxville,TW - East Broadway-0680,"2412 E Broadway Ave, Maryville, TN 37804-2759, US",0018000001RdM4NAAV,Tennessee West,Bhupen
+"1128 Murfreesboro Pike, Nashville, TN, 37217",477455,7776007,1128 Murfreesboro Pike,TW - Murfreesboro Pike,Nashville,TW - Murfreesboro Pike-6592,"1128 Murfreesboro Pike, STE 102, Nashville, TN 37217-2129, US",0018000000LphJ2AAJ,Tennessee West,Bhupen
+"1183 Oak Ridge Tpk, Oak Ridge, TN, 37830",474168,7749442,1183 Oak Ridge Tpke,TW - Oak Ridge,Knoxville,TW - Oak Ridge-0672,"1183 Oak Ridge Tpke, Oak Ridge, TN 37830-6442, US",0018000001UCPQUAA5,Tennessee West,Bhupen
+"202 N Thompson Lane, Murfreesboro, TN, 37129",477457,7776009,202 N Thompson Ln,TW - Thompson Ln,Nashville,TW - Thompson Ln-6606,"202 N Thompson Ln, STE A, Murfreesboro, TN 37129-4327, US",00180000016Z6N2AAK,Tennessee West,Bhupen
+"1807 West Broadway Ave, Maryville, TN, 37801",474176,7749744,1807 W Broadway Ave,TW - West Broadway,Knoxville,TW - West Broadway-0702,"1807 W Broadway Ave, Maryville, TN 37801-5511, US",0018000001FPZUNAA5,Tennessee West,Bhupen
+"1408 N Main St, Findlay, OH, 45840",493922,7868983,1408 N Main St,WO - Findlay,Columbus,WO - Findlay-7579,"1408 N Main St, Findlay, OH 45840-3730, US",0018000000sfrvFAAQ,Western Ohio,Michael
+"200 N Metcalf St, Lima, OH, 45801",493921,7868985,200 N Metcalf St,WO - Lima,Columbus,WO - Lima-7582,"200 N Metcalf St, STE C, Lima, OH 45801-4257, US",0018000000ogxxTAAQ,Western Ohio,Michael
+"1071 Park Ave West, Mansfield, OH, 44906",489906,7868092,1071 Park Ave W,WO - Mansfield,Columbus,WO - Mansfield-3486,"1071 Park Ave W, Mansfield, OH 44906-2811, US",0018000000sgMr6AAE,Western Ohio,Michael
+"1295 Mount Vernon Ave, Suite 100, Marion, OH, 43302",489898,7868100,1295 Mount Vernon Ave,WO - Marion,Columbus,WO - Marion-3502,"1295 Mount Vernon Ave, STE 100, Marion, OH 43302-5660, US",0018000000pM0YfAAK,Western Ohio,Michael
+"561 N Vandemark Rd, Sidney, OH, 45365",493916,7868995,561 N Vandemark Rd,WO - Sidney,Columbus,WO - Sidney-6470,"561 N Vandemark Rd, Sidney, OH 45365-2454, US",0018000001HbIMUAA3,Western Ohio,Michael
+"1063 N Bechtle Ave, Springfield, OH, 45504",493923,7868981,1063 N Bechtle Ave,WO - Springfield,Columbus,WO - Springfield-7566,"1063 N Bechtle Ave, Springfield, OH 45504-2007, US",00180000016arr4AAA,Western Ohio,Michael
+"5221 Mahoning Ave, Austintown, OH, 44515",489027,7867962,5221 Mahoning Ave,YT - Austintown,Youngstown,YT - Austintown-1337,"5221 Mahoning Ave, Austintown, OH 44515-1807, US",0018000000xoxMUAAY,Youngstown,Eddie
+"3900 Belmont Ave, Youngstown, OH, 44505",487447,7865964,3900 Belmont Ave,YT - Belmont,Youngstown,YT - Belmont-6923,"3900 Belmont Ave, Youngstown, OH 44505-1410, US",00180000016ZYdjAAG,Youngstown,Eddie
+"104 Boardman-Poland Rd, Boardman, OH, 44512",487449,7868104,104 Boardman Poland Road,YT - Boardman,Youngstown,YT - Boardman-6709,"104 Boardman Poland Road, Youngstown, OH 44512-4603, US",0018000000k0PIwAAM,Youngstown,Eddie
+"669 Gypsy Lane, Youngstown, OH, 44505",492407,7868628,669 Gypsy Lane,YT - Gypsy Lane,Youngstown,YT - Gypsy Lane-1843,"669 Gypsy Ln, Youngstown, OH 44505-2409, US",0013t00002HIZHwAAP,Youngstown,0
+"3304 Mahoning Ave, Youngstown, OH, 44509",487450,7866267,3304 Mahoning Ave,YT - Mahoning,Youngstown,YT - Mahoning-6816,"3304 Mahoning Ave, Youngstown, OH 44509-2616, US",0018000000qWd2iAAC,Youngstown,Eddie
+"669 McCartney Rd, Youngstown, OH, 44505",487453,7866269,669 McCartney Rd,YT - McCartney,Youngstown,YT - McCartney-6774,"669 McCartney Rd, STE 1, Youngstown, OH 44505-5048, US",0018000000njChiAAE,Youngstown,Eddie
+"5855 Youngstown Warren Rd, Niles, OH, 44446",487452,7866268,5580 Youngstown Warren Rd,YT - Niles,Youngstown,YT - Niles-6857,"5580 Youngstown Warren Rd, STE 9, Niles, OH 44446-4800, US",0018000000tiVvKAAU,Youngstown,Eddie
+"2815 Youngstown Rd, Warren, OH, 44484",487448,7865965,2815 Youngstown Rd SE,YT - Warren,Youngstown,YT - Warren-6873,"2815 Youngstown Rd SE, Warren, OH 44484-5079, US",0018000000xpClXAAU,Youngstown,Eddie
+"917 W Market St, Warren, OH, 44481",487446,7865863,917 W Market St,YT - West Market,Youngstown,YT - West Market-6907,"917 W Market St, Warren, OH 44481-1041, US",00180000016ZJdwAAG,Youngstown,Eddie
+"3008 Sullivant Avenue, Columbus, OH, 43204",489903,7868096,3008 Sullivant Avenue,CB - Sullivant,Columbus,CB - Sullivant-3718,"3008 Sullivant Ave, Columbus, OH 43204-2423, US",0018000001LVsU6AAL,Columbus,Vae
+"920 Main Street, Pittsburgh, PA, 15215",499292,7869858,920 Main St,EP - Main Street,PA,EP - Main Street-7267,"920 Main Street, Pittsburgh, PA 15215, US",0013t00002AJbLjAAL,East PA,Mohammed
+"717 Broadway Ave, McKees Rocks, PA, 15136",499317,7869863,717 Broadway Ave,NP - Mckees Rocks,PA,NP - Mckees Rocks-7598,"717 Broadway Ave, Mc Kees Rocks, PA 15136, US",0018000000kw6gYAAQ,North PA,Vikas
+"6006 Broad St, East Liberty, PA, 15206",499311,7869860,6006 Broad St,EP - East Liberty,PA,EP - East Liberty-7614,"6006 Broad St, East Liberty, PA 15206, US",0018000000pOKl7AAG,East PA,Mohammed
+"2012 Noble Street, Swissvale, PA 15218",499319,7869868,2012 Noble St,SP - Swissvale,PA,SP - Swissvale-7630,"2012 Noble Street, Swissvale, PA 15218, US",0018000000rPvBwAAK,South PA,Anthony
+"408 Lysle Blvd, McKeesport, PA, 15132",499321,7869870,408 Lysle Blvd,SP - Mckeesport,PA,SP - Mckeesport-7689,"408 Lysle Blvd, McKeesport, PA 15132, US",0018000000tiVvYAAU,South PA,Anthony
+"411 Smithfield St, Pittsburgh, PA 15222",499323,7869874,411 Smithfield St,NP - Smithfield,PA,NP - Smithfield-7812,"411 Smithfield St., Pittsburgh, PA 15222, US",0018000001AAaqGAAT,North PA,Vikas
+"1726 Greensburg Ave, North Versailles, PA, 15137",499322,7869872,1726 Greensburg Ave,EP - North Versailles,PA,EP - North Versailles-7820,"1726 Greensburg Ave, North Versailles, PA 15137, US",0018000001GUTbrAAH,East PA,Mohammed
+"89 Tarentum Bridge Road, New Kensington, PA, 15068",499325,7869876,89 Tarentum Bridge Rd,EP - New Ken,PA,EP - New Ken-7846,"89 Tarentum Bridge Road, New Kensington, PA 15068, US",0018000001NnmhPAAR,East PA,Mohammed
+"2000 Wharton Street, Pittsburgh, PA, 15203",499291,7869851,2000 Wharton St,WP - Southside,PA,WP - Southside-7853,"2000 Wharton Street, STE 100, Pittsburgh, PA 15203, US",0018000001Vwn8AAAR,West PA,Ramona
+"4313 Walnut St, McKeesport, PA, 15132",499326,7869880,4313 Walnut St,Walnut St,PA,Walnut St-t St,,,,
+"529 East Manhattan Boulevard Toledo, OH 43608",499780,7870127,529 East Manhattan Boulevard,WO - Manhattan,Cleveland,WO - Manhattan-8322,"529 East Manhattan Boulevard, Toledo, OH 43608, US",0014z00001tEeKTAA0,Western Ohio,Michael
+"5409 Dorr Street Toledo, OH, 43615",499762,7870117,5409 Dorr St,WO - Dorr Street,Cleveland,WO - Dorr Street-8319,"5409 Dorr Streete, Toledo, OH 43615, US",0018000001bNbOIAA0,Western Ohio,Michael
+"2310 Woodville Road Oregon, OH 43616",500036,7870214,2310 Woodville Rd,WO - Woodville,Cleveland,WO - Woodville-8903,"2310 Woodville Road, Oregon, OH, 43616, US",0018000001c623sAAA,Western Ohio,Michael
+"5800 N Sharon Amity Rd Charlotte, NC 28215",500008,7870204,5800 N Sharon Amity Rd,SC - East Town,NC,SC - East Town-9198,"5800 N Sharon Amity Rd, STE H, Charlotte, NC 28215, US",001U100000cN2zLIAS,South Carolina,Pedro
+"5106 Butler Street Pittsburgh, PA 15201",500072,7870239,5106 Butler St Apt 1,WP - Butler,PA,WP - Butler-6652,"5106 Butler Street, Pittsburgh, PA 15201, US",0018000001OlWiFAAV,East PA,Mohammed
+"4625 Liberty Ave Pittsburgh, PA 15224",500073,7870241,4625 Liberty Ave,EP - Bloomfield,PA,EP - Bloomfield-6645,"4625 Liberty Ave, Pittsburgh, PA 15224, US",0012E00001u3ZGcQAM,East PA,Mohammed
+"943 5th ave Coraopolis, PA 15108",500081,7870245,943 5th Ave Apt 1,NP - Coraopolis,PA,NP - Coraopolis-6660,"943 5th ave, Coraopolis, PA 15108, US",0012E00002JdArvQAF,North PA,Vikas
+"2516 Bethel Rd Columbus, OH, 43220",500168,7870290,2516 Bethel Rd,CB - Bethel Rd,Columbus,CB - Bethel Rd-8555,"2500 Bethel Rd, Columbus, OH 43220, US",001U100000dU5gdIAC,Columbus,Cristina
+"5965 S Sunbury Rd Westerville, OH, 43081",500186,7870299,5965 S Sunbury Rd,CB - Westerville,Columbus,CB - Westerville-4902,"5965 S Sunbury Rd, Westerville, OH 43081, US",001U100000bYv8GIAS,Columbus,Cristina
+,500230,7870307,514 Chartiers Ave,NP - Chartiers,PA,NP - Chartiers-5651,"514 Chartiers Ave, Mc Kees Rocks, PA 15136, US",0018000001XEZitAAH,North PA,Vikas
+,500238,7870312,1726 E Carson St Fl 1,WP - East Carson,PA,WP - East Carson-6694,"1726 East Carson St, FL 1, Pittsburgh, PA 15203, US",0018000001LUxRyAAL,West PA,Ramona
+,,7867960,2750 Mahoning Ave,YT - Jamestown Village,Youngstown,YT - Jamestown Village-1287,,,,
+,,7870243,639 Merchant Street,,PA,-,,,,
+,500239,7870316,4135 Brownsville Rd,SP - Brentwood,PA,SP - Brentwood-6678,,0018000001bLh4eAAC,South PA,Anthony
+,,7870267,2794 Robinson BLVD,,PA,- ,,,,
+,500235,7870310,6136 Saltsburg Rd,,PA,-,,,,
+,,7870237,28 W Steuben St,,PA,-,,,,
+,500399,7870379,402 E Ohio Street,NP - East Ohio,PA,NP - East Ohio-6744,,0018000000T932yAAB,North PA,Vikas
+,500400,7870383,247 Three Springs Dr,WP - Weirton,Youngstown,WP - Weirton-8338,,0018000001VxCemAAF,West PA,Ramona
+,500397,7870381,750 Brookline Blvd,SP - Brookline,PA,SP - Brookline-6751,,0018000001OlVKCAA3,South PA,Anthony
+,500398,7870377,1609 Broadway Ave,SP - Beechview,PA,SP - Beechview-6637,,0012E000024bC0kQAE,South PA,Anthony
+,501103,7870484,5021 Turney Road,CL - Garfield,Cleveland,CL - Garfield-8911,,001U100000HgJ1GIAV,Cleveland,Jill
+,501377,7870717,228 Brownsville Road,SP - Knoxville,PA,SP - Knoxville-6702,,0012E00001tiNDWQA2,South PA,Anthony
+,,,,CL - S Euclid,Cleveland,CL - S Euclid-5629,,0018000001JdwwGAAR,Cleveland,Jill
+,,,,CL - Willowick,Cleveland,CL - Willowick-5616,,0018000001LXIDzAAP,Cleveland,Jill
+,,,,CL - Parma,Cleveland,CL - Parma-5632,,00180000016bFLnAAM,Cleveland,Jill
+,,,,NP - Bellevue,PA,NP - Bellevue-,,001U100000u03yZIAQ,North PA ,Vikas
+,,,1155 Washington Pike,SP - Bridgeville,PA,SP - Bridgeville-,,001U100000tzyKcIAI,South PA,Anthony
