@@ -20,6 +20,7 @@ export default function MappingsPage() {
   const supabase = useMemo(() => createClient(), []);
 
   const [session, setSession] = useState(undefined);
+  const [activeTab, setActiveTab] = useState("vip");
   const [productRows, setProductRows] = useState([]);
   const [doorRows, setDoorRows] = useState([]);
   const [accountRows, setAccountRows] = useState([]);
@@ -238,17 +239,31 @@ export default function MappingsPage() {
           <div>
             <h1 style={styles.h1}>Mapping Master</h1>
             <p style={styles.pageSub}>
-              The lookup tables Bills and JV Entry use to classify VIP line items and match door numbers —
-              edit them here instead of in code
+              The lookup tables Bills and JV Entry use instead of hardcoded lists in code — edit them here
             </p>
           </div>
+        </div>
+
+        <div style={styles.tabRow}>
+          <button
+            style={activeTab === "vip" ? styles.tabActive : styles.tab}
+            onClick={() => setActiveTab("vip")}
+          >
+            VIP
+          </button>
+          <button
+            style={activeTab === "epay" ? styles.tabActive : styles.tab}
+            onClick={() => setActiveTab("epay")}
+          >
+            Epay
+          </button>
         </div>
 
         {error && <div style={styles.errorBanner}>{error}</div>}
 
         {loading ? (
           <div style={styles.emptyState}>Loading…</div>
-        ) : (
+        ) : activeTab === "vip" ? (
           <>
             <div style={styles.sectionCard}>
               <div style={styles.sectionTitle}>Product Mapping</div>
@@ -531,7 +546,9 @@ export default function MappingsPage() {
                 </table>
               </div>
             </div>
-
+          </>
+        ) : (
+          <>
             <div style={styles.sectionCard}>
               <div style={styles.sectionTitle}>Epay Account Mapping</div>
               <div style={styles.sectionSub}>
@@ -694,8 +711,27 @@ const styles = {
   },
   shell: { display: "flex", minHeight: "100vh" },
   main: { flex: 1, padding: "36px 44px", maxWidth: 1300 },
-  topRow: { marginBottom: 24 },
+  topRow: { marginBottom: 20 },
   h1: { fontFamily: "var(--font-display)", fontSize: 26, margin: 0 },
+  tabRow: { display: "flex", gap: 8, marginBottom: 20 },
+  tab: {
+    background: "transparent",
+    color: "var(--ink-soft)",
+    border: "1px solid var(--line)",
+    borderRadius: 7,
+    padding: "8px 18px",
+    fontSize: 13,
+    fontWeight: 600,
+  },
+  tabActive: {
+    background: "var(--ledger)",
+    color: "#fff",
+    border: "1px solid var(--ledger)",
+    borderRadius: 7,
+    padding: "8px 18px",
+    fontSize: 13,
+    fontWeight: 600,
+  },
   pageSub: { fontSize: 13, color: "var(--ink-soft)", margin: "4px 0 0", maxWidth: 720 },
   errorBanner: {
     background: "var(--danger-bg)",
