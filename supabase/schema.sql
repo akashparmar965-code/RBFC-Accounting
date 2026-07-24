@@ -119,12 +119,12 @@ create policy "Authenticated users can delete checklist_items"
 -- Mapping Master: editable lookup tables used by Bills/JV Entry instead of
 -- hardcoded lists in code.
 
--- Memo Mapping: a VIP Bill line whose Memo starts with memo_prefix is
--- classified under expense_account (device lines, where Memo restates the
--- Invoice Number, are handled automatically and don't need a row here).
-create table if not exists memo_mappings (
+-- Product Mapping: a VIP Bill line is classified by its Products text (not
+-- Memo, which is often generic or inconsistent) — whichever product_prefix
+-- it starts with (case-insensitive) determines the expense_account.
+create table if not exists product_mappings (
   id uuid primary key default gen_random_uuid(),
-  memo_prefix text not null,
+  product_prefix text not null,
   expense_account text not null,
   expense_memo text,
   notes text,
@@ -132,41 +132,42 @@ create table if not exists memo_mappings (
   updated_at timestamptz not null default now()
 );
 
-drop trigger if exists trg_memo_mappings_updated_at on memo_mappings;
-create trigger trg_memo_mappings_updated_at
-before update on memo_mappings
+drop trigger if exists trg_product_mappings_updated_at on product_mappings;
+create trigger trg_product_mappings_updated_at
+before update on product_mappings
 for each row execute function set_updated_at();
 
-alter table memo_mappings enable row level security;
+alter table product_mappings enable row level security;
 
-drop policy if exists "Authenticated users can read memo_mappings" on memo_mappings;
-create policy "Authenticated users can read memo_mappings"
-  on memo_mappings for select
+drop policy if exists "Authenticated users can read product_mappings" on product_mappings;
+create policy "Authenticated users can read product_mappings"
+  on product_mappings for select
   to authenticated
   using (true);
 
-drop policy if exists "Authenticated users can insert memo_mappings" on memo_mappings;
-create policy "Authenticated users can insert memo_mappings"
-  on memo_mappings for insert
+drop policy if exists "Authenticated users can insert product_mappings" on product_mappings;
+create policy "Authenticated users can insert product_mappings"
+  on product_mappings for insert
   to authenticated
   with check (true);
 
-drop policy if exists "Authenticated users can update memo_mappings" on memo_mappings;
-create policy "Authenticated users can update memo_mappings"
-  on memo_mappings for update
+drop policy if exists "Authenticated users can update product_mappings" on product_mappings;
+create policy "Authenticated users can update product_mappings"
+  on product_mappings for update
   to authenticated
   using (true)
   with check (true);
 
-drop policy if exists "Authenticated users can delete memo_mappings" on memo_mappings;
-create policy "Authenticated users can delete memo_mappings"
-  on memo_mappings for delete
+drop policy if exists "Authenticated users can delete product_mappings" on product_mappings;
+create policy "Authenticated users can delete product_mappings"
+  on product_mappings for delete
   to authenticated
   using (true);
 
-insert into memo_mappings (memo_prefix, expense_account, expense_memo, notes) values
-('Managed Services Fees', 'Other Services VIP', null, 'Seeded default'),
-('Xfinity Advantage Activations', 'Other Services VIP', null, 'Seeded default');
+insert into product_mappings (product_prefix, expense_account, expense_memo, notes) values
+('Boost', 'All Devices', 'Mobile and Other Devices', 'All device SKUs are Products starting with Boost (case-insensitive, covers "BOOST 5G" too)'),
+('Managed Services Level', 'Other Services VIP', null, 'Seeded default — confirm target account'),
+('Xfinity Advantage Activations', 'Other Services VIP', null, 'Seeded default — confirm target account');
 
 -- Door Mapping: fallback for VIP Door Numbers not yet in Store Master, so
 -- a bill can still match a Company + QBO Class without a full store record.

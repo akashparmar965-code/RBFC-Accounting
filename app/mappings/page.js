@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabaseClient";
 import Sidebar from "@/components/Sidebar";
 
-const emptyMemoDraft = { memo_prefix: "", expense_account: "", expense_memo: "", notes: "" };
+const emptyProductDraft = { product_prefix: "", expense_account: "", expense_memo: "", notes: "" };
 const emptyDoorDraft = { door_number: "", company_name: "", qbo_class: "", notes: "" };
 
 export default function MappingsPage() {
@@ -13,12 +13,12 @@ export default function MappingsPage() {
   const supabase = useMemo(() => createClient(), []);
 
   const [session, setSession] = useState(undefined);
-  const [memoRows, setMemoRows] = useState([]);
+  const [productRows, setProductRows] = useState([]);
   const [doorRows, setDoorRows] = useState([]);
   const [companyOptions, setCompanyOptions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [memoDraft, setMemoDraft] = useState(emptyMemoDraft);
+  const [productDraft, setProductDraft] = useState(emptyProductDraft);
   const [doorDraft, setDoorDraft] = useState(emptyDoorDraft);
   const [confirmDelete, setConfirmDelete] = useState(null); // { table, id }
 
@@ -37,13 +37,13 @@ export default function MappingsPage() {
   const loadAll = useCallback(async () => {
     setLoading(true);
     setError("");
-    const [memoRes, doorRes, checklistRes] = await Promise.all([
-      supabase.from("memo_mappings").select("*").order("memo_prefix", { ascending: true }),
+    const [productRes, doorRes, checklistRes] = await Promise.all([
+      supabase.from("product_mappings").select("*").order("product_prefix", { ascending: true }),
       supabase.from("door_mappings").select("*").order("door_number", { ascending: true }),
       supabase.from("checklist_items").select("company"),
     ]);
-    if (memoRes.error) setError(memoRes.error.message);
-    else setMemoRows(memoRes.data || []);
+    if (productRes.error) setError(productRes.error.message);
+    else setProductRows(productRes.data || []);
     if (doorRes.error) setError(doorRes.error.message);
     else setDoorRows(doorRes.data || []);
     if (!checklistRes.error) {
@@ -56,10 +56,10 @@ export default function MappingsPage() {
     if (session) loadAll();
   }, [session, loadAll]);
 
-  async function updateMemoField(id, field, value) {
-    setMemoRows((prev) => prev.map((r) => (r.id === id ? { ...r, [field]: value } : r)));
+  async function updateProductField(id, field, value) {
+    setProductRows((prev) => prev.map((r) => (r.id === id ? { ...r, [field]: value } : r)));
     const { error } = await supabase
-      .from("memo_mappings")
+      .from("product_mappings")
       .update({ [field]: value || null })
       .eq("id", id);
     if (error) setError(error.message);
@@ -74,19 +74,19 @@ export default function MappingsPage() {
     if (error) setError(error.message);
   }
 
-  async function addMemoRow() {
-    if (!memoDraft.memo_prefix.trim() || !memoDraft.expense_account.trim()) {
-      setError("Memo Prefix and Expense Account are required.");
+  async function addProductRow() {
+    if (!productDraft.product_prefix.trim() || !productDraft.expense_account.trim()) {
+      setError("Product Prefix and Expense Account are required.");
       return;
     }
     const { data, error } = await supabase
-      .from("memo_mappings")
+      .from("product_mappings")
       .insert([
         {
-          memo_prefix: memoDraft.memo_prefix.trim(),
-          expense_account: memoDraft.expense_account.trim(),
-          expense_memo: memoDraft.expense_memo.trim() || null,
-          notes: memoDraft.notes.trim() || null,
+          product_prefix: productDraft.product_prefix.trim(),
+          expense_account: productDraft.expense_account.trim(),
+          expense_memo: productDraft.expense_memo.trim() || null,
+          notes: productDraft.notes.trim() || null,
         },
       ])
       .select();
@@ -94,8 +94,8 @@ export default function MappingsPage() {
       setError(error.message);
       return;
     }
-    setMemoRows((prev) => [...prev, ...(data || [])]);
-    setMemoDraft(emptyMemoDraft);
+    setProductRows((prev) => [...prev, ...(data || [])]);
+    setProductDraft(emptyProductDraft);
   }
 
   async function addDoorRow() {
@@ -127,7 +127,7 @@ export default function MappingsPage() {
     const { table, id } = confirmDelete;
     const { error } = await supabase.from(table).delete().eq("id", id);
     if (error) setError(error.message);
-    if (table === "memo_mappings") setMemoRows((prev) => prev.filter((r) => r.id !== id));
+    if (table === "product_mappings") setProductRows((prev) => prev.filter((r) => r.id !== id));
     else setDoorRows((prev) => prev.filter((r) => r.id !== id));
     setConfirmDelete(null);
   }
@@ -146,7 +146,7 @@ export default function MappingsPage() {
           <div>
             <h1 style={styles.h1}>Mapping Master</h1>
             <p style={styles.pageSub}>
-              The lookup tables Bills and JV Entry use to classify VIP memos and match door numbers —
+              The lookup tables Bills and JV Entry use to classify VIP line items and match door numbers —
               edit them here instead of in code
             </p>
           </div>
@@ -159,16 +159,17 @@ export default function MappingsPage() {
         ) : (
           <>
             <div style={styles.sectionCard}>
-              <div style={styles.sectionTitle}>Memo Mapping</div>
+              <div style={styles.sectionTitle}>Product Mapping</div>
               <div style={styles.sectionSub}>
-                A VIP Bill line whose Memo starts with one of these prefixes is classified as that Expense
-                Account (device lines, where Memo restates the Invoice Number, are handled automatically).
+                A VIP Bill line is classified by its <strong>Products</strong> text (not Memo, which is
+                often generic or inconsistent) — whichever prefix it starts with (case-insensitive)
+                determines the Expense Account. A line matching no prefix is skipped and flagged.
               </div>
               <div style={styles.tableWrap}>
                 <table style={styles.table}>
                   <thead>
                     <tr>
-                      <th style={{ ...styles.th, textAlign: "left" }}>Memo Prefix</th>
+                      <th style={{ ...styles.th, textAlign: "left" }}>Product Prefix</th>
                       <th style={{ ...styles.th, textAlign: "left" }}>Expense Account</th>
                       <th style={{ ...styles.th, textAlign: "left" }}>Expense Memo (override)</th>
                       <th style={{ ...styles.th, textAlign: "left" }}>Notes</th>
@@ -176,20 +177,20 @@ export default function MappingsPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {memoRows.map((r) => (
+                    {productRows.map((r) => (
                       <tr key={r.id} style={styles.tr}>
                         <td style={styles.td}>
                           <input
                             style={styles.cellInput}
-                            defaultValue={r.memo_prefix}
-                            onBlur={(e) => updateMemoField(r.id, "memo_prefix", e.target.value)}
+                            defaultValue={r.product_prefix}
+                            onBlur={(e) => updateProductField(r.id, "product_prefix", e.target.value)}
                           />
                         </td>
                         <td style={styles.td}>
                           <input
                             style={styles.cellInput}
                             defaultValue={r.expense_account}
-                            onBlur={(e) => updateMemoField(r.id, "expense_account", e.target.value)}
+                            onBlur={(e) => updateProductField(r.id, "expense_account", e.target.value)}
                           />
                         </td>
                         <td style={styles.td}>
@@ -197,18 +198,18 @@ export default function MappingsPage() {
                             style={styles.cellInput}
                             placeholder="(uses raw memo text)"
                             defaultValue={r.expense_memo || ""}
-                            onBlur={(e) => updateMemoField(r.id, "expense_memo", e.target.value)}
+                            onBlur={(e) => updateProductField(r.id, "expense_memo", e.target.value)}
                           />
                         </td>
                         <td style={styles.td}>
                           <input
                             style={styles.cellInput}
                             defaultValue={r.notes || ""}
-                            onBlur={(e) => updateMemoField(r.id, "notes", e.target.value)}
+                            onBlur={(e) => updateProductField(r.id, "notes", e.target.value)}
                           />
                         </td>
                         <td style={{ ...styles.td, whiteSpace: "nowrap" }}>
-                          {confirmDelete?.table === "memo_mappings" && confirmDelete.id === r.id ? (
+                          {confirmDelete?.table === "product_mappings" && confirmDelete.id === r.id ? (
                             <>
                               <button style={{ ...styles.linkBtn, color: "var(--danger)" }} onClick={handleDelete}>
                                 Confirm
@@ -220,7 +221,7 @@ export default function MappingsPage() {
                           ) : (
                             <button
                               style={{ ...styles.linkBtn, color: "var(--danger)" }}
-                              onClick={() => setConfirmDelete({ table: "memo_mappings", id: r.id })}
+                              onClick={() => setConfirmDelete({ table: "product_mappings", id: r.id })}
                             >
                               Delete
                             </button>
@@ -232,37 +233,37 @@ export default function MappingsPage() {
                       <td style={styles.td}>
                         <input
                           style={styles.cellInput}
-                          placeholder="e.g. Vantedge Program Fees"
-                          value={memoDraft.memo_prefix}
-                          onChange={(e) => setMemoDraft((d) => ({ ...d, memo_prefix: e.target.value }))}
+                          placeholder="e.g. Vantedge Program Membership Fees"
+                          value={productDraft.product_prefix}
+                          onChange={(e) => setProductDraft((d) => ({ ...d, product_prefix: e.target.value }))}
                         />
                       </td>
                       <td style={styles.td}>
                         <input
                           style={styles.cellInput}
                           placeholder="e.g. Other Services VIP"
-                          value={memoDraft.expense_account}
-                          onChange={(e) => setMemoDraft((d) => ({ ...d, expense_account: e.target.value }))}
+                          value={productDraft.expense_account}
+                          onChange={(e) => setProductDraft((d) => ({ ...d, expense_account: e.target.value }))}
                         />
                       </td>
                       <td style={styles.td}>
                         <input
                           style={styles.cellInput}
                           placeholder="(optional)"
-                          value={memoDraft.expense_memo}
-                          onChange={(e) => setMemoDraft((d) => ({ ...d, expense_memo: e.target.value }))}
+                          value={productDraft.expense_memo}
+                          onChange={(e) => setProductDraft((d) => ({ ...d, expense_memo: e.target.value }))}
                         />
                       </td>
                       <td style={styles.td}>
                         <input
                           style={styles.cellInput}
                           placeholder="(optional)"
-                          value={memoDraft.notes}
-                          onChange={(e) => setMemoDraft((d) => ({ ...d, notes: e.target.value }))}
+                          value={productDraft.notes}
+                          onChange={(e) => setProductDraft((d) => ({ ...d, notes: e.target.value }))}
                         />
                       </td>
                       <td style={styles.td}>
-                        <button style={styles.addBtn} onClick={addMemoRow}>
+                        <button style={styles.addBtn} onClick={addProductRow}>
                           + Add
                         </button>
                       </td>

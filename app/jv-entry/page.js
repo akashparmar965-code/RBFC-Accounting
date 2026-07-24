@@ -123,10 +123,10 @@ export default function JvEntryPage() {
         }
         const { totals } = aggregateByStore(rawRows);
         const { byCompany, unmatchedStores } = buildJournalRows(totals, storeMaster, jvDateObj);
-        setResult({ entryType: type, byCompany, unmatched: unmatchedStores, unmappedMemos: [] });
+        setResult({ entryType: type, byCompany, unmatched: unmatchedStores, unmappedProducts: [] });
       } else {
-        const { data: memoMappings, error: mmError } = await supabase.from("memo_mappings").select("*");
-        if (mmError) throw new Error("Could not load memo mappings: " + mmError.message);
+        const { data: productMappings, error: pmError } = await supabase.from("product_mappings").select("*");
+        if (pmError) throw new Error("Could not load product mappings: " + pmError.message);
         const { data: doorMappings, error: dmError } = await supabase.from("door_mappings").select("*");
         if (dmError) throw new Error("Could not load door mappings: " + dmError.message);
 
@@ -137,15 +137,15 @@ export default function JvEntryPage() {
             "This file doesn't look like a VIP export — no 'Door Number' column found in the Bill sheet."
           );
         }
-        const groupedLines = aggregateBillLines(rawRows, memoMappings || []);
+        const groupedLines = aggregateBillLines(rawRows, productMappings || []);
         const category = BILL_CATEGORY_BY_TYPE[type] || "all";
-        const { byCompany, unmatchedDoors, unmappedMemos } = buildBillRows(
+        const { byCompany, unmatchedDoors, unmappedProducts } = buildBillRows(
           groupedLines,
           storeMaster,
           category,
           doorMappings || []
         );
-        setResult({ entryType: type, byCompany, unmatched: unmatchedDoors, unmappedMemos });
+        setResult({ entryType: type, byCompany, unmatched: unmatchedDoors, unmappedProducts });
       }
     } catch (e) {
       setError(e.message || String(e));
@@ -350,18 +350,18 @@ export default function JvEntryPage() {
           </div>
         )}
 
-        {result && result.unmappedMemos.length > 0 && (
+        {result && result.unmappedProducts.length > 0 && (
           <div style={styles.errorBanner}>
-            {result.unmappedMemos.length} line(s) have a Memo that doesn't match a known device or service
-            pattern, so they were skipped. Add the memo text below to{" "}
+            {result.unmappedProducts.length} line(s) have a Product that doesn't match a known mapping, so
+            they were skipped. Add the product text below to{" "}
             <Link href="/mappings" style={styles.inlineLink}>
-              Memo Mapping
+              Product Mapping
             </Link>{" "}
             and re-upload:
             <ul style={styles.unmappedList}>
-              {result.unmappedMemos.map((m, i) => (
+              {result.unmappedProducts.map((m, i) => (
                 <li key={i}>
-                  Door {m.doorNumber} · {m.invoiceNo} · "{m.memo}"
+                  Door {m.doorNumber} · {m.invoiceNo} · "{m.product}"
                 </li>
               ))}
             </ul>

@@ -58,8 +58,8 @@ export default function BillsPage() {
       const supabase = createClient();
       const { data: storeMaster, error: smError } = await supabase.from("stores").select("*");
       if (smError) throw new Error("Could not load Store Master: " + smError.message);
-      const { data: memoMappings, error: mmError } = await supabase.from("memo_mappings").select("*");
-      if (mmError) throw new Error("Could not load memo mappings: " + mmError.message);
+      const { data: productMappings, error: pmError } = await supabase.from("product_mappings").select("*");
+      if (pmError) throw new Error("Could not load product mappings: " + pmError.message);
       const { data: doorMappings, error: dmError } = await supabase.from("door_mappings").select("*");
       if (dmError) throw new Error("Could not load door mappings: " + dmError.message);
 
@@ -72,14 +72,14 @@ export default function BillsPage() {
         );
       }
 
-      const groupedLines = aggregateBillLines(rawRows, memoMappings || []);
-      const { byCompany, unmatchedDoors, unmappedMemos } = buildBillRows(
+      const groupedLines = aggregateBillLines(rawRows, productMappings || []);
+      const { byCompany, unmatchedDoors, unmappedProducts } = buildBillRows(
         groupedLines,
         storeMaster,
         "all",
         doorMappings || []
       );
-      setResult({ byCompany, unmatched: unmatchedDoors, unmappedMemos });
+      setResult({ byCompany, unmatched: unmatchedDoors, unmappedProducts });
       setSelectedCompanies(new Set(Object.keys(byCompany)));
     } catch (e) {
       setError(e.message || String(e));
@@ -205,18 +205,18 @@ export default function BillsPage() {
           </div>
         )}
 
-        {result && result.unmappedMemos.length > 0 && (
+        {result && result.unmappedProducts.length > 0 && (
           <div style={styles.errorBanner}>
-            {result.unmappedMemos.length} line(s) have a Memo that doesn't match a known device or service
-            pattern, so they were skipped. Add the memo text below to{" "}
+            {result.unmappedProducts.length} line(s) have a Product that doesn't match a known mapping, so
+            they were skipped. Add the product text below to{" "}
             <Link href="/mappings" style={styles.inlineLink}>
-              Memo Mapping
+              Product Mapping
             </Link>{" "}
             and re-upload:
             <ul style={styles.unmappedList}>
-              {result.unmappedMemos.map((m, i) => (
+              {result.unmappedProducts.map((m, i) => (
                 <li key={i}>
-                  Door {m.doorNumber} · {m.invoiceNo} · "{m.memo}"
+                  Door {m.doorNumber} · {m.invoiceNo} · "{m.product}"
                 </li>
               ))}
             </ul>

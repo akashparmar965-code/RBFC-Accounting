@@ -113,8 +113,9 @@ created in step 1.
   tracker, per company — click a month cell to mark it done, add or delete
   items freely
 - ✅ Mapping Master (`/mappings`): the lookup tables Bills/JV Entry use to
-  classify VIP memos (Memo Mapping) and match door numbers that aren't in
-  Store Master yet (Door Mapping) — fully editable, no code changes needed
+  classify VIP line items by their Products text (Product Mapping) and
+  match door numbers that aren't in Store Master yet (Door Mapping) —
+  fully editable, no code changes needed
 - ⏳ Payroll / Expenses upload + processing — placeholders in the
   sidebar, waiting on sample file formats to build the matching and
   calculation logic
@@ -145,16 +146,17 @@ to add it.
    one — then upload the raw VIP export (.xlsx) — only the **Bill** sheet
    is used; Payment and Credit Note sheets are ignored for now
 2. It's parsed entirely in your browser (nothing uploaded to a server)
-3. Line items are grouped per invoice (by Door Number + Invoice Number).
-   A line counts as a **device** sale when its Memo is just the invoice
-   number restated (VIP does this for straight device orders); everything
-   else is checked against **Memo Mapping** (`/mappings`) — if its Memo
-   starts with a mapped prefix it's a service line using that rule's
-   Expense Account; if not, it's excluded and shown as an error so you can
-   add the new memo pattern instead of it being guessed at
-4. Device lines use Expense Account "All Devices"; mapped service lines
-   use whatever Expense Account that rule specifies, and keep their
-   original memo text unless the rule overrides it
+3. Line items are grouped per invoice (by Door Number + Invoice Number)
+   and classified by their **Products** text — not Memo, which is often
+   generic (e.g. just the invoice number restated) or inconsistent.
+   Whichever prefix a line's Products starts with (case-insensitive) in
+   **Product Mapping** (`/mappings`) determines its Expense Account; a
+   line matching no prefix is excluded and shown as an error so you can
+   add the new product instead of it being guessed at
+4. Lines combine into one row per invoice per matched Expense Account
+   (e.g. six different phone models on one invoice still post as one
+   "All Devices" line), keeping their original Memo text unless the
+   mapping rule overrides it
 5. Door Number is matched to your live Store Master's "VIP Website No.";
    if it's not there, **Door Mapping** (`/mappings`) is checked as a
    fallback before the line is flagged as unmatched
@@ -173,7 +175,7 @@ app/
   jv-entry/page.js      — JV Entry: Sales / VIP Device / VIP Service uploads
   bills/page.js          — Bills: dedicated combined VIP Device+Service upload
   checklist/page.js      — Accounting Checklist
-  mappings/page.js       — Mapping Master: Memo Mapping + Door Mapping
+  mappings/page.js       — Mapping Master: Product Mapping + Door Mapping
   sales/page.js           — redirects to /jv-entry (old link)
   layout.js, page.js    — app shell / redirect
 components/
