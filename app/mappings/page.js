@@ -240,7 +240,7 @@ export default function MappingsPage() {
           <div>
             <h1 style={styles.h1}>Mapping Master</h1>
             <p style={styles.pageSub}>
-              Store Master plus the lookup tables Bills and JV Entry use instead of hardcoded lists in
+              Store Master plus the lookup tables Bills and Sales use instead of hardcoded lists in
               code — all editable here
             </p>
           </div>

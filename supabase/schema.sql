@@ -116,7 +116,7 @@ create policy "Authenticated users can delete checklist_items"
   to authenticated
   using (true);
 
--- Mapping Master: editable lookup tables used by Bills/JV Entry instead of
+-- Mapping Master: editable lookup tables used by Bills/Sales instead of
 -- hardcoded lists in code.
 
 -- Product Mapping: a VIP Bill line is classified by its Products text (not

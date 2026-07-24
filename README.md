@@ -100,12 +100,10 @@ created in step 1.
 
 - ✅ Team login (Supabase Auth)
 - ✅ Your 115 stores ready to import via CSV
-- ✅ JV Entry (`/jv-entry`): a single upload screen with an Entry Type
-  picker — Sales Journal Entry, VIP Bills (Device + Service combined),
-  VIP Device Expense only, VIP Service Expense only —
-  a JV Date, drag-and-drop upload, an on-page Preview, and CSV/XLSX
-  export either combined ("All-in-One") or split by company
-  ("Company-wise"), all matched against live Store Master data
+- ✅ Sales (`/sales`): upload the raw sales export, get back QBO-ready
+  journal CSVs/XLSX split by company — a JV Date, drag-and-drop upload,
+  per-company selection with an on-page Preview, matched against live
+  Store Master data
 - ✅ Bills (`/bills`): two sub-tabs —
   **VIP** (device + service lines always come back combined, one file per
   company) and **Epay** (splits each invoice into an Income upload and a
@@ -123,7 +121,7 @@ created in step 1.
   sidebar, waiting on sample file formats to build the matching and
   calculation logic
 
-### How JV Entry works — Sales
+### How Sales works
 
 1. Upload the raw sales detail export (.xlsx)
 2. It's parsed entirely in your browser (nothing uploaded to a server)
@@ -134,20 +132,20 @@ created in step 1.
    - **Bill Payment-Epay** — ePay
 5. Tax is broken out as separate rows per bucket
 6. Stores are matched to your live Store Master by "Elevate Name" to get
-   the QBO Class and Company grouping
-7. Download as one combined file ("All-in-One") or one file per company
-   ("Company-wise"), in CSV or XLSX
+   the QBO Class and Company grouping; every row is stamped with the JV
+   Date you set
+7. Check/uncheck companies, Preview selected, then download per company
+   (CSV or XLSX) or all companies zipped together
 
 If a new accessory vendor gets added later, update the list in
 `lib/salesProcessor.js` (`ACCESSORIES_VENDORS`) — or just ask Claude Code
 to add it.
 
-### How JV Entry works — VIP Device / Service Expense
+### How Bills works — VIP
 
-1. Pick "VIP Bills (Device + Service)" as the Entry Type to get both in
-   one file, or "VIP Device Expense" / "VIP Service Expense" to get just
-   one — then upload the raw VIP export (.xlsx) — only the **Bill** sheet
-   is used; Payment and Credit Note sheets are ignored for now
+1. On the Bills page, stay on the **VIP** tab (the default) and upload the
+   raw VIP export (.xlsx) — only the **Bill** sheet is used; Payment and
+   Credit Note sheets are ignored for now
 2. It's parsed entirely in your browser (nothing uploaded to a server)
 3. Line items are grouped per invoice (by Door Number + Invoice Number)
    and classified by their **Products** text — not Memo, which is often
@@ -163,11 +161,10 @@ to add it.
 5. Door Number is matched to your live Store Master's "VIP Website No.";
    if it's not there, **Door Mapping** (`/mappings`) is checked as a
    fallback before the line is flagged as unmatched
-6. Each row keeps its own invoice's transaction date from the file (the
-   JV Date field only applies to Sales Journal Entry)
-7. Download as one combined file ("All-in-One") or one file per company
-   ("Company-wise"), in CSV or XLSX, ready to import into QuickBooks as
-   bills
+6. Each row keeps its own invoice's transaction date from the file
+7. Check/uncheck companies, Preview selected, then download per company
+   (XLSX/CSV) or all companies zipped together, ready to import into
+   QuickBooks as bills
 
 ### How Bills works — Epay
 
@@ -191,11 +188,11 @@ to add it.
 ```
 app/
   login/page.js        — sign-in screen
-  jv-entry/page.js      — JV Entry: Sales / VIP Device / VIP Service uploads
+  sales/page.js          — Sales Journal Entry upload
   bills/page.js          — Bills: VIP and Epay sub-tabs
   checklist/page.js      — Accounting Checklist
   mappings/page.js       — Mapping Master: Store Master / VIP / Epay tabs
-  sales/page.js, stores/page.js — redirect to /jv-entry, /mappings (old links)
+  jv-entry/page.js, stores/page.js — redirect to /sales, /mappings (old links)
   layout.js, page.js    — app shell / redirect
 components/
   Sidebar.js             — shared nav
