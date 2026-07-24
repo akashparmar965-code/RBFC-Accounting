@@ -5,7 +5,6 @@ import { createClient } from "@/lib/supabaseClient";
 import { clearPendingMappings } from "@/lib/pendingMappings";
 
 const NAV = [
-  { href: "/stores", label: "Store Master", ready: true },
   { href: "/jv-entry", label: "JV Entry", ready: true },
   { href: "/bills", label: "Bills", ready: true },
   { href: "/checklist", label: "Checklist", ready: true },

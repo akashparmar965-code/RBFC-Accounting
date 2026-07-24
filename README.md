@@ -99,7 +99,6 @@ created in step 1.
 ## What's built so far
 
 - ✅ Team login (Supabase Auth)
-- ✅ Store Master: full table view, search, filter by market, add/edit/delete
 - ✅ Your 115 stores ready to import via CSV
 - ✅ JV Entry (`/jv-entry`): a single upload screen with an Entry Type
   picker — Sales Journal Entry, VIP Bills (Device + Service combined),
@@ -114,11 +113,12 @@ created in step 1.
 - ✅ Checklist (`/checklist`): your monthly reconciliation & recurring-task
   tracker, per company — click a month cell to mark it done, add or delete
   items freely
-- ✅ Mapping Master (`/mappings`): the lookup tables Bills/JV Entry use
-  instead of hardcoded lists in code — Product Mapping (classifies VIP
-  line items by their Products text), Door Mapping (VIP Door Numbers not
-  yet in Store Master), and Epay Account Mapping (Epay Account Numbers
-  not yet in Store Master) — all fully editable
+- ✅ Mapping Master (`/mappings`): three tabs — **Store Master** (full
+  table view, search, filter by market/company, add/edit/delete — the
+  same UI that used to be its own sidebar item), **VIP** (Product Mapping
+  classifies VIP line items by their Products text; Door Mapping covers
+  VIP Door Numbers not yet in Store Master), and **Epay** (Epay Account
+  Mapping covers Epay Account Numbers not yet in Store Master)
 - ⏳ Payroll / Expenses upload + processing — placeholders in the
   sidebar, waiting on sample file formats to build the matching and
   calculation logic
@@ -191,15 +191,15 @@ to add it.
 ```
 app/
   login/page.js        — sign-in screen
-  stores/page.js        — the Store Master dashboard (main screen)
   jv-entry/page.js      — JV Entry: Sales / VIP Device / VIP Service uploads
   bills/page.js          — Bills: VIP and Epay sub-tabs
   checklist/page.js      — Accounting Checklist
-  mappings/page.js       — Mapping Master: Product / Door / Epay Account Mapping
-  sales/page.js           — redirects to /jv-entry (old link)
+  mappings/page.js       — Mapping Master: Store Master / VIP / Epay tabs
+  sales/page.js, stores/page.js — redirect to /jv-entry, /mappings (old links)
   layout.js, page.js    — app shell / redirect
 components/
   Sidebar.js             — shared nav
+  StoreMasterPanel.js    — Store Master table/search/filter/add/edit/delete UI
 lib/
   supabaseClient.js      — Supabase connection helper
   salesProcessor.js      — Sales Journal Entry parsing/export logic
