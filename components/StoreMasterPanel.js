@@ -3,7 +3,10 @@
 import { useEffect, useMemo, useState, useCallback } from "react";
 import { createClient } from "@/lib/supabaseClient";
 
+const STATUS_OPTIONS = ["Active", "Closed"];
+
 const FIELDS = [
+  { key: "status", label: "Status" },
   { key: "company_name", label: "Company Name" },
   { key: "elevate_name", label: "Elevate Name" },
   { key: "rbfc_market", label: "RBFC Market" },
@@ -17,9 +20,10 @@ const FIELDS = [
   { key: "salesforce_id", label: "Salesforce ID" },
 ];
 
-const TABLE_COLUMNS = ["elevate_name", "rbfc_market", "asm", "company_name", "epay", "vip_website_no"];
+const TABLE_COLUMNS = ["status", "elevate_name", "rbfc_market", "asm", "company_name", "epay", "vip_website_no"];
 
-const emptyForm = () => FIELDS.reduce((acc, f) => ({ ...acc, [f.key]: "" }), {});
+const emptyForm = () =>
+  FIELDS.reduce((acc, f) => ({ ...acc, [f.key]: f.key === "status" ? "Active" : "" }), {});
 
 export default function StoreMasterPanel() {
   const supabase = useMemo(() => createClient(), []);
@@ -186,10 +190,12 @@ export default function StoreMasterPanel() {
               </tr>
             </thead>
             <tbody>
-              {filtered.map((s) => (
+              {filtered.map((s) => {
+                const closed = s.status === "Closed";
+                return (
                 <tr key={s.id} style={styles.tr}>
                   {TABLE_COLUMNS.map((key) => (
-                    <td key={key} style={styles.td}>
+                    <td key={key} style={closed ? { ...styles.td, color: "var(--danger)" } : styles.td}>
                       {s[key] || <span style={styles.dash}>—</span>}
                     </td>
                   ))}
@@ -219,7 +225,8 @@ export default function StoreMasterPanel() {
                     )}
                   </td>
                 </tr>
-              ))}
+                );
+              })}
             </tbody>
           </table>
         )}
@@ -232,7 +239,22 @@ export default function StoreMasterPanel() {
             <form onSubmit={handleSave}>
               <div style={styles.formGrid}>
                 {FIELDS.map((f) =>
-                  f.key === "company_name" ? (
+                  f.key === "status" ? (
+                    <label key={f.key} style={styles.formLabel}>
+                      {f.label}
+                      <select
+                        style={styles.formInput}
+                        value={form[f.key]}
+                        onChange={(e) => setForm({ ...form, [f.key]: e.target.value })}
+                      >
+                        {STATUS_OPTIONS.map((s) => (
+                          <option key={s} value={s}>
+                            {s}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                  ) : f.key === "company_name" ? (
                     <label key={f.key} style={styles.formLabel}>
                       {f.label}
                       <select

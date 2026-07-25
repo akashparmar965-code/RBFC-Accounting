@@ -2,6 +2,7 @@
 
 create table if not exists stores (
   id uuid primary key default gen_random_uuid(),
+  status text not null default 'Active', -- 'Active' or 'Closed'
   epay_address text,
   epay text,
   vip_website_no text,
