@@ -133,6 +133,13 @@ export default function PayrollPage() {
     }));
   }
 
+  function handleGridKeyDown(e, rowIndex, colIndex) {
+    if (e.key !== "ArrowUp" && e.key !== "ArrowDown") return;
+    e.preventDefault();
+    const nextRow = e.key === "ArrowUp" ? rowIndex - 1 : rowIndex + 1;
+    document.getElementById(`payroll-cell-${nextRow}-${colIndex}`)?.focus();
+  }
+
   async function handleSave() {
     setSaving(true);
     setSaveMessage("");
@@ -317,19 +324,21 @@ export default function PayrollPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {companies.map((company) => (
+                    {companies.map((company, rowIndex) => (
                       <tr key={company} style={styles.tr}>
                         <td style={{ ...styles.td, position: "sticky", left: 0, background: "var(--panel)", fontWeight: 600 }}>
                           {company}
                         </td>
-                        {PAYROLL_FIELDS.map(({ key }) => (
+                        {PAYROLL_FIELDS.map(({ key }, colIndex) => (
                           <td key={key} style={styles.td}>
                             <input
+                              id={`payroll-cell-${rowIndex}-${colIndex}`}
                               type="number"
                               step="0.01"
                               style={styles.numInput}
                               value={companyRows[company]?.[key] ?? ""}
                               onChange={(e) => handleCellChange(company, key, e.target.value)}
+                              onKeyDown={(e) => handleGridKeyDown(e, rowIndex, colIndex)}
                             />
                           </td>
                         ))}
