@@ -260,3 +260,64 @@ create policy "Authenticated users can delete epay_account_mappings"
   on epay_account_mappings for delete
   to authenticated
   using (true);
+
+-- Payroll: company-wise payroll numbers typed in manually each pay period,
+-- keyed by pay_period_date + company_name. Allocated to stores by hours
+-- (uploaded Employee Timesheet, processed in-memory) and turned into a
+-- Journal Entry export in the Payroll tab — nothing else from that flow is
+-- persisted, same as Bills/Sales never persisting their uploaded rows.
+create table if not exists payroll_company_data (
+  id uuid primary key default gen_random_uuid(),
+  pay_period_date date not null,
+  company_name text not null,
+  regular_earnings numeric not null default 0,
+  bonus numeric not null default 0,
+  overtime_earnings numeric not null default 0,
+  additional_earnings numeric not null default 0,
+  total_commission numeric not null default 0,
+  gross_earnings numeric not null default 0,
+  total_employee_deductions numeric not null default 0,
+  total_employer_contributions numeric not null default 0,
+  total_employee_taxes numeric not null default 0,
+  total_employer_taxes numeric not null default 0,
+  net_pay numeric not null default 0,
+  total_employer_cost numeric not null default 0,
+  check_amount numeric not null default 0,
+  garnishments numeric not null default 0,
+  total_reimbursements numeric not null default 0,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  unique (pay_period_date, company_name)
+);
+
+drop trigger if exists trg_payroll_company_data_updated_at on payroll_company_data;
+create trigger trg_payroll_company_data_updated_at
+before update on payroll_company_data
+for each row execute function set_updated_at();
+
+alter table payroll_company_data enable row level security;
+
+drop policy if exists "Authenticated users can read payroll_company_data" on payroll_company_data;
+create policy "Authenticated users can read payroll_company_data"
+  on payroll_company_data for select
+  to authenticated
+  using (true);
+
+drop policy if exists "Authenticated users can insert payroll_company_data" on payroll_company_data;
+create policy "Authenticated users can insert payroll_company_data"
+  on payroll_company_data for insert
+  to authenticated
+  with check (true);
+
+drop policy if exists "Authenticated users can update payroll_company_data" on payroll_company_data;
+create policy "Authenticated users can update payroll_company_data"
+  on payroll_company_data for update
+  to authenticated
+  using (true)
+  with check (true);
+
+drop policy if exists "Authenticated users can delete payroll_company_data" on payroll_company_data;
+create policy "Authenticated users can delete payroll_company_data"
+  on payroll_company_data for delete
+  to authenticated
+  using (true);

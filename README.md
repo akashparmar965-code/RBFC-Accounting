@@ -117,9 +117,13 @@ created in step 1.
   classifies VIP line items by their Products text; Door Mapping covers
   VIP Door Numbers not yet in Store Master), and **Epay** (Epay Account
   Mapping covers Epay Account Numbers not yet in Store Master)
-- ⏳ Payroll / Expenses upload + processing — placeholders in the
-  sidebar, waiting on sample file formats to build the matching and
-  calculation logic
+- ✅ Payroll (`/payroll`): type in company-wise payroll per pay period
+  (persisted, keyed by date), upload the Employee Timesheet, allocate to
+  stores weighted by hours worked, and generate a per-company Journal
+  Entry (Journal Date/Account/Debit/Credit/Class/Memo) — same
+  select/preview/download UX as Bills
+- ⏳ Expenses upload + processing — placeholder in the sidebar, waiting
+  on sample file formats to build the matching and calculation logic
 
 ### How Sales works
 

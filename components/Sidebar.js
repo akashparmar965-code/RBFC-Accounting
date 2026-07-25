@@ -9,7 +9,7 @@ const NAV = [
   { href: "/bills", label: "Bills", ready: true },
   { href: "/checklist", label: "Checklist", ready: true },
   { href: "/mappings", label: "Mapping Master", ready: true },
-  { href: "#", label: "Payroll Upload — soon", ready: false },
+  { href: "/payroll", label: "Payroll", ready: true },
   { href: "#", label: "Expenses Upload — soon", ready: false },
 ];
 
