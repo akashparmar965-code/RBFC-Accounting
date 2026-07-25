@@ -1,7 +1,7 @@
 import "./globals.css";
 
 export const metadata = {
-  title: "Store Ops Dashboard",
+  title: "Accounting Dashboard",
   description: "Store master data and accounting file processing",
 };
 

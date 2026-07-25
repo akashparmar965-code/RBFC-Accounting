@@ -1,4 +1,4 @@
-# Store Ops Dashboard
+# Accounting Dashboard
 
 Store Master data (editable) + a foundation for Sales / Bills / Payroll /
 Expenses upload-and-process modules.

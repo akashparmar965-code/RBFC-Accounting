@@ -30,9 +30,9 @@ export default function LoginPage() {
     <main style={styles.wrap}>
       <div style={styles.card}>
         <div style={styles.brandRow}>
-          <div style={styles.mark}>SO</div>
+          <div style={styles.mark}>AD</div>
           <div>
-            <div style={styles.brandTitle}>Store Ops</div>
+            <div style={styles.brandTitle}>Accounting Dashboard</div>
             <div style={styles.brandSub}>Ledger &amp; store master</div>
           </div>
         </div>

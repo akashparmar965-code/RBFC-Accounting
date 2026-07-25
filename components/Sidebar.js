@@ -27,9 +27,9 @@ export default function Sidebar({ userEmail }) {
   return (
     <aside style={styles.sidebar}>
       <div style={styles.sidebarBrand}>
-        <div style={styles.mark}>SO</div>
+        <div style={styles.mark}>AD</div>
         <div>
-          <div style={styles.brandTitle}>Store Ops</div>
+          <div style={styles.brandTitle}>Accounting Dashboard</div>
           <div style={styles.brandSub}>{userEmail}</div>
         </div>
       </div>
