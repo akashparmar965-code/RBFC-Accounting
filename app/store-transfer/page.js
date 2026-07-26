@@ -19,31 +19,13 @@ import { buildExportFileName } from "@/lib/fileNaming";
 import { buildStoreNameMap, remapStoreNamesInRows } from "@/lib/storeNameMapping";
 import { savePendingMappings } from "@/lib/pendingMappings";
 import { savePageState, loadPageState } from "@/lib/pageState";
+import { triggerDownload, todayIso } from "@/lib/download";
+import { sharedPageStyles } from "@/lib/pageStyles";
 
 const STATE_KEY = "store-transfer";
 
 const XLSX_MIME = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
 const CSV_MIME = "text/csv;charset=utf-8;";
-
-function todayIso() {
-  const d = new Date();
-  const mm = String(d.getMonth() + 1).padStart(2, "0");
-  const dd = String(d.getDate()).padStart(2, "0");
-  return `${d.getFullYear()}-${mm}-${dd}`;
-}
-
-function triggerDownload(blob, filename) {
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = filename;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  // Revoking immediately can race the browser's blob read on some
-  // versions and truncate the download — give it a moment first.
-  setTimeout(() => URL.revokeObjectURL(url), 1000);
-}
 
 export default function StoreTransferPage() {
   const router = useRouter();
@@ -453,17 +435,10 @@ export default function StoreTransferPage() {
 }
 
 const styles = {
-  loadingScreen: {
-    minHeight: "100vh",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    color: "var(--ink-soft)",
-  },
-  shell: { display: "flex", minHeight: "100vh" },
+  ...sharedPageStyles,
+
   main: { flex: 1, padding: "36px 44px", maxWidth: 1300 },
-  topRow: { marginBottom: 20 },
-  h1: { fontFamily: "var(--font-display)", fontSize: 26, margin: 0 },
+
   h2: { fontFamily: "var(--font-display)", fontSize: 16, margin: "0 0 14px" },
   pageSub: { fontSize: 13, color: "var(--ink-soft)", margin: "4px 0 0" },
   tabRow: { display: "flex", gap: 8, marginBottom: 14 },
@@ -485,13 +460,7 @@ const styles = {
     fontSize: 13,
     fontWeight: 600,
   },
-  card: {
-    background: "var(--panel)",
-    border: "1px solid var(--line)",
-    borderRadius: 12,
-    padding: 20,
-    marginBottom: 20,
-  },
+
   fieldRow: { display: "flex", gap: 20, flexWrap: "wrap", marginBottom: 16 },
   fieldBlock: { display: "flex", flexDirection: "column", gap: 8, flex: 1, minWidth: 180 },
   fieldLabel: {
@@ -522,9 +491,9 @@ const styles = {
     cursor: "pointer",
     textAlign: "center",
   },
-  dropzoneActive: { borderColor: "var(--ledger)", background: "rgba(34,163,123,0.06)" },
+
   dropzoneIcon: { fontSize: 22 },
-  dropzoneText: { fontSize: 13, color: "var(--ink-soft)" },
+
   info: { fontSize: 13, color: "var(--ink-soft)" },
   errorBanner: {
     background: "var(--danger-bg)",
@@ -563,7 +532,7 @@ const styles = {
     letterSpacing: "0.03em",
     whiteSpace: "nowrap",
   },
-  tr: { borderBottom: "1px solid var(--line)" },
+
   td: {
     padding: "6px 8px",
     fontFamily: "var(--font-mono)",
@@ -580,50 +549,7 @@ const styles = {
     fontSize: 13,
     fontWeight: 600,
   },
-  previewBtn: {
-    background: "var(--danger)",
-    color: "#fff",
-    border: "none",
-    borderRadius: 7,
-    padding: "10px 16px",
-    fontSize: 13,
-    fontWeight: 600,
-  },
-  xlsxBtn: {
-    background: "var(--accent-purple)",
-    color: "#fff",
-    border: "none",
-    borderRadius: 7,
-    padding: "10px 16px",
-    fontSize: 13,
-    fontWeight: 600,
-  },
-  csvBtnMuted: {
-    background: "transparent",
-    color: "var(--ink-soft)",
-    border: "1px solid var(--line)",
-    borderRadius: 7,
-    padding: "10px 16px",
-    fontSize: 13,
-    fontWeight: 600,
-  },
-  resultsHeader: {
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 14,
-    gap: 12,
-  },
-  selectAllLabel: {
-    display: "flex",
-    alignItems: "center",
-    gap: 6,
-    fontSize: 12.5,
-    color: "var(--ink-soft)",
-    fontWeight: 600,
-    cursor: "pointer",
-  },
-  companyCheckLabel: { display: "flex", alignItems: "center", gap: 10, cursor: "pointer" },
+
   previewGroups: { display: "flex", flexDirection: "column", gap: 16 },
   previewGroup: {},
   previewGroupHeader: {
@@ -644,27 +570,7 @@ const styles = {
     maxHeight: 320,
     marginTop: 4,
   },
-  companyGrid: { display: "flex", flexDirection: "column", gap: 5 },
-  companyCard: {
-    background: "var(--panel)",
-    border: "1px solid var(--line)",
-    borderRadius: 6,
-    padding: "7px 14px",
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
-    gap: 12,
-    flexWrap: "wrap",
-  },
-  companyName: { fontFamily: "var(--font-display)", fontWeight: 600, fontSize: 12.5 },
+
   companyMeta: { fontSize: 10.5, color: "var(--ink-soft)" },
-  secondaryBtn: {
-    background: "transparent",
-    color: "var(--ink)",
-    border: "1px solid var(--line)",
-    borderRadius: 5,
-    padding: "5px 10px",
-    fontSize: 11,
-    fontWeight: 600,
-  },
+
 };
