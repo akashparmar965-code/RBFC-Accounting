@@ -22,6 +22,9 @@ import {
 import { buildExportFileName } from "@/lib/fileNaming";
 import { buildStoreNameMap, remapStoreNamesInRows } from "@/lib/storeNameMapping";
 import { savePendingMappings } from "@/lib/pendingMappings";
+import { savePageState, loadPageState } from "@/lib/pageState";
+
+const STATE_KEY = "payroll";
 
 const XLSX_MIME = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
 const CSV_MIME = "text/csv;charset=utf-8;";
@@ -55,50 +58,51 @@ function triggerDownload(blob, filename) {
 export default function PayrollPage() {
   const router = useRouter();
   const [session, setSession] = useState(undefined);
-  const [activeTab, setActiveTab] = useState("payroll");
+  const saved = useRef(loadPageState(STATE_KEY)).current;
+  const [activeTab, setActiveTab] = useState(saved?.activeTab ?? "payroll");
 
   const [companies, setCompanies] = useState([]);
   const [storeNameMap, setStoreNameMap] = useState({});
 
   // ==================== Payroll tab ====================
-  const [payPeriodDate, setPayPeriodDate] = useState(todayIso());
+  const [payPeriodDate, setPayPeriodDate] = useState(saved?.payPeriodDate ?? todayIso());
   const [companyRows, setCompanyRows] = useState({}); // { [company]: { [fieldKey]: string } }
   const [gridLoading, setGridLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState("");
   const [saveError, setSaveError] = useState("");
 
-  const [timesheetFileName, setTimesheetFileName] = useState(null);
+  const [timesheetFileName, setTimesheetFileName] = useState(saved?.timesheetFileName ?? null);
   const [timesheetDragOver, setTimesheetDragOver] = useState(false);
   const [timesheetError, setTimesheetError] = useState("");
-  const [storeHours, setStoreHours] = useState(null); // { [elevate_name]: hours } once loaded
+  const [storeHours, setStoreHours] = useState(saved?.storeHours ?? null); // { [elevate_name]: hours } once loaded
   const timesheetInputRef = useRef(null);
 
   const [generating, setGenerating] = useState(false);
   const [generateError, setGenerateError] = useState("");
-  const [result, setResult] = useState(null); // { byCompany, zeroHourCompanies, unmatchedTimesheetStores, zeroHourStores, expectedTotals }
-  const [previewOpen, setPreviewOpen] = useState(false);
-  const [selectedCompanies, setSelectedCompanies] = useState(new Set());
+  const [result, setResult] = useState(saved?.result ?? null); // { byCompany, zeroHourCompanies, unmatchedTimesheetStores, zeroHourStores, expectedTotals }
+  const [previewOpen, setPreviewOpen] = useState(saved?.previewOpen ?? false);
+  const [selectedCompanies, setSelectedCompanies] = useState(new Set(saved?.selectedCompanies ?? []));
 
   // ==================== Arcade & Subcontractor tab ====================
-  const [arcadePayPeriodDate, setArcadePayPeriodDate] = useState(todayIso());
+  const [arcadePayPeriodDate, setArcadePayPeriodDate] = useState(saved?.arcadePayPeriodDate ?? todayIso());
   const [arcadeCompanyRows, setArcadeCompanyRows] = useState({});
   const [arcadeGridLoading, setArcadeGridLoading] = useState(false);
   const [arcadeSaving, setArcadeSaving] = useState(false);
   const [arcadeSaveMessage, setArcadeSaveMessage] = useState("");
   const [arcadeSaveError, setArcadeSaveError] = useState("");
 
-  const [arcadeTimesheetFileName, setArcadeTimesheetFileName] = useState(null);
+  const [arcadeTimesheetFileName, setArcadeTimesheetFileName] = useState(saved?.arcadeTimesheetFileName ?? null);
   const [arcadeTimesheetDragOver, setArcadeTimesheetDragOver] = useState(false);
   const [arcadeTimesheetError, setArcadeTimesheetError] = useState("");
-  const [arcadeStoreHours, setArcadeStoreHours] = useState(null);
+  const [arcadeStoreHours, setArcadeStoreHours] = useState(saved?.arcadeStoreHours ?? null);
   const arcadeTimesheetInputRef = useRef(null);
 
   const [arcadeGenerating, setArcadeGenerating] = useState(false);
   const [arcadeGenerateError, setArcadeGenerateError] = useState("");
-  const [arcadeResult, setArcadeResult] = useState(null); // { byCompany, zeroHourCompanies, unmatchedTimesheetStores, expectedTotals }
-  const [arcadePreviewOpen, setArcadePreviewOpen] = useState(false);
-  const [arcadeSelectedCompanies, setArcadeSelectedCompanies] = useState(new Set());
+  const [arcadeResult, setArcadeResult] = useState(saved?.arcadeResult ?? null); // { byCompany, zeroHourCompanies, unmatchedTimesheetStores, expectedTotals }
+  const [arcadePreviewOpen, setArcadePreviewOpen] = useState(saved?.arcadePreviewOpen ?? false);
+  const [arcadeSelectedCompanies, setArcadeSelectedCompanies] = useState(new Set(saved?.arcadeSelectedCompanies ?? []));
 
   useEffect(() => {
     const supabase = createClient();
@@ -107,6 +111,38 @@ export default function PayrollPage() {
       if (!data.session) router.push("/login");
     });
   }, [router]);
+
+  useEffect(() => {
+    savePageState(STATE_KEY, {
+      activeTab,
+      payPeriodDate,
+      timesheetFileName,
+      storeHours,
+      result,
+      previewOpen,
+      selectedCompanies: Array.from(selectedCompanies),
+      arcadePayPeriodDate,
+      arcadeTimesheetFileName,
+      arcadeStoreHours,
+      arcadeResult,
+      arcadePreviewOpen,
+      arcadeSelectedCompanies: Array.from(arcadeSelectedCompanies),
+    });
+  }, [
+    activeTab,
+    payPeriodDate,
+    timesheetFileName,
+    storeHours,
+    result,
+    previewOpen,
+    selectedCompanies,
+    arcadePayPeriodDate,
+    arcadeTimesheetFileName,
+    arcadeStoreHours,
+    arcadeResult,
+    arcadePreviewOpen,
+    arcadeSelectedCompanies,
+  ]);
 
   useEffect(() => {
     if (!session) return;

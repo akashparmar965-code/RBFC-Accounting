@@ -17,6 +17,9 @@ import { formatMMDDYYYYFromIso } from "@/lib/payrollProcessor";
 import { buildExportFileName } from "@/lib/fileNaming";
 import { buildStoreNameMap, remapStoreNamesInRows } from "@/lib/storeNameMapping";
 import { savePendingMappings } from "@/lib/pendingMappings";
+import { savePageState, loadPageState } from "@/lib/pageState";
+
+const STATE_KEY = "inventory";
 
 const XLSX_MIME = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
 const CSV_MIME = "text/csv;charset=utf-8;";
@@ -44,32 +47,37 @@ function triggerDownload(blob, filename) {
 export default function InventoryPage() {
   const router = useRouter();
   const [session, setSession] = useState(undefined);
+  const saved = useRef(loadPageState(STATE_KEY)).current;
 
-  const [jeDate, setJeDate] = useState(todayIso());
+  const [jeDate, setJeDate] = useState(saved?.jeDate ?? todayIso());
 
   const [storeMaster, setStoreMaster] = useState(null);
   const [storeMasterError, setStoreMasterError] = useState("");
   const [storeNameMap, setStoreNameMap] = useState({});
 
-  const [openingFileName, setOpeningFileName] = useState(null);
+  const [openingFileName, setOpeningFileName] = useState(saved?.openingFileName ?? null);
   const [openingDragOver, setOpeningDragOver] = useState(false);
   const [openingError, setOpeningError] = useState("");
   const [openingRows, setOpeningRows] = useState(null);
   const openingInputRef = useRef(null);
 
-  const [closingFileName, setClosingFileName] = useState(null);
+  const [closingFileName, setClosingFileName] = useState(saved?.closingFileName ?? null);
   const [closingDragOver, setClosingDragOver] = useState(false);
   const [closingError, setClosingError] = useState("");
   const [closingRows, setClosingRows] = useState(null);
   const closingInputRef = useRef(null);
 
-  const [changeResult, setChangeResult] = useState(null); // { changeRows, unmatchedStores }
+  // changeRows/unmatchedStores are derived (small) results, not the raw
+  // opening/closing rows (which can be tens of thousands of line items and
+  // aren't kept around after computing this) — restored directly so a
+  // reload/tab-switch doesn't need the original files again.
+  const [changeResult, setChangeResult] = useState(saved?.changeResult ?? null); // { changeRows, unmatchedStores }
 
   const [generating, setGenerating] = useState(false);
   const [generateError, setGenerateError] = useState("");
-  const [result, setResult] = useState(null); // { byCompany }
-  const [previewOpen, setPreviewOpen] = useState(false);
-  const [selectedCompanies, setSelectedCompanies] = useState(new Set());
+  const [result, setResult] = useState(saved?.result ?? null); // { byCompany }
+  const [previewOpen, setPreviewOpen] = useState(saved?.previewOpen ?? false);
+  const [selectedCompanies, setSelectedCompanies] = useState(new Set(saved?.selectedCompanies ?? []));
 
   useEffect(() => {
     const supabase = createClient();
@@ -78,6 +86,18 @@ export default function InventoryPage() {
       if (!data.session) router.push("/login");
     });
   }, [router]);
+
+  useEffect(() => {
+    savePageState(STATE_KEY, {
+      jeDate,
+      openingFileName,
+      closingFileName,
+      changeResult,
+      result,
+      previewOpen,
+      selectedCompanies: Array.from(selectedCompanies),
+    });
+  }, [jeDate, openingFileName, closingFileName, changeResult, result, previewOpen, selectedCompanies]);
 
   useEffect(() => {
     if (!session) return;

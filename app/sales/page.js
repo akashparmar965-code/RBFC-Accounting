@@ -14,6 +14,9 @@ import {
   CSV_COLUMNS,
 } from "@/lib/salesProcessor";
 import { buildExportFileName } from "@/lib/fileNaming";
+import { savePageState, loadPageState } from "@/lib/pageState";
+
+const STATE_KEY = "sales";
 
 const XLSX_MIME = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
 const CSV_MIME = "text/csv;charset=utf-8;";
@@ -41,16 +44,27 @@ function triggerDownload(blob, filename) {
 export default function SalesPage() {
   const router = useRouter();
   const [session, setSession] = useState(undefined);
-  const [jvDate, setJvDate] = useState(todayIso());
-  const [fileName, setFileName] = useState(null);
+  const saved = useRef(loadPageState(STATE_KEY)).current;
+  const [jvDate, setJvDate] = useState(saved?.jvDate ?? todayIso());
+  const [fileName, setFileName] = useState(saved?.fileName ?? null);
   const [dragOver, setDragOver] = useState(false);
   const [processing, setProcessing] = useState(false);
   const [error, setError] = useState("");
-  const [result, setResult] = useState(null); // { byCompany, unmatched }
-  const [previewOpen, setPreviewOpen] = useState(false);
-  const [selectedCompanies, setSelectedCompanies] = useState(new Set());
+  const [result, setResult] = useState(saved?.result ?? null); // { byCompany, unmatched }
+  const [previewOpen, setPreviewOpen] = useState(saved?.previewOpen ?? false);
+  const [selectedCompanies, setSelectedCompanies] = useState(new Set(saved?.selectedCompanies ?? []));
   const fileInputRef = useRef(null);
   const lastFileRef = useRef(null);
+
+  useEffect(() => {
+    savePageState(STATE_KEY, {
+      jvDate,
+      fileName,
+      result,
+      previewOpen,
+      selectedCompanies: Array.from(selectedCompanies),
+    });
+  }, [jvDate, fileName, result, previewOpen, selectedCompanies]);
 
   useEffect(() => {
     const supabase = createClient();

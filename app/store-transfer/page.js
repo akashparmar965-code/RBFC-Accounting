@@ -18,6 +18,9 @@ import { formatMMDDYYYYFromIso } from "@/lib/payrollProcessor";
 import { buildExportFileName } from "@/lib/fileNaming";
 import { buildStoreNameMap, remapStoreNamesInRows } from "@/lib/storeNameMapping";
 import { savePendingMappings } from "@/lib/pendingMappings";
+import { savePageState, loadPageState } from "@/lib/pageState";
+
+const STATE_KEY = "store-transfer";
 
 const XLSX_MIME = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
 const CSV_MIME = "text/csv;charset=utf-8;";
@@ -45,23 +48,24 @@ function triggerDownload(blob, filename) {
 export default function StoreTransferPage() {
   const router = useRouter();
   const [session, setSession] = useState(undefined);
+  const saved = useRef(loadPageState(STATE_KEY)).current;
 
-  const [jeDate, setJeDate] = useState(todayIso());
+  const [jeDate, setJeDate] = useState(saved?.jeDate ?? todayIso());
 
-  const [fileName, setFileName] = useState(null);
+  const [fileName, setFileName] = useState(saved?.fileName ?? null);
   const [dragOver, setDragOver] = useState(false);
   const [processing, setProcessing] = useState(false);
   const [error, setError] = useState("");
-  const [transferData, setTransferData] = useState(null); // { transferRows, unmatchedStores }
+  const [transferData, setTransferData] = useState(saved?.transferData ?? null); // { transferRows, unmatchedStores }
   const fileInputRef = useRef(null);
 
-  const [verifyTab, setVerifyTab] = useState("out");
+  const [verifyTab, setVerifyTab] = useState(saved?.verifyTab ?? "out");
 
   const [generating, setGenerating] = useState(false);
   const [generateError, setGenerateError] = useState("");
-  const [result, setResult] = useState(null); // { byCompany }
-  const [previewOpen, setPreviewOpen] = useState(false);
-  const [selectedCompanies, setSelectedCompanies] = useState(new Set());
+  const [result, setResult] = useState(saved?.result ?? null); // { byCompany }
+  const [previewOpen, setPreviewOpen] = useState(saved?.previewOpen ?? false);
+  const [selectedCompanies, setSelectedCompanies] = useState(new Set(saved?.selectedCompanies ?? []));
 
   useEffect(() => {
     const supabase = createClient();
@@ -70,6 +74,18 @@ export default function StoreTransferPage() {
       if (!data.session) router.push("/login");
     });
   }, [router]);
+
+  useEffect(() => {
+    savePageState(STATE_KEY, {
+      jeDate,
+      fileName,
+      transferData,
+      verifyTab,
+      result,
+      previewOpen,
+      selectedCompanies: Array.from(selectedCompanies),
+    });
+  }, [jeDate, fileName, transferData, verifyTab, result, previewOpen, selectedCompanies]);
 
   const processFile = useCallback(async (file) => {
     setProcessing(true);

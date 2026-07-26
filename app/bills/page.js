@@ -23,6 +23,9 @@ import {
 } from "@/lib/epayProcessor";
 import { buildExportFileName } from "@/lib/fileNaming";
 import { savePendingMappings } from "@/lib/pendingMappings";
+import { savePageState, loadPageState } from "@/lib/pageState";
+
+const STATE_KEY = "bills";
 
 const XLSX_MIME = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
 const CSV_MIME = "text/csv;charset=utf-8;";
@@ -43,26 +46,27 @@ function triggerDownload(blob, filename) {
 export default function BillsPage() {
   const router = useRouter();
   const [session, setSession] = useState(undefined);
-  const [activeTab, setActiveTab] = useState("vip");
+  const saved = useRef(loadPageState(STATE_KEY)).current;
+  const [activeTab, setActiveTab] = useState(saved?.activeTab ?? "vip");
 
   // ---- VIP tab state ----
-  const [fileName, setFileName] = useState(null);
+  const [fileName, setFileName] = useState(saved?.fileName ?? null);
   const [dragOver, setDragOver] = useState(false);
   const [processing, setProcessing] = useState(false);
   const [error, setError] = useState("");
-  const [result, setResult] = useState(null); // { byCompany, unmatched, unmappedProducts }
-  const [previewOpen, setPreviewOpen] = useState(false);
-  const [selectedCompanies, setSelectedCompanies] = useState(new Set());
+  const [result, setResult] = useState(saved?.result ?? null); // { byCompany, unmatched, unmappedProducts }
+  const [previewOpen, setPreviewOpen] = useState(saved?.previewOpen ?? false);
+  const [selectedCompanies, setSelectedCompanies] = useState(new Set(saved?.selectedCompanies ?? []));
   const fileInputRef = useRef(null);
 
   // ---- Epay tab state ----
-  const [epayFileName, setEpayFileName] = useState(null);
+  const [epayFileName, setEpayFileName] = useState(saved?.epayFileName ?? null);
   const [epayDragOver, setEpayDragOver] = useState(false);
   const [epayProcessing, setEpayProcessing] = useState(false);
   const [epayError, setEpayError] = useState("");
-  const [epayResult, setEpayResult] = useState(null); // { incomeByCompany, purchaseByCompany, unmatchedAccounts }
-  const [epayPreviewOpen, setEpayPreviewOpen] = useState(false);
-  const [epaySelectedCompanies, setEpaySelectedCompanies] = useState(new Set());
+  const [epayResult, setEpayResult] = useState(saved?.epayResult ?? null); // { incomeByCompany, purchaseByCompany, unmatchedAccounts }
+  const [epayPreviewOpen, setEpayPreviewOpen] = useState(saved?.epayPreviewOpen ?? false);
+  const [epaySelectedCompanies, setEpaySelectedCompanies] = useState(new Set(saved?.epaySelectedCompanies ?? []));
   const epayFileInputRef = useRef(null);
 
   useEffect(() => {
@@ -72,6 +76,20 @@ export default function BillsPage() {
       if (!data.session) router.push("/login");
     });
   }, [router]);
+
+  useEffect(() => {
+    savePageState(STATE_KEY, {
+      activeTab,
+      fileName,
+      result,
+      previewOpen,
+      selectedCompanies: Array.from(selectedCompanies),
+      epayFileName,
+      epayResult,
+      epayPreviewOpen,
+      epaySelectedCompanies: Array.from(epaySelectedCompanies),
+    });
+  }, [activeTab, fileName, result, previewOpen, selectedCompanies, epayFileName, epayResult, epayPreviewOpen, epaySelectedCompanies]);
 
   // ===================== VIP =====================
 

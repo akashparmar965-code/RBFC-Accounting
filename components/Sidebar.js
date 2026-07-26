@@ -3,6 +3,7 @@
 import { useRouter, usePathname } from "next/navigation";
 import { createClient } from "@/lib/supabaseClient";
 import { clearPendingMappings } from "@/lib/pendingMappings";
+import { clearAllPageState } from "@/lib/pageState";
 
 const NAV = [
   { href: "/sales", label: "Sales", ready: true },
@@ -26,6 +27,7 @@ export default function Sidebar({ userEmail }) {
     const supabase = createClient();
     await supabase.auth.signOut();
     clearPendingMappings();
+    clearAllPageState();
     router.push("/login");
   }
 
