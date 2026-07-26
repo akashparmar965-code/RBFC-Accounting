@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabaseClient";
 import Sidebar from "@/components/Sidebar";
 import {
-  parseStockTriggerWorkbook,
+  parseInventorySheet,
   sumCostByStore,
   buildInventoryChangeRows,
   buildInventoryJournalEntryRows,
@@ -43,12 +43,22 @@ export default function InventoryPage() {
 
   const [jeDate, setJeDate] = useState(todayIso());
 
-  const [fileName, setFileName] = useState(null);
-  const [dragOver, setDragOver] = useState(false);
-  const [processing, setProcessing] = useState(false);
-  const [error, setError] = useState("");
+  const [storeMaster, setStoreMaster] = useState(null);
+  const [storeMasterError, setStoreMasterError] = useState("");
+
+  const [openingFileName, setOpeningFileName] = useState(null);
+  const [openingDragOver, setOpeningDragOver] = useState(false);
+  const [openingError, setOpeningError] = useState("");
+  const [openingRows, setOpeningRows] = useState(null);
+  const openingInputRef = useRef(null);
+
+  const [closingFileName, setClosingFileName] = useState(null);
+  const [closingDragOver, setClosingDragOver] = useState(false);
+  const [closingError, setClosingError] = useState("");
+  const [closingRows, setClosingRows] = useState(null);
+  const closingInputRef = useRef(null);
+
   const [changeResult, setChangeResult] = useState(null); // { changeRows, unmatchedStores }
-  const fileInputRef = useRef(null);
 
   const [generating, setGenerating] = useState(false);
   const [generateError, setGenerateError] = useState("");
@@ -64,52 +74,89 @@ export default function InventoryPage() {
     });
   }, [router]);
 
-  const processFile = useCallback(async (file) => {
-    setProcessing(true);
-    setError("");
-    setChangeResult(null);
-    setResult(null);
-    setPreviewOpen(false);
+  useEffect(() => {
+    if (!session) return;
+    const supabase = createClient();
+    supabase
+      .from("stores")
+      .select("*")
+      .then(({ data, error }) => {
+        if (error) setStoreMasterError("Could not load Store Master: " + error.message);
+        else setStoreMaster(data || []);
+      });
+  }, [session]);
+
+  const processOpeningFile = useCallback(async (file) => {
+    setOpeningError("");
+    setOpeningRows(null);
     try {
-      const supabase = createClient();
-      const { data: storeMaster, error: smError } = await supabase.from("stores").select("*");
-      if (smError) throw new Error("Could not load Store Master: " + smError.message);
-
       const buffer = await file.arrayBuffer();
-      const { openingRows, closingRows } = parseStockTriggerWorkbook(buffer);
-      if (!openingRows.length || !("Store" in openingRows[0]) || !("Total Cost" in openingRows[0])) {
-        throw new Error('The "Opening" sheet is missing expected "Store"/"Total Cost" columns.');
+      const rows = parseInventorySheet(buffer, "opening");
+      if (!rows.length || !("Store" in rows[0]) || !("Total Cost" in rows[0])) {
+        throw new Error('This file is missing expected "Store"/"Total Cost" columns.');
       }
-      if (!closingRows.length || !("Store" in closingRows[0]) || !("Total Cost" in closingRows[0])) {
-        throw new Error('The "Closing" sheet is missing expected "Store"/"Total Cost" columns.');
-      }
-
-      const openingByStore = sumCostByStore(openingRows);
-      const closingByStore = sumCostByStore(closingRows);
-      const { changeRows, unmatchedStores } = buildInventoryChangeRows(openingByStore, closingByStore, storeMaster);
-      setChangeResult({ changeRows, unmatchedStores });
+      setOpeningRows(rows);
     } catch (e) {
-      setError(e.message || String(e));
-    } finally {
-      setProcessing(false);
+      setOpeningError(e.message || String(e));
     }
   }, []);
 
-  function handleFile(file) {
+  const processClosingFile = useCallback(async (file) => {
+    setClosingError("");
+    setClosingRows(null);
+    try {
+      const buffer = await file.arrayBuffer();
+      const rows = parseInventorySheet(buffer, "closing");
+      if (!rows.length || !("Store" in rows[0]) || !("Total Cost" in rows[0])) {
+        throw new Error('This file is missing expected "Store"/"Total Cost" columns.');
+      }
+      setClosingRows(rows);
+    } catch (e) {
+      setClosingError(e.message || String(e));
+    }
+  }, []);
+
+  function handleOpeningFile(file) {
     if (!file) return;
-    setFileName(file.name);
-    processFile(file);
+    setOpeningFileName(file.name);
+    processOpeningFile(file);
   }
 
-  function handleFileChange(e) {
-    handleFile(e.target.files?.[0]);
+  function handleClosingFile(file) {
+    if (!file) return;
+    setClosingFileName(file.name);
+    processClosingFile(file);
   }
 
-  function handleDrop(e) {
+  function handleOpeningFileChange(e) {
+    handleOpeningFile(e.target.files?.[0]);
+  }
+
+  function handleClosingFileChange(e) {
+    handleClosingFile(e.target.files?.[0]);
+  }
+
+  function handleOpeningDrop(e) {
     e.preventDefault();
-    setDragOver(false);
-    handleFile(e.dataTransfer.files?.[0]);
+    setOpeningDragOver(false);
+    handleOpeningFile(e.dataTransfer.files?.[0]);
   }
+
+  function handleClosingDrop(e) {
+    e.preventDefault();
+    setClosingDragOver(false);
+    handleClosingFile(e.dataTransfer.files?.[0]);
+  }
+
+  useEffect(() => {
+    if (!openingRows || !closingRows || !storeMaster) return;
+    const openingByStore = sumCostByStore(openingRows);
+    const closingByStore = sumCostByStore(closingRows);
+    const { changeRows, unmatchedStores } = buildInventoryChangeRows(openingByStore, closingByStore, storeMaster);
+    setChangeResult({ changeRows, unmatchedStores });
+    setResult(null);
+    setPreviewOpen(false);
+  }, [openingRows, closingRows, storeMaster]);
 
   function handleGenerate() {
     setGenerating(true);
@@ -180,7 +227,7 @@ export default function InventoryPage() {
         <div style={styles.topRow}>
           <h1 style={styles.h1}>Change in Inventory</h1>
           <p style={styles.pageSub}>
-            Upload the Stock Trigger File (Opening + Closing sheets) to get per-store Opening/Closing/Change in
+            Upload your opening and closing inventory exports separately to get per-store Opening/Closing/Change in
             Inventory, then generate a per-company Journal Entry.
           </p>
         </div>
@@ -194,23 +241,61 @@ export default function InventoryPage() {
             </label>
           </div>
 
-          <input ref={fileInputRef} type="file" accept=".xlsx,.xls,.csv" onChange={handleFileChange} style={{ display: "none" }} />
-          <div
-            style={{ ...styles.dropzone, ...(dragOver ? styles.dropzoneActive : {}) }}
-            onClick={() => fileInputRef.current?.click()}
-            onDragOver={(e) => {
-              e.preventDefault();
-              setDragOver(true);
-            }}
-            onDragLeave={() => setDragOver(false)}
-            onDrop={handleDrop}
-          >
-            <div style={styles.dropzoneIcon}>📄</div>
-            <div style={styles.dropzoneText}>{fileName || "Choose or drop Stock Trigger File (.xlsx)"}</div>
-          </div>
+          {storeMasterError && <div style={styles.errorBanner}>{storeMasterError}</div>}
 
-          {processing && <div style={styles.info}>Processing…</div>}
-          {error && <div style={styles.errorBanner}>{error}</div>}
+          <div style={styles.uploadPairRow}>
+            <div style={styles.uploadCol}>
+              <span style={styles.fieldLabel}>Opening Inventory</span>
+              <input
+                ref={openingInputRef}
+                type="file"
+                accept=".xlsx,.xls,.csv"
+                onChange={handleOpeningFileChange}
+                style={{ display: "none" }}
+              />
+              <div
+                style={{ ...styles.dropzone, ...(openingDragOver ? styles.dropzoneActive : {}) }}
+                onClick={() => openingInputRef.current?.click()}
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  setOpeningDragOver(true);
+                }}
+                onDragLeave={() => setOpeningDragOver(false)}
+                onDrop={handleOpeningDrop}
+              >
+                <div style={styles.dropzoneIcon}>📄</div>
+                <div style={styles.dropzoneText}>{openingFileName || "Choose or drop Opening Inventory export"}</div>
+              </div>
+              {openingRows && !openingError && <div style={styles.info}>{openingRows.length} row(s) loaded.</div>}
+              {openingError && <div style={styles.errorBanner}>{openingError}</div>}
+            </div>
+
+            <div style={styles.uploadCol}>
+              <span style={styles.fieldLabel}>Closing Inventory</span>
+              <input
+                ref={closingInputRef}
+                type="file"
+                accept=".xlsx,.xls,.csv"
+                onChange={handleClosingFileChange}
+                style={{ display: "none" }}
+              />
+              <div
+                style={{ ...styles.dropzone, ...(closingDragOver ? styles.dropzoneActive : {}) }}
+                onClick={() => closingInputRef.current?.click()}
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  setClosingDragOver(true);
+                }}
+                onDragLeave={() => setClosingDragOver(false)}
+                onDrop={handleClosingDrop}
+              >
+                <div style={styles.dropzoneIcon}>📄</div>
+                <div style={styles.dropzoneText}>{closingFileName || "Choose or drop Closing Inventory export"}</div>
+              </div>
+              {closingRows && !closingError && <div style={styles.info}>{closingRows.length} row(s) loaded.</div>}
+              {closingError && <div style={styles.errorBanner}>{closingError}</div>}
+            </div>
+          </div>
 
           {changeResult && changeResult.unmatchedStores.length > 0 && (
             <div style={styles.warnBanner}>
@@ -424,6 +509,8 @@ const styles = {
   dropzoneActive: { borderColor: "var(--ledger)", background: "rgba(34,163,123,0.06)" },
   dropzoneIcon: { fontSize: 22 },
   dropzoneText: { fontSize: 13, color: "var(--ink-soft)" },
+  uploadPairRow: { display: "flex", gap: 20, flexWrap: "wrap" },
+  uploadCol: { display: "flex", flexDirection: "column", gap: 8, flex: 1, minWidth: 260 },
   info: { fontSize: 13, color: "var(--ink-soft)" },
   errorBanner: {
     background: "var(--danger-bg)",
