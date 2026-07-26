@@ -413,3 +413,52 @@ create policy "Authenticated users can delete payroll_arcade_subcontractor_data"
   on payroll_arcade_subcontractor_data for delete
   to authenticated
   using (true);
+
+-- Manual JV: freeform JV lines typed in per JE date, allocated equally
+-- (flat, not hours-weighted) across every store active in that period's
+-- Employee Timesheet upload. `split_per_store` = true explodes the line
+-- into one row per active store (Class = store); false collapses it into
+-- one row per company, scaled by that company's share of active stores.
+create table if not exists manual_jv_lines (
+  id uuid primary key default gen_random_uuid(),
+  je_date date not null,
+  account_name text not null,
+  debit numeric not null default 0,
+  credit numeric not null default 0,
+  split_per_store boolean not null default true,
+  sort_order integer not null default 0,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+drop trigger if exists trg_manual_jv_lines_updated_at on manual_jv_lines;
+create trigger trg_manual_jv_lines_updated_at
+before update on manual_jv_lines
+for each row execute function set_updated_at();
+
+alter table manual_jv_lines enable row level security;
+
+drop policy if exists "Authenticated users can read manual_jv_lines" on manual_jv_lines;
+create policy "Authenticated users can read manual_jv_lines"
+  on manual_jv_lines for select
+  to authenticated
+  using (true);
+
+drop policy if exists "Authenticated users can insert manual_jv_lines" on manual_jv_lines;
+create policy "Authenticated users can insert manual_jv_lines"
+  on manual_jv_lines for insert
+  to authenticated
+  with check (true);
+
+drop policy if exists "Authenticated users can update manual_jv_lines" on manual_jv_lines;
+create policy "Authenticated users can update manual_jv_lines"
+  on manual_jv_lines for update
+  to authenticated
+  using (true)
+  with check (true);
+
+drop policy if exists "Authenticated users can delete manual_jv_lines" on manual_jv_lines;
+create policy "Authenticated users can delete manual_jv_lines"
+  on manual_jv_lines for delete
+  to authenticated
+  using (true);
