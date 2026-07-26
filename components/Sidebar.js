@@ -10,6 +10,7 @@ const NAV = [
   { href: "/checklist", label: "Checklist", ready: true },
   { href: "/mappings", label: "Mapping Master", ready: true },
   { href: "/payroll", label: "Payroll", ready: true },
+  { href: "/inventory", label: "Change in Inventory", ready: true },
   { href: "#", label: "Expenses Upload — soon", ready: false },
 ];
 
