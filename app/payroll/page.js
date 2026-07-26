@@ -469,32 +469,49 @@ export default function PayrollPage() {
             </div>
 
             {previewOpen && (
-              <div style={styles.previewWrap}>
-                <table style={styles.table}>
-                  <thead>
-                    <tr>
-                      {JE_COLUMNS.map((c) => (
-                        <th key={c} style={styles.th}>
-                          {c}
-                        </th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {companyEntries
-                      .filter(([company]) => selectedCompanies.has(company))
-                      .flatMap(([, rows]) => rows)
-                      .map((r, i) => (
-                        <tr key={i} style={styles.tr}>
-                          {JE_COLUMNS.map((c) => (
-                            <td key={c} style={styles.td}>
-                              {r[c]}
-                            </td>
-                          ))}
-                        </tr>
-                      ))}
-                  </tbody>
-                </table>
+              <div style={styles.previewGroups}>
+                {companyEntries
+                  .filter(([company]) => selectedCompanies.has(company))
+                  .map(([company, rows]) => {
+                    const totalDebit = rows.reduce((sum, r) => sum + (Number(r.Debit) || 0), 0);
+                    const totalCredit = rows.reduce((sum, r) => sum + (Number(r.Credit) || 0), 0);
+                    const balanced = Math.abs(totalDebit - totalCredit) < 0.01;
+                    return (
+                      <div key={company} style={styles.previewGroup}>
+                        <div style={styles.previewGroupHeader}>
+                          <span style={styles.companyName}>{company}</span>
+                          <span style={balanced ? styles.balanceOk : styles.balanceBad}>
+                            Dr {totalDebit.toFixed(2)} · Cr {totalCredit.toFixed(2)}
+                            {balanced ? " ✓ Balanced" : ` ⚠ Out of balance by ${(totalDebit - totalCredit).toFixed(2)}`}
+                          </span>
+                        </div>
+                        <div style={styles.previewWrap}>
+                          <table style={styles.table}>
+                            <thead>
+                              <tr>
+                                {JE_COLUMNS.map((c) => (
+                                  <th key={c} style={styles.th}>
+                                    {c}
+                                  </th>
+                                ))}
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {rows.map((r, i) => (
+                                <tr key={i} style={styles.tr}>
+                                  {JE_COLUMNS.map((c) => (
+                                    <td key={c} style={styles.td}>
+                                      {r[c]}
+                                    </td>
+                                  ))}
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    );
+                  })}
               </div>
             )}
           </>
@@ -677,12 +694,24 @@ const styles = {
     cursor: "pointer",
   },
   companyCheckLabel: { display: "flex", alignItems: "center", gap: 10, cursor: "pointer" },
+  previewGroups: { display: "flex", flexDirection: "column", gap: 16 },
+  previewGroup: {},
+  previewGroupHeader: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "baseline",
+    gap: 12,
+    marginBottom: 6,
+    flexWrap: "wrap",
+  },
+  balanceOk: { fontFamily: "var(--font-mono)", fontSize: 11.5, color: "var(--ledger)" },
+  balanceBad: { fontFamily: "var(--font-mono)", fontSize: 11.5, color: "var(--danger)", fontWeight: 700 },
   previewWrap: {
     background: "var(--panel)",
     border: "1px solid var(--line)",
     borderRadius: 10,
     overflow: "auto",
-    maxHeight: 240,
+    maxHeight: 320,
     marginTop: 4,
   },
   companyGrid: { display: "flex", flexDirection: "column", gap: 5 },
