@@ -45,7 +45,9 @@ function triggerDownload(blob, filename) {
   document.body.appendChild(a);
   a.click();
   a.remove();
-  URL.revokeObjectURL(url);
+  // Revoking immediately can race the browser's blob read on some
+  // versions and truncate the download — give it a moment first.
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
 export default function PayrollPage() {
