@@ -7,14 +7,16 @@ import { clearPendingMappings } from "@/lib/pendingMappings";
 const NAV = [
   { href: "/sales", label: "Sales", ready: true },
   { href: "/bills", label: "Bills", ready: true },
-  { href: "/checklist", label: "Checklist", ready: true },
   { href: "/payroll", label: "Payroll", ready: true },
   { href: "/inventory", label: "Change in Inventory", ready: true },
   { href: "/store-transfer", label: "Store Transfer", ready: true },
   { href: "#", label: "Expenses Upload — soon", ready: false },
 ];
 
-const UTILITY_NAV = [{ href: "/mappings", label: "Mapping Master", ready: true }];
+const UTILITY_NAV = [
+  { href: "/checklist", label: "Checklist", ready: true },
+  { href: "/mappings", label: "Mapping Master", ready: true },
+];
 
 export default function Sidebar({ userEmail }) {
   const router = useRouter();
