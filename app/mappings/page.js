@@ -10,11 +10,13 @@ import {
   removePendingDoor,
   removePendingAccount,
   removePendingProductsMatching,
+  removePendingStoreName,
 } from "@/lib/pendingMappings";
 
 const emptyProductDraft = { product_prefix: "", expense_account: "", expense_memo: "", notes: "" };
 const emptyDoorDraft = { door_number: "", company_name: "", qbo_class: "", notes: "" };
 const emptyAccountDraft = { account_number: "", company_name: "", qbo_class: "", notes: "" };
+const emptyStoreNameDraft = { raw_name: "", elevate_name: "", notes: "" };
 
 export default function MappingsPage() {
   const router = useRouter();
@@ -25,16 +27,20 @@ export default function MappingsPage() {
   const [productRows, setProductRows] = useState([]);
   const [doorRows, setDoorRows] = useState([]);
   const [accountRows, setAccountRows] = useState([]);
+  const [storeNameRows, setStoreNameRows] = useState([]);
+  const [elevateNameOptions, setElevateNameOptions] = useState([]); // [{ value, label }]
   const [companyOptions, setCompanyOptions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [productDraft, setProductDraft] = useState(emptyProductDraft);
   const [doorDraft, setDoorDraft] = useState(emptyDoorDraft);
   const [accountDraft, setAccountDraft] = useState(emptyAccountDraft);
+  const [storeNameDraft, setStoreNameDraft] = useState(emptyStoreNameDraft);
   const [confirmDelete, setConfirmDelete] = useState(null); // { table, id }
   const [pendingDoors, setPendingDoors] = useState([]);
   const [pendingProducts, setPendingProducts] = useState([]);
   const [pendingAccounts, setPendingAccounts] = useState([]);
+  const [pendingStoreNames, setPendingStoreNames] = useState([]);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
@@ -53,16 +59,19 @@ export default function MappingsPage() {
     setPendingDoors(pending.unmatchedDoors);
     setPendingProducts(pending.unmappedProducts);
     setPendingAccounts(pending.unmatchedAccounts);
+    setPendingStoreNames(pending.unmatchedStoreNames);
   }, []);
 
   const loadAll = useCallback(async () => {
     setLoading(true);
     setError("");
-    const [productRes, doorRes, accountRes, checklistRes] = await Promise.all([
+    const [productRes, doorRes, accountRes, checklistRes, storeNameRes, storesRes] = await Promise.all([
       supabase.from("product_mappings").select("*").order("product_prefix", { ascending: true }),
       supabase.from("door_mappings").select("*").order("door_number", { ascending: true }),
       supabase.from("epay_account_mappings").select("*").order("account_number", { ascending: true }),
       supabase.from("checklist_items").select("company"),
+      supabase.from("store_name_mappings").select("*").order("raw_name", { ascending: true }),
+      supabase.from("stores").select("elevate_name, company_name").order("elevate_name", { ascending: true }),
     ]);
     if (productRes.error) setError(productRes.error.message);
     else setProductRows(productRes.data || []);
@@ -70,8 +79,20 @@ export default function MappingsPage() {
     else setDoorRows(doorRes.data || []);
     if (accountRes.error) setError(accountRes.error.message);
     else setAccountRows(accountRes.data || []);
+    if (storeNameRes.error) setError(storeNameRes.error.message);
+    else setStoreNameRows(storeNameRes.data || []);
     if (!checklistRes.error) {
       setCompanyOptions(Array.from(new Set((checklistRes.data || []).map((r) => r.company))).sort());
+    }
+    if (!storesRes.error) {
+      const seen = new Set();
+      const options = [];
+      for (const s of storesRes.data || []) {
+        if (!s.elevate_name || seen.has(s.elevate_name)) continue;
+        seen.add(s.elevate_name);
+        options.push({ value: s.elevate_name, label: `${s.elevate_name} (${s.company_name || "—"})` });
+      }
+      setElevateNameOptions(options);
     }
     setLoading(false);
   }, [supabase]);
@@ -188,6 +209,50 @@ export default function MappingsPage() {
     setPendingAccounts((prev) => prev.filter((a) => a !== addedAccount));
   }
 
+  async function updateStoreNameField(id, field, value) {
+    setStoreNameRows((prev) => prev.map((r) => (r.id === id ? { ...r, [field]: value } : r)));
+    const { error } = await supabase
+      .from("store_name_mappings")
+      .update({ [field]: value || null })
+      .eq("id", id);
+    if (error) setError(error.message);
+  }
+
+  async function addStoreNameRow() {
+    if (!storeNameDraft.raw_name.trim() || !storeNameDraft.elevate_name.trim()) {
+      setError("Raw Store Name and Elevate Name are required.");
+      return;
+    }
+    const { data, error } = await supabase
+      .from("store_name_mappings")
+      .insert([
+        {
+          raw_name: storeNameDraft.raw_name.trim(),
+          elevate_name: storeNameDraft.elevate_name.trim(),
+          notes: storeNameDraft.notes.trim() || null,
+        },
+      ])
+      .select();
+    if (error) {
+      setError(error.message);
+      return;
+    }
+    setStoreNameRows((prev) => [...prev, ...(data || [])]);
+    const addedRaw = storeNameDraft.raw_name.trim();
+    setStoreNameDraft(emptyStoreNameDraft);
+    removePendingStoreName(addedRaw);
+    setPendingStoreNames((prev) => prev.filter((s) => s !== addedRaw));
+  }
+
+  function useStoreNameSuggestion(rawName) {
+    setStoreNameDraft((d) => ({ ...d, raw_name: rawName }));
+  }
+
+  function dismissPendingStoreName(rawName) {
+    removePendingStoreName(rawName);
+    setPendingStoreNames((prev) => prev.filter((s) => s !== rawName));
+  }
+
   function useAccountSuggestion(accountNumber) {
     setAccountDraft((d) => ({ ...d, account_number: accountNumber }));
   }
@@ -222,7 +287,8 @@ export default function MappingsPage() {
     if (error) setError(error.message);
     if (table === "product_mappings") setProductRows((prev) => prev.filter((r) => r.id !== id));
     else if (table === "door_mappings") setDoorRows((prev) => prev.filter((r) => r.id !== id));
-    else setAccountRows((prev) => prev.filter((r) => r.id !== id));
+    else if (table === "epay_account_mappings") setAccountRows((prev) => prev.filter((r) => r.id !== id));
+    else setStoreNameRows((prev) => prev.filter((r) => r.id !== id));
     setConfirmDelete(null);
   }
 
@@ -264,6 +330,12 @@ export default function MappingsPage() {
             onClick={() => setActiveTab("epay")}
           >
             Epay
+          </button>
+          <button
+            style={activeTab === "storemap" ? styles.tabActive : styles.tab}
+            onClick={() => setActiveTab("storemap")}
+          >
+            Store Mapping
           </button>
         </div>
 
@@ -557,7 +629,7 @@ export default function MappingsPage() {
               </div>
             </div>
           </>
-        ) : (
+        ) : activeTab === "epay" ? (
           <>
             <div style={styles.sectionCard}>
               <div style={styles.sectionTitle}>Epay Account Mapping</div>
@@ -696,6 +768,140 @@ export default function MappingsPage() {
                       </td>
                       <td style={styles.td}>
                         <button style={styles.addBtn} onClick={addAccountRow}>
+                          + Add
+                        </button>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </>
+        ) : (
+          <>
+            <div style={styles.sectionCard}>
+              <div style={styles.sectionTitle}>Store Mapping</div>
+              <div style={styles.sectionSub}>
+                A fallback for raw store names (from Payroll's Employee Timesheet, Change in Inventory's
+                Opening/Closing uploads, or Store Transfer's From/To columns) that don't exactly match a
+                store's Elevate Name in Store Master — renames, typos, or casing drift. Map the raw name
+                to the correct Elevate Name and re-upload to pick it up.
+              </div>
+
+              {pendingStoreNames.length > 0 && (
+                <div style={styles.pendingRow}>
+                  <span style={styles.pendingLabel}>From your last upload:</span>
+                  {pendingStoreNames.map((s) => (
+                    <span key={s} style={styles.chip}>
+                      <button style={styles.chipMain} onClick={() => useStoreNameSuggestion(s)}>
+                        {s}
+                      </button>
+                      <button style={styles.chipDismiss} onClick={() => dismissPendingStoreName(s)}>
+                        ×
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              )}
+
+              <div style={styles.tableWrap}>
+                <table style={styles.table}>
+                  <thead>
+                    <tr>
+                      <th style={{ ...styles.th, textAlign: "left" }}>Raw Store Name</th>
+                      <th style={{ ...styles.th, textAlign: "left" }}>Elevate Name</th>
+                      <th style={{ ...styles.th, textAlign: "left" }}>Notes</th>
+                      <th style={styles.th}></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {storeNameRows.map((r) => (
+                      <tr key={r.id} style={styles.tr}>
+                        <td style={styles.td}>
+                          <input
+                            style={styles.cellInput}
+                            defaultValue={r.raw_name}
+                            onBlur={(e) => updateStoreNameField(r.id, "raw_name", e.target.value)}
+                          />
+                        </td>
+                        <td style={styles.td}>
+                          <select
+                            style={styles.cellInput}
+                            value={r.elevate_name}
+                            onChange={(e) => updateStoreNameField(r.id, "elevate_name", e.target.value)}
+                          >
+                            <option value="">— Select —</option>
+                            {elevateNameOptions.map((o) => (
+                              <option key={o.value} value={o.value}>
+                                {o.label}
+                              </option>
+                            ))}
+                            {r.elevate_name && !elevateNameOptions.some((o) => o.value === r.elevate_name) && (
+                              <option value={r.elevate_name}>{r.elevate_name}</option>
+                            )}
+                          </select>
+                        </td>
+                        <td style={styles.td}>
+                          <input
+                            style={styles.cellInput}
+                            defaultValue={r.notes || ""}
+                            onBlur={(e) => updateStoreNameField(r.id, "notes", e.target.value)}
+                          />
+                        </td>
+                        <td style={{ ...styles.td, whiteSpace: "nowrap" }}>
+                          {confirmDelete?.table === "store_name_mappings" && confirmDelete.id === r.id ? (
+                            <>
+                              <button style={{ ...styles.linkBtn, color: "var(--danger)" }} onClick={handleDelete}>
+                                Confirm
+                              </button>
+                              <button style={styles.linkBtn} onClick={() => setConfirmDelete(null)}>
+                                Cancel
+                              </button>
+                            </>
+                          ) : (
+                            <button
+                              style={{ ...styles.linkBtn, color: "var(--danger)" }}
+                              onClick={() => setConfirmDelete({ table: "store_name_mappings", id: r.id })}
+                            >
+                              Delete
+                            </button>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                    <tr>
+                      <td style={styles.td}>
+                        <input
+                          style={styles.cellInput}
+                          placeholder="e.g. EP - Butler"
+                          value={storeNameDraft.raw_name}
+                          onChange={(e) => setStoreNameDraft((d) => ({ ...d, raw_name: e.target.value }))}
+                        />
+                      </td>
+                      <td style={styles.td}>
+                        <select
+                          style={styles.cellInput}
+                          value={storeNameDraft.elevate_name}
+                          onChange={(e) => setStoreNameDraft((d) => ({ ...d, elevate_name: e.target.value }))}
+                        >
+                          <option value="">— Select —</option>
+                          {elevateNameOptions.map((o) => (
+                            <option key={o.value} value={o.value}>
+                              {o.label}
+                            </option>
+                          ))}
+                        </select>
+                      </td>
+                      <td style={styles.td}>
+                        <input
+                          style={styles.cellInput}
+                          placeholder="(optional)"
+                          value={storeNameDraft.notes}
+                          onChange={(e) => setStoreNameDraft((d) => ({ ...d, notes: e.target.value }))}
+                        />
+                      </td>
+                      <td style={styles.td}>
+                        <button style={styles.addBtn} onClick={addStoreNameRow}>
                           + Add
                         </button>
                       </td>

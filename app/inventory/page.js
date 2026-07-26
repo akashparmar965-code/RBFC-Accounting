@@ -15,6 +15,8 @@ import {
 } from "@/lib/inventoryProcessor";
 import { formatMMDDYYYYFromIso } from "@/lib/payrollProcessor";
 import { buildExportFileName } from "@/lib/fileNaming";
+import { buildStoreNameMap, remapStoreNamesInRows } from "@/lib/storeNameMapping";
+import { savePendingMappings } from "@/lib/pendingMappings";
 
 const XLSX_MIME = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
 const CSV_MIME = "text/csv;charset=utf-8;";
@@ -47,6 +49,7 @@ export default function InventoryPage() {
 
   const [storeMaster, setStoreMaster] = useState(null);
   const [storeMasterError, setStoreMasterError] = useState("");
+  const [storeNameMap, setStoreNameMap] = useState({});
 
   const [openingFileName, setOpeningFileName] = useState(null);
   const [openingDragOver, setOpeningDragOver] = useState(false);
@@ -85,6 +88,18 @@ export default function InventoryPage() {
       .then(({ data, error }) => {
         if (error) setStoreMasterError("Could not load Store Master: " + error.message);
         else setStoreMaster(data || []);
+      });
+  }, [session]);
+
+  useEffect(() => {
+    if (!session) return;
+    const supabase = createClient();
+    supabase
+      .from("store_name_mappings")
+      .select("*")
+      .then(({ data, error }) => {
+        if (error) return;
+        setStoreNameMap(buildStoreNameMap(data || []));
       });
   }, [session]);
 
@@ -152,13 +167,16 @@ export default function InventoryPage() {
 
   useEffect(() => {
     if (!openingRows || !closingRows || !storeMaster) return;
-    const openingByStore = sumCostByStore(openingRows);
-    const closingByStore = sumCostByStore(closingRows);
+    const mappedOpening = remapStoreNamesInRows(openingRows, "Store", storeNameMap);
+    const mappedClosing = remapStoreNamesInRows(closingRows, "Store", storeNameMap);
+    const openingByStore = sumCostByStore(mappedOpening);
+    const closingByStore = sumCostByStore(mappedClosing);
     const { changeRows, unmatchedStores } = buildInventoryChangeRows(openingByStore, closingByStore, storeMaster);
     setChangeResult({ changeRows, unmatchedStores });
     setResult(null);
     setPreviewOpen(false);
-  }, [openingRows, closingRows, storeMaster]);
+    savePendingMappings({ unmatchedStoreNames: unmatchedStores });
+  }, [openingRows, closingRows, storeMaster, storeNameMap]);
 
   function handleGenerate() {
     setGenerating(true);

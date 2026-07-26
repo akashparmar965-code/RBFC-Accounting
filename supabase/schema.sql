@@ -261,6 +261,52 @@ create policy "Authenticated users can delete epay_account_mappings"
   to authenticated
   using (true);
 
+-- Store Mapping: fallback for raw store names (from timesheet/inventory/
+-- transfer uploads) that don't exactly match Store Master's Elevate Name
+-- (renames, typos, casing drift) — maps the raw name to the correct
+-- Elevate Name so Payroll, Change in Inventory, and Store Transfer can all
+-- resolve it instead of excluding the row.
+create table if not exists store_name_mappings (
+  id uuid primary key default gen_random_uuid(),
+  raw_name text not null unique,
+  elevate_name text not null,
+  notes text,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+drop trigger if exists trg_store_name_mappings_updated_at on store_name_mappings;
+create trigger trg_store_name_mappings_updated_at
+before update on store_name_mappings
+for each row execute function set_updated_at();
+
+alter table store_name_mappings enable row level security;
+
+drop policy if exists "Authenticated users can read store_name_mappings" on store_name_mappings;
+create policy "Authenticated users can read store_name_mappings"
+  on store_name_mappings for select
+  to authenticated
+  using (true);
+
+drop policy if exists "Authenticated users can insert store_name_mappings" on store_name_mappings;
+create policy "Authenticated users can insert store_name_mappings"
+  on store_name_mappings for insert
+  to authenticated
+  with check (true);
+
+drop policy if exists "Authenticated users can update store_name_mappings" on store_name_mappings;
+create policy "Authenticated users can update store_name_mappings"
+  on store_name_mappings for update
+  to authenticated
+  using (true)
+  with check (true);
+
+drop policy if exists "Authenticated users can delete store_name_mappings" on store_name_mappings;
+create policy "Authenticated users can delete store_name_mappings"
+  on store_name_mappings for delete
+  to authenticated
+  using (true);
+
 -- Payroll: company-wise payroll numbers typed in manually each pay period,
 -- keyed by pay_period_date + company_name. Allocated to stores by hours
 -- (uploaded Employee Timesheet, processed in-memory) and turned into a

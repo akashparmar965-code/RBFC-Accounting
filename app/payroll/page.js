@@ -20,6 +20,8 @@ import {
   rowsToXlsxBuffer,
 } from "@/lib/payrollProcessor";
 import { buildExportFileName } from "@/lib/fileNaming";
+import { buildStoreNameMap, remapStoreNamesInRows } from "@/lib/storeNameMapping";
+import { savePendingMappings } from "@/lib/pendingMappings";
 
 const XLSX_MIME = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
 const CSV_MIME = "text/csv;charset=utf-8;";
@@ -56,6 +58,7 @@ export default function PayrollPage() {
   const [activeTab, setActiveTab] = useState("payroll");
 
   const [companies, setCompanies] = useState([]);
+  const [storeNameMap, setStoreNameMap] = useState({});
 
   // ==================== Payroll tab ====================
   const [payPeriodDate, setPayPeriodDate] = useState(todayIso());
@@ -116,6 +119,18 @@ export default function PayrollPage() {
         if (error) return;
         const unique = Array.from(new Set((data || []).map((r) => r.company_name).filter(Boolean)));
         setCompanies(unique);
+      });
+  }, [session]);
+
+  useEffect(() => {
+    if (!session) return;
+    const supabase = createClient();
+    supabase
+      .from("store_name_mappings")
+      .select("*")
+      .then(({ data, error }) => {
+        if (error) return;
+        setStoreNameMap(buildStoreNameMap(data || []));
       });
   }, [session]);
 
@@ -207,11 +222,12 @@ export default function PayrollPage() {
           "This file doesn't look like an Employee Timesheet export — expected 'Store' and 'Total Working Time Decimal' columns."
         );
       }
-      setStoreHours(buildStoreHours(rawRows));
+      const mappedRows = remapStoreNamesInRows(rawRows, "Store", storeNameMap);
+      setStoreHours(buildStoreHours(mappedRows));
     } catch (e) {
       setTimesheetError(e.message || String(e));
     }
-  }, []);
+  }, [storeNameMap]);
 
   function handleTimesheetFile(file) {
     if (!file) return;
@@ -259,6 +275,7 @@ export default function PayrollPage() {
       for (const row of companyPayrollRows) expectedTotals[row.company_name] = expectedCompanyTotal(row);
       setResult({ byCompany, zeroHourCompanies, unmatchedTimesheetStores, zeroHourStores, expectedTotals });
       setSelectedCompanies(new Set(Object.keys(byCompany)));
+      savePendingMappings({ unmatchedStoreNames: unmatchedTimesheetStores });
     } catch (e) {
       setGenerateError(e.message || String(e));
     } finally {
@@ -395,11 +412,12 @@ export default function PayrollPage() {
           "This file doesn't look like an Employee Timesheet export — expected 'Store' and 'Total Working Time Decimal' columns."
         );
       }
-      setArcadeStoreHours(buildStoreHours(rawRows));
+      const mappedRows = remapStoreNamesInRows(rawRows, "Store", storeNameMap);
+      setArcadeStoreHours(buildStoreHours(mappedRows));
     } catch (e) {
       setArcadeTimesheetError(e.message || String(e));
     }
-  }, []);
+  }, [storeNameMap]);
 
   function handleArcadeTimesheetFile(file) {
     if (!file) return;
@@ -449,6 +467,7 @@ export default function PayrollPage() {
       }
       setArcadeResult({ byCompany, zeroHourCompanies, unmatchedTimesheetStores, expectedTotals });
       setArcadeSelectedCompanies(new Set(Object.keys(byCompany)));
+      savePendingMappings({ unmatchedStoreNames: unmatchedTimesheetStores });
     } catch (e) {
       setArcadeGenerateError(e.message || String(e));
     } finally {

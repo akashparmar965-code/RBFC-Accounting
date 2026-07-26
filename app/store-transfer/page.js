@@ -16,6 +16,8 @@ import {
 } from "@/lib/storeTransferProcessor";
 import { formatMMDDYYYYFromIso } from "@/lib/payrollProcessor";
 import { buildExportFileName } from "@/lib/fileNaming";
+import { buildStoreNameMap, remapStoreNamesInRows } from "@/lib/storeNameMapping";
+import { savePendingMappings } from "@/lib/pendingMappings";
 
 const XLSX_MIME = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
 const CSV_MIME = "text/csv;charset=utf-8;";
@@ -77,8 +79,12 @@ export default function StoreTransferPage() {
     setPreviewOpen(false);
     try {
       const supabase = createClient();
-      const { data: storeMaster, error: smError } = await supabase.from("stores").select("*");
+      const [{ data: storeMaster, error: smError }, { data: storeNameMappings, error: mapError }] = await Promise.all([
+        supabase.from("stores").select("*"),
+        supabase.from("store_name_mappings").select("*"),
+      ]);
       if (smError) throw new Error("Could not load Store Master: " + smError.message);
+      if (mapError) throw new Error("Could not load Store Mapping: " + mapError.message);
 
       const buffer = await file.arrayBuffer();
       const rawRows = parseStoreTransferWorkbook(buffer);
@@ -86,8 +92,13 @@ export default function StoreTransferPage() {
         throw new Error('This file is missing expected "From"/"To"/"Ext Cost" columns.');
       }
 
-      const { transferRows, unmatchedStores } = buildTransferRows(rawRows, storeMaster);
+      const storeNameMap = buildStoreNameMap(storeNameMappings || []);
+      const mappedFrom = remapStoreNamesInRows(rawRows, "From", storeNameMap);
+      const mappedRows = remapStoreNamesInRows(mappedFrom, "To", storeNameMap);
+
+      const { transferRows, unmatchedStores } = buildTransferRows(mappedRows, storeMaster);
       setTransferData({ transferRows, unmatchedStores });
+      savePendingMappings({ unmatchedStoreNames: unmatchedStores });
     } catch (e) {
       setError(e.message || String(e));
     } finally {
