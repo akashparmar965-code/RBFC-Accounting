@@ -9,6 +9,7 @@ import {
   parseTimesheetWorkbook,
   buildStoreHours,
   allocatePayrollByHours,
+  expectedCompanyTotal,
   buildFinalDataRows,
   buildJournalEntryRows,
   formatMMDDYYYYFromIso,
@@ -225,7 +226,9 @@ export default function PayrollPage() {
       );
       const finalRows = buildFinalDataRows(allocatedRows);
       const byCompany = buildJournalEntryRows(finalRows, formatMMDDYYYYFromIso(payPeriodDate));
-      setResult({ byCompany, zeroHourCompanies, unmatchedTimesheetStores, zeroHourStores });
+      const expectedTotals = {};
+      for (const row of companyPayrollRows) expectedTotals[row.company_name] = expectedCompanyTotal(row);
+      setResult({ byCompany, zeroHourCompanies, unmatchedTimesheetStores, zeroHourStores, expectedTotals });
       setSelectedCompanies(new Set(Object.keys(byCompany)));
     } catch (e) {
       setGenerateError(e.message || String(e));
@@ -476,15 +479,59 @@ export default function PayrollPage() {
                     const totalDebit = rows.reduce((sum, r) => sum + (Number(r.Debit) || 0), 0);
                     const totalCredit = rows.reduce((sum, r) => sum + (Number(r.Credit) || 0), 0);
                     const balanced = Math.abs(totalDebit - totalCredit) < 0.01;
+
+                    const expected = result.expectedTotals?.[company];
+                    const matchesEntered = expected == null || Math.abs(totalDebit - expected) < 0.01;
+
+                    const storeTotals = {};
+                    const storeOrder = [];
+                    for (const r of rows) {
+                      if (!storeTotals[r.Class]) {
+                        storeTotals[r.Class] = { debit: 0, credit: 0 };
+                        storeOrder.push(r.Class);
+                      }
+                      storeTotals[r.Class].debit += Number(r.Debit) || 0;
+                      storeTotals[r.Class].credit += Number(r.Credit) || 0;
+                    }
+
                     return (
                       <div key={company} style={styles.previewGroup}>
                         <div style={styles.previewGroupHeader}>
                           <span style={styles.companyName}>{company}</span>
-                          <span style={balanced ? styles.balanceOk : styles.balanceBad}>
+                          <span style={balanced && matchesEntered ? styles.balanceOk : styles.balanceBad}>
+                            {expected != null && <>Entered {expected.toFixed(2)} · </>}
                             Dr {totalDebit.toFixed(2)} · Cr {totalCredit.toFixed(2)}
-                            {balanced ? " ✓ Balanced" : ` ⚠ Out of balance by ${(totalDebit - totalCredit).toFixed(2)}`}
+                            {!balanced && ` ⚠ Dr/Cr out of balance by ${(totalDebit - totalCredit).toFixed(2)}`}
+                            {balanced && !matchesEntered && ` ⚠ Doesn't match entered amount`}
+                            {balanced && matchesEntered && " ✓ Balanced"}
                           </span>
                         </div>
+                        <div style={styles.info}>
+                          Totals above are for on-screen verification only — not included in the XLSX/CSV download.
+                        </div>
+
+                        <div style={styles.previewWrap}>
+                          <table style={styles.table}>
+                            <thead>
+                              <tr>
+                                <th style={styles.th}>Store</th>
+                                <th style={styles.th}>Debit total</th>
+                                <th style={styles.th}>Credit total</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {storeOrder.map((store) => (
+                                <tr key={store} style={styles.tr}>
+                                  <td style={styles.td}>{store}</td>
+                                  <td style={styles.td}>{storeTotals[store].debit.toFixed(2)}</td>
+                                  <td style={styles.td}>{storeTotals[store].credit.toFixed(2)}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+
+                        <div style={styles.previewSectionTitle}>Full JV detail</div>
                         <div style={styles.previewWrap}>
                           <table style={styles.table}>
                             <thead>
@@ -706,6 +753,13 @@ const styles = {
   },
   balanceOk: { fontFamily: "var(--font-mono)", fontSize: 11.5, color: "var(--ledger)" },
   balanceBad: { fontFamily: "var(--font-mono)", fontSize: 11.5, color: "var(--danger)", fontWeight: 700 },
+  previewSectionTitle: {
+    fontFamily: "var(--font-display)",
+    fontWeight: 600,
+    fontSize: 12,
+    color: "var(--ink-soft)",
+    margin: "10px 0 6px",
+  },
   previewWrap: {
     background: "var(--panel)",
     border: "1px solid var(--line)",
