@@ -6,12 +6,14 @@ import { createClient } from "@/lib/supabaseClient";
 import Sidebar from "@/components/Sidebar";
 import {
   PAYROLL_FIELDS,
+  ARCADE_SUBCONTRACTOR_FIELDS,
   parseTimesheetWorkbook,
   buildStoreHours,
   allocatePayrollByHours,
   expectedCompanyTotal,
   buildFinalDataRows,
   buildJournalEntryRows,
+  buildArcadeSubcontractorJournalEntryRows,
   formatMMDDYYYYFromIso,
   JE_COLUMNS,
   rowsToCsv,
@@ -29,9 +31,9 @@ function todayIso() {
   return `${d.getFullYear()}-${mm}-${dd}`;
 }
 
-function emptyRow() {
+function emptyRow(fields) {
   const row = {};
-  for (const { key } of PAYROLL_FIELDS) row[key] = "";
+  for (const { key } of fields) row[key] = "";
   return row;
 }
 
@@ -49,8 +51,11 @@ function triggerDownload(blob, filename) {
 export default function PayrollPage() {
   const router = useRouter();
   const [session, setSession] = useState(undefined);
+  const [activeTab, setActiveTab] = useState("payroll");
 
   const [companies, setCompanies] = useState([]);
+
+  // ==================== Payroll tab ====================
   const [payPeriodDate, setPayPeriodDate] = useState(todayIso());
   const [companyRows, setCompanyRows] = useState({}); // { [company]: { [fieldKey]: string } }
   const [gridLoading, setGridLoading] = useState(false);
@@ -66,9 +71,29 @@ export default function PayrollPage() {
 
   const [generating, setGenerating] = useState(false);
   const [generateError, setGenerateError] = useState("");
-  const [result, setResult] = useState(null); // { byCompany, zeroHourCompanies, unmatchedTimesheetStores, zeroHourStores }
+  const [result, setResult] = useState(null); // { byCompany, zeroHourCompanies, unmatchedTimesheetStores, zeroHourStores, expectedTotals }
   const [previewOpen, setPreviewOpen] = useState(false);
   const [selectedCompanies, setSelectedCompanies] = useState(new Set());
+
+  // ==================== Arcade & Subcontractor tab ====================
+  const [arcadePayPeriodDate, setArcadePayPeriodDate] = useState(todayIso());
+  const [arcadeCompanyRows, setArcadeCompanyRows] = useState({});
+  const [arcadeGridLoading, setArcadeGridLoading] = useState(false);
+  const [arcadeSaving, setArcadeSaving] = useState(false);
+  const [arcadeSaveMessage, setArcadeSaveMessage] = useState("");
+  const [arcadeSaveError, setArcadeSaveError] = useState("");
+
+  const [arcadeTimesheetFileName, setArcadeTimesheetFileName] = useState(null);
+  const [arcadeTimesheetDragOver, setArcadeTimesheetDragOver] = useState(false);
+  const [arcadeTimesheetError, setArcadeTimesheetError] = useState("");
+  const [arcadeStoreHours, setArcadeStoreHours] = useState(null);
+  const arcadeTimesheetInputRef = useRef(null);
+
+  const [arcadeGenerating, setArcadeGenerating] = useState(false);
+  const [arcadeGenerateError, setArcadeGenerateError] = useState("");
+  const [arcadeResult, setArcadeResult] = useState(null); // { byCompany, zeroHourCompanies, unmatchedTimesheetStores, expectedTotals }
+  const [arcadePreviewOpen, setArcadePreviewOpen] = useState(false);
+  const [arcadeSelectedCompanies, setArcadeSelectedCompanies] = useState(new Set());
 
   useEffect(() => {
     const supabase = createClient();
@@ -92,6 +117,8 @@ export default function PayrollPage() {
       });
   }, [session]);
 
+  // ==================== Payroll tab logic ====================
+
   const loadGrid = useCallback(async (dateStr, companyList) => {
     if (!dateStr || companyList.length === 0) return;
     setGridLoading(true);
@@ -107,7 +134,7 @@ export default function PayrollPage() {
       const next = {};
       for (const company of companyList) {
         const existing = existingByCompany[company];
-        const row = emptyRow();
+        const row = emptyRow(PAYROLL_FIELDS);
         if (existing) {
           for (const { key } of PAYROLL_FIELDS) {
             row[key] = existing[key] != null ? String(existing[key]) : "";
@@ -273,6 +300,196 @@ export default function PayrollPage() {
     triggerDownload(blob, `Payroll-AllCompanies-${format}.zip`);
   }
 
+  // ==================== Arcade & Subcontractor tab logic ====================
+
+  const loadArcadeGrid = useCallback(async (dateStr, companyList) => {
+    if (!dateStr || companyList.length === 0) return;
+    setArcadeGridLoading(true);
+    setArcadeSaveMessage("");
+    setArcadeSaveError("");
+    try {
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from("payroll_arcade_subcontractor_data")
+        .select("*")
+        .eq("pay_period_date", dateStr);
+      if (error) throw new Error(error.message);
+      const existingByCompany = {};
+      for (const row of data || []) existingByCompany[row.company_name] = row;
+
+      const next = {};
+      for (const company of companyList) {
+        const existing = existingByCompany[company];
+        const row = emptyRow(ARCADE_SUBCONTRACTOR_FIELDS);
+        if (existing) {
+          for (const { key } of ARCADE_SUBCONTRACTOR_FIELDS) {
+            row[key] = existing[key] != null ? String(existing[key]) : "";
+          }
+        }
+        next[company] = row;
+      }
+      setArcadeCompanyRows(next);
+    } catch (e) {
+      setArcadeSaveError(e.message || String(e));
+    } finally {
+      setArcadeGridLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (companies.length > 0) loadArcadeGrid(arcadePayPeriodDate, companies);
+  }, [companies, arcadePayPeriodDate, loadArcadeGrid]);
+
+  function handleArcadeCellChange(company, key, value) {
+    setArcadeCompanyRows((prev) => ({
+      ...prev,
+      [company]: { ...prev[company], [key]: value },
+    }));
+  }
+
+  function handleArcadeGridKeyDown(e, rowIndex, colIndex) {
+    if (e.key !== "ArrowUp" && e.key !== "ArrowDown") return;
+    e.preventDefault();
+    const nextRow = e.key === "ArrowUp" ? rowIndex - 1 : rowIndex + 1;
+    document.getElementById(`arcade-cell-${nextRow}-${colIndex}`)?.focus();
+  }
+
+  async function handleArcadeSave() {
+    setArcadeSaving(true);
+    setArcadeSaveMessage("");
+    setArcadeSaveError("");
+    try {
+      const supabase = createClient();
+      const rows = companies.map((company) => {
+        const row = { pay_period_date: arcadePayPeriodDate, company_name: company };
+        for (const { key } of ARCADE_SUBCONTRACTOR_FIELDS) {
+          const raw = arcadeCompanyRows[company]?.[key];
+          const n = Number(raw);
+          row[key] = Number.isFinite(n) ? n : 0;
+        }
+        return row;
+      });
+      const { error } = await supabase
+        .from("payroll_arcade_subcontractor_data")
+        .upsert(rows, { onConflict: "pay_period_date,company_name" });
+      if (error) throw new Error(error.message);
+      setArcadeSaveMessage("Saved.");
+    } catch (e) {
+      setArcadeSaveError(e.message || String(e));
+    } finally {
+      setArcadeSaving(false);
+    }
+  }
+
+  const processArcadeTimesheet = useCallback(async (file) => {
+    setArcadeTimesheetError("");
+    setArcadeStoreHours(null);
+    try {
+      const buffer = await file.arrayBuffer();
+      const rawRows = parseTimesheetWorkbook(buffer);
+      if (!rawRows.length) throw new Error("No rows found in this timesheet file.");
+      if (!("Store" in rawRows[0]) || !("Total Working Time Decimal" in rawRows[0])) {
+        throw new Error(
+          "This file doesn't look like an Employee Timesheet export — expected 'Store' and 'Total Working Time Decimal' columns."
+        );
+      }
+      setArcadeStoreHours(buildStoreHours(rawRows));
+    } catch (e) {
+      setArcadeTimesheetError(e.message || String(e));
+    }
+  }, []);
+
+  function handleArcadeTimesheetFile(file) {
+    if (!file) return;
+    setArcadeTimesheetFileName(file.name);
+    processArcadeTimesheet(file);
+  }
+
+  function handleArcadeTimesheetFileChange(e) {
+    handleArcadeTimesheetFile(e.target.files?.[0]);
+  }
+
+  function handleArcadeTimesheetDrop(e) {
+    e.preventDefault();
+    setArcadeTimesheetDragOver(false);
+    handleArcadeTimesheetFile(e.dataTransfer.files?.[0]);
+  }
+
+  async function handleArcadeGenerate() {
+    setArcadeGenerating(true);
+    setArcadeGenerateError("");
+    setArcadeResult(null);
+    setArcadePreviewOpen(false);
+    try {
+      const supabase = createClient();
+      const { data: storeMaster, error: smError } = await supabase.from("stores").select("*");
+      if (smError) throw new Error("Could not load Store Master: " + smError.message);
+
+      const companyRowsArr = companies.map((company) => {
+        const row = { company_name: company };
+        for (const { key } of ARCADE_SUBCONTRACTOR_FIELDS) {
+          const n = Number(arcadeCompanyRows[company]?.[key]);
+          row[key] = Number.isFinite(n) ? n : 0;
+        }
+        return row;
+      });
+
+      const { allocatedRows, zeroHourCompanies, unmatchedTimesheetStores } = allocatePayrollByHours(
+        companyRowsArr,
+        storeMaster,
+        arcadeStoreHours || {},
+        ARCADE_SUBCONTRACTOR_FIELDS
+      );
+      const byCompany = buildArcadeSubcontractorJournalEntryRows(allocatedRows, formatMMDDYYYYFromIso(arcadePayPeriodDate));
+      const expectedTotals = {};
+      for (const row of companyRowsArr) {
+        expectedTotals[row.company_name] = ARCADE_SUBCONTRACTOR_FIELDS.reduce((sum, { key }) => sum + (Number(row[key]) || 0), 0);
+      }
+      setArcadeResult({ byCompany, zeroHourCompanies, unmatchedTimesheetStores, expectedTotals });
+      setArcadeSelectedCompanies(new Set(Object.keys(byCompany)));
+    } catch (e) {
+      setArcadeGenerateError(e.message || String(e));
+    } finally {
+      setArcadeGenerating(false);
+    }
+  }
+
+  function toggleArcadeCompany(company) {
+    setArcadeSelectedCompanies((prev) => {
+      const next = new Set(prev);
+      if (next.has(company)) next.delete(company);
+      else next.add(company);
+      return next;
+    });
+  }
+
+  function toggleArcadeSelectAll(allCompanyNames, checked) {
+    setArcadeSelectedCompanies(checked ? new Set(allCompanyNames) : new Set());
+  }
+
+  async function downloadArcadeCompanyXlsx(company, rows) {
+    const buf = rowsToXlsxBuffer(rows, company);
+    triggerDownload(new Blob([buf], { type: XLSX_MIME }), buildExportFileName(company, "ArcadeSub", rows, "Journal Date", "xlsx"));
+  }
+
+  function downloadArcadeCompanyCsv(company, rows) {
+    triggerDownload(new Blob([rowsToCsv(rows)], { type: CSV_MIME }), buildExportFileName(company, "ArcadeSub", rows, "Journal Date", "csv"));
+  }
+
+  async function downloadArcadeAllZip(format) {
+    const JSZip = (await import("jszip")).default;
+    const zip = new JSZip();
+    for (const [company, rows] of Object.entries(arcadeResult.byCompany)) {
+      if (format === "xlsx") {
+        zip.file(buildExportFileName(company, "ArcadeSub", rows, "Journal Date", "xlsx"), rowsToXlsxBuffer(rows, company));
+      } else {
+        zip.file(buildExportFileName(company, "ArcadeSub", rows, "Journal Date", "csv"), rowsToCsv(rows));
+      }
+    }
+    const blob = await zip.generateAsync({ type: "blob" });
+    triggerDownload(blob, `Payroll-Arcade-AllCompanies-${format}.zip`);
+  }
+
   if (session === undefined) {
     return <div style={styles.loadingScreen}>Loading…</div>;
   }
@@ -282,6 +499,10 @@ export default function PayrollPage() {
   const totalRows = companyEntries.reduce((sum, [, rows]) => sum + rows.length, 0);
   const canGenerate = !!payPeriodDate && !!storeHours && companies.length > 0 && !generating;
 
+  const arcadeCompanyEntries = arcadeResult ? Object.entries(arcadeResult.byCompany) : [];
+  const arcadeTotalRows = arcadeCompanyEntries.reduce((sum, [, rows]) => sum + rows.length, 0);
+  const arcadeCanGenerate = !!arcadePayPeriodDate && !!arcadeStoreHours && companies.length > 0 && !arcadeGenerating;
+
   return (
     <div style={styles.shell}>
       <Sidebar userEmail={session.user.email} />
@@ -290,276 +511,541 @@ export default function PayrollPage() {
         <div style={styles.topRow}>
           <h1 style={styles.h1}>Payroll</h1>
           <p style={styles.pageSub}>
-            Type in company-wise payroll, upload the Employee Timesheet, and generate a per-store Journal Entry
-            allocated by hours worked.
+            {activeTab === "payroll"
+              ? "Type in company-wise payroll, upload the Employee Timesheet, and generate a per-store Journal Entry allocated by hours worked."
+              : "Type in company-wise Arcade & Subcontractor amounts, upload the Employee Timesheet, and generate a per-store Journal Entry allocated by hours worked."}
           </p>
         </div>
 
-        <div style={styles.card}>
-          <h2 style={styles.h2}>1. Pay period & company payroll</h2>
-          <div style={styles.fieldRow}>
-            <label style={styles.fieldBlock}>
-              <span style={styles.fieldLabel}>Pay Period Date</span>
-              <input
-                type="date"
-                style={styles.dateInput}
-                value={payPeriodDate}
-                onChange={(e) => setPayPeriodDate(e.target.value)}
-              />
-            </label>
-          </div>
-
-          {gridLoading && <div style={styles.info}>Loading…</div>}
-          {saveError && <div style={styles.errorBanner}>{saveError}</div>}
-
-          {!gridLoading && companies.length > 0 && (
-            <>
-              <div style={styles.tableWrap}>
-                <table style={styles.table}>
-                  <thead>
-                    <tr>
-                      <th style={{ ...styles.th, position: "sticky", left: 0, background: "var(--panel)" }}>Company</th>
-                      {PAYROLL_FIELDS.map(({ key, label }) => (
-                        <th key={key} style={styles.th}>
-                          {label}
-                        </th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {companies.map((company, rowIndex) => (
-                      <tr key={company} style={styles.tr}>
-                        <td style={{ ...styles.td, position: "sticky", left: 0, background: "var(--panel)", fontWeight: 600 }}>
-                          {company}
-                        </td>
-                        {PAYROLL_FIELDS.map(({ key }, colIndex) => (
-                          <td key={key} style={styles.td}>
-                            <input
-                              id={`payroll-cell-${rowIndex}-${colIndex}`}
-                              type="number"
-                              step="0.01"
-                              style={styles.numInput}
-                              value={companyRows[company]?.[key] ?? ""}
-                              onChange={(e) => handleCellChange(company, key, e.target.value)}
-                              onKeyDown={(e) => handleGridKeyDown(e, rowIndex, colIndex)}
-                            />
-                          </td>
-                        ))}
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-
-              <div style={styles.actionsRow}>
-                <button style={styles.saveBtn} onClick={handleSave} disabled={saving}>
-                  {saving ? "Saving…" : "Save"}
-                </button>
-                {saveMessage && <span style={styles.info}>{saveMessage}</span>}
-              </div>
-            </>
-          )}
-        </div>
-
-        <div style={styles.card}>
-          <h2 style={styles.h2}>2. Employee Timesheet</h2>
-          <input
-            ref={timesheetInputRef}
-            type="file"
-            accept=".xlsx,.xls,.csv"
-            onChange={handleTimesheetFileChange}
-            style={{ display: "none" }}
-          />
-          <div
-            style={{ ...styles.dropzone, ...(timesheetDragOver ? styles.dropzoneActive : {}) }}
-            onClick={() => timesheetInputRef.current?.click()}
-            onDragOver={(e) => {
-              e.preventDefault();
-              setTimesheetDragOver(true);
-            }}
-            onDragLeave={() => setTimesheetDragOver(false)}
-            onDrop={handleTimesheetDrop}
-          >
-            <div style={styles.dropzoneIcon}>📄</div>
-            <div style={styles.dropzoneText}>{timesheetFileName || "Choose or drop Employee Timesheet export (.xlsx/.csv)"}</div>
-          </div>
-          {timesheetError && <div style={styles.errorBanner}>{timesheetError}</div>}
-          {storeHours && !timesheetError && (
-            <div style={styles.info}>
-              {Object.keys(storeHours).length} store(s), {Object.values(storeHours).reduce((a, b) => a + b, 0).toFixed(2)} total
-              hours found.
-            </div>
-          )}
-        </div>
-
-        <div style={styles.card}>
-          <h2 style={styles.h2}>3. Generate Journal Entry</h2>
-          <button style={styles.generateBtn} onClick={handleGenerate} disabled={!canGenerate}>
-            {generating ? "Generating…" : "Allocate & Generate Journal Entry"}
+        <div style={styles.tabRow}>
+          <button style={activeTab === "payroll" ? styles.tabActive : styles.tab} onClick={() => setActiveTab("payroll")}>
+            Payroll
           </button>
-          {generateError && <div style={styles.errorBanner}>{generateError}</div>}
-
-          {result && result.zeroHourCompanies.length > 0 && (
-            <div style={styles.warnBanner}>
-              {result.zeroHourCompanies.length} compan{result.zeroHourCompanies.length === 1 ? "y has" : "ies have"} no
-              hours in the uploaded timesheet, so no allocation could be made:{" "}
-              <strong>{result.zeroHourCompanies.join(", ")}</strong>.
-            </div>
-          )}
-          {result && result.unmatchedTimesheetStores.length > 0 && (
-            <div style={styles.warnBanner}>
-              {result.unmatchedTimesheetStores.length} store name(s) in the timesheet don't match any store's Elevate
-              Name in Store Master, so their hours were ignored:{" "}
-              <strong>{result.unmatchedTimesheetStores.join(", ")}</strong>.
-            </div>
-          )}
+          <button style={activeTab === "arcade" ? styles.tabActive : styles.tab} onClick={() => setActiveTab("arcade")}>
+            Arcade &amp; Subcontractor
+          </button>
         </div>
 
-        {result && totalRows > 0 && (
+        {activeTab === "payroll" && (
           <>
-            <div style={styles.actionsRow}>
-              <button style={styles.previewBtn} onClick={() => setPreviewOpen((v) => !v)}>
-                👁 {previewOpen ? "Hide preview" : "Preview selected"}
-              </button>
-              <button style={styles.xlsxBtn} onClick={() => downloadAllZip("xlsx")}>
-                📘 Download all (XLSX)
-              </button>
-              <button style={styles.csvBtnMuted} onClick={() => downloadAllZip("csv")}>
-                Download all (CSV)
-              </button>
-            </div>
-
-            <div style={styles.resultsHeader}>
-              <h2 style={styles.h2}>
-                {companyEntries.length} compan{companyEntries.length === 1 ? "y" : "ies"} · {totalRows} JE line
-                {totalRows === 1 ? "" : "s"}
-              </h2>
-              <label style={styles.selectAllLabel}>
-                <input
-                  type="checkbox"
-                  checked={selectedCompanies.size === companyEntries.length && companyEntries.length > 0}
-                  onChange={(e) =>
-                    toggleSelectAll(
-                      companyEntries.map(([company]) => company),
-                      e.target.checked
-                    )
-                  }
-                />
-                Select all
-              </label>
-            </div>
-
-            <div style={styles.companyGrid}>
-              {companyEntries.map(([company, rows]) => (
-                <div key={company} style={styles.companyCard}>
-                  <label style={styles.companyCheckLabel}>
-                    <input type="checkbox" checked={selectedCompanies.has(company)} onChange={() => toggleCompany(company)} />
-                    <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
-                      <span style={styles.companyName}>{company}</span>
-                      <span style={styles.companyMeta}>{rows.length} JE line(s)</span>
-                    </div>
-                  </label>
-                  <div style={{ display: "flex", gap: 6 }}>
-                    <button style={styles.secondaryBtn} onClick={() => downloadCompanyXlsx(company, rows)}>
-                      XLSX
-                    </button>
-                    <button style={styles.secondaryBtn} onClick={() => downloadCompanyCsv(company, rows)}>
-                      CSV
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            {previewOpen && (
-              <div style={styles.previewGroups}>
-                {companyEntries
-                  .filter(([company]) => selectedCompanies.has(company))
-                  .map(([company, rows]) => {
-                    const totalDebit = rows.reduce((sum, r) => sum + (Number(r.Debit) || 0), 0);
-                    const totalCredit = rows.reduce((sum, r) => sum + (Number(r.Credit) || 0), 0);
-                    const balanced = Math.abs(totalDebit - totalCredit) < 0.01;
-
-                    const expected = result.expectedTotals?.[company];
-                    const matchesEntered = expected == null || Math.abs(totalDebit - expected) < 0.01;
-
-                    const storeTotals = {};
-                    const storeOrder = [];
-                    for (const r of rows) {
-                      if (!storeTotals[r.Class]) {
-                        storeTotals[r.Class] = { debit: 0, credit: 0 };
-                        storeOrder.push(r.Class);
-                      }
-                      storeTotals[r.Class].debit += Number(r.Debit) || 0;
-                      storeTotals[r.Class].credit += Number(r.Credit) || 0;
-                    }
-
-                    return (
-                      <div key={company} style={styles.previewGroup}>
-                        <div style={styles.previewGroupHeader}>
-                          <span style={styles.companyName}>{company}</span>
-                          <span style={balanced && matchesEntered ? styles.balanceOk : styles.balanceBad}>
-                            {expected != null && <>Entered {expected.toFixed(2)} · </>}
-                            Dr {totalDebit.toFixed(2)} · Cr {totalCredit.toFixed(2)}
-                            {!balanced && ` ⚠ Dr/Cr out of balance by ${(totalDebit - totalCredit).toFixed(2)}`}
-                            {balanced && !matchesEntered && ` ⚠ Doesn't match entered amount`}
-                            {balanced && matchesEntered && " ✓ Balanced"}
-                          </span>
-                        </div>
-                        <div style={styles.info}>
-                          Totals above are for on-screen verification only — not included in the XLSX/CSV download.
-                        </div>
-
-                        <div style={styles.previewWrap}>
-                          <table style={styles.table}>
-                            <thead>
-                              <tr>
-                                <th style={styles.th}>Store</th>
-                                <th style={styles.th}>Debit total</th>
-                                <th style={styles.th}>Credit total</th>
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {storeOrder.map((store) => (
-                                <tr key={store} style={styles.tr}>
-                                  <td style={styles.td}>{store}</td>
-                                  <td style={styles.td}>{storeTotals[store].debit.toFixed(2)}</td>
-                                  <td style={styles.td}>{storeTotals[store].credit.toFixed(2)}</td>
-                                </tr>
-                              ))}
-                            </tbody>
-                          </table>
-                        </div>
-
-                        <div style={styles.previewSectionTitle}>Full JV detail</div>
-                        <div style={styles.previewWrap}>
-                          <table style={styles.table}>
-                            <thead>
-                              <tr>
-                                {JE_COLUMNS.map((c) => (
-                                  <th key={c} style={styles.th}>
-                                    {c}
-                                  </th>
-                                ))}
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {rows.map((r, i) => (
-                                <tr key={i} style={styles.tr}>
-                                  {JE_COLUMNS.map((c) => (
-                                    <td key={c} style={styles.td}>
-                                      {r[c]}
-                                    </td>
-                                  ))}
-                                </tr>
-                              ))}
-                            </tbody>
-                          </table>
-                        </div>
-                      </div>
-                    );
-                  })}
+            <div style={styles.card}>
+              <h2 style={styles.h2}>1. Pay period & company payroll</h2>
+              <div style={styles.fieldRow}>
+                <label style={styles.fieldBlock}>
+                  <span style={styles.fieldLabel}>Pay Period Date</span>
+                  <input
+                    type="date"
+                    style={styles.dateInput}
+                    value={payPeriodDate}
+                    onChange={(e) => setPayPeriodDate(e.target.value)}
+                  />
+                </label>
               </div>
+
+              {gridLoading && <div style={styles.info}>Loading…</div>}
+              {saveError && <div style={styles.errorBanner}>{saveError}</div>}
+
+              {!gridLoading && companies.length > 0 && (
+                <>
+                  <div style={styles.tableWrap}>
+                    <table style={styles.table}>
+                      <thead>
+                        <tr>
+                          <th style={{ ...styles.th, position: "sticky", left: 0, background: "var(--panel)" }}>Company</th>
+                          {PAYROLL_FIELDS.map(({ key, label }) => (
+                            <th key={key} style={styles.th}>
+                              {label}
+                            </th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {companies.map((company, rowIndex) => (
+                          <tr key={company} style={styles.tr}>
+                            <td style={{ ...styles.td, position: "sticky", left: 0, background: "var(--panel)", fontWeight: 600 }}>
+                              {company}
+                            </td>
+                            {PAYROLL_FIELDS.map(({ key }, colIndex) => (
+                              <td key={key} style={styles.td}>
+                                <input
+                                  id={`payroll-cell-${rowIndex}-${colIndex}`}
+                                  type="number"
+                                  step="0.01"
+                                  style={styles.numInput}
+                                  value={companyRows[company]?.[key] ?? ""}
+                                  onChange={(e) => handleCellChange(company, key, e.target.value)}
+                                  onKeyDown={(e) => handleGridKeyDown(e, rowIndex, colIndex)}
+                                />
+                              </td>
+                            ))}
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  <div style={styles.actionsRow}>
+                    <button style={styles.saveBtn} onClick={handleSave} disabled={saving}>
+                      {saving ? "Saving…" : "Save"}
+                    </button>
+                    {saveMessage && <span style={styles.info}>{saveMessage}</span>}
+                  </div>
+                </>
+              )}
+            </div>
+
+            <div style={styles.card}>
+              <h2 style={styles.h2}>2. Employee Timesheet</h2>
+              <input
+                ref={timesheetInputRef}
+                type="file"
+                accept=".xlsx,.xls,.csv"
+                onChange={handleTimesheetFileChange}
+                style={{ display: "none" }}
+              />
+              <div
+                style={{ ...styles.dropzone, ...(timesheetDragOver ? styles.dropzoneActive : {}) }}
+                onClick={() => timesheetInputRef.current?.click()}
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  setTimesheetDragOver(true);
+                }}
+                onDragLeave={() => setTimesheetDragOver(false)}
+                onDrop={handleTimesheetDrop}
+              >
+                <div style={styles.dropzoneIcon}>📄</div>
+                <div style={styles.dropzoneText}>{timesheetFileName || "Choose or drop Employee Timesheet export (.xlsx/.csv)"}</div>
+              </div>
+              {timesheetError && <div style={styles.errorBanner}>{timesheetError}</div>}
+              {storeHours && !timesheetError && (
+                <div style={styles.info}>
+                  {Object.keys(storeHours).length} store(s), {Object.values(storeHours).reduce((a, b) => a + b, 0).toFixed(2)}{" "}
+                  total hours found.
+                </div>
+              )}
+            </div>
+
+            <div style={styles.card}>
+              <h2 style={styles.h2}>3. Generate Journal Entry</h2>
+              <button style={styles.generateBtn} onClick={handleGenerate} disabled={!canGenerate}>
+                {generating ? "Generating…" : "Allocate & Generate Journal Entry"}
+              </button>
+              {generateError && <div style={styles.errorBanner}>{generateError}</div>}
+
+              {result && result.zeroHourCompanies.length > 0 && (
+                <div style={styles.warnBanner}>
+                  {result.zeroHourCompanies.length} compan{result.zeroHourCompanies.length === 1 ? "y has" : "ies have"} no
+                  hours in the uploaded timesheet, so no allocation could be made:{" "}
+                  <strong>{result.zeroHourCompanies.join(", ")}</strong>.
+                </div>
+              )}
+              {result && result.unmatchedTimesheetStores.length > 0 && (
+                <div style={styles.warnBanner}>
+                  {result.unmatchedTimesheetStores.length} store name(s) in the timesheet don't match any store's
+                  Elevate Name in Store Master, so their hours were ignored:{" "}
+                  <strong>{result.unmatchedTimesheetStores.join(", ")}</strong>.
+                </div>
+              )}
+            </div>
+
+            {result && totalRows > 0 && (
+              <>
+                <div style={styles.actionsRow}>
+                  <button style={styles.previewBtn} onClick={() => setPreviewOpen((v) => !v)}>
+                    👁 {previewOpen ? "Hide preview" : "Preview selected"}
+                  </button>
+                  <button style={styles.xlsxBtn} onClick={() => downloadAllZip("xlsx")}>
+                    📘 Download all (XLSX)
+                  </button>
+                  <button style={styles.csvBtnMuted} onClick={() => downloadAllZip("csv")}>
+                    Download all (CSV)
+                  </button>
+                </div>
+
+                <div style={styles.resultsHeader}>
+                  <h2 style={styles.h2}>
+                    {companyEntries.length} compan{companyEntries.length === 1 ? "y" : "ies"} · {totalRows} JE line
+                    {totalRows === 1 ? "" : "s"}
+                  </h2>
+                  <label style={styles.selectAllLabel}>
+                    <input
+                      type="checkbox"
+                      checked={selectedCompanies.size === companyEntries.length && companyEntries.length > 0}
+                      onChange={(e) =>
+                        toggleSelectAll(
+                          companyEntries.map(([company]) => company),
+                          e.target.checked
+                        )
+                      }
+                    />
+                    Select all
+                  </label>
+                </div>
+
+                <div style={styles.companyGrid}>
+                  {companyEntries.map(([company, rows]) => (
+                    <div key={company} style={styles.companyCard}>
+                      <label style={styles.companyCheckLabel}>
+                        <input type="checkbox" checked={selectedCompanies.has(company)} onChange={() => toggleCompany(company)} />
+                        <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
+                          <span style={styles.companyName}>{company}</span>
+                          <span style={styles.companyMeta}>{rows.length} JE line(s)</span>
+                        </div>
+                      </label>
+                      <div style={{ display: "flex", gap: 6 }}>
+                        <button style={styles.secondaryBtn} onClick={() => downloadCompanyXlsx(company, rows)}>
+                          XLSX
+                        </button>
+                        <button style={styles.secondaryBtn} onClick={() => downloadCompanyCsv(company, rows)}>
+                          CSV
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                {previewOpen && (
+                  <div style={styles.previewGroups}>
+                    {companyEntries
+                      .filter(([company]) => selectedCompanies.has(company))
+                      .map(([company, rows]) => {
+                        const totalDebit = rows.reduce((sum, r) => sum + (Number(r.Debit) || 0), 0);
+                        const totalCredit = rows.reduce((sum, r) => sum + (Number(r.Credit) || 0), 0);
+                        const balanced = Math.abs(totalDebit - totalCredit) < 0.01;
+
+                        const expected = result.expectedTotals?.[company];
+                        const matchesEntered = expected == null || Math.abs(totalDebit - expected) < 0.01;
+
+                        const storeTotals = {};
+                        const storeOrder = [];
+                        for (const r of rows) {
+                          if (!storeTotals[r.Class]) {
+                            storeTotals[r.Class] = { debit: 0, credit: 0 };
+                            storeOrder.push(r.Class);
+                          }
+                          storeTotals[r.Class].debit += Number(r.Debit) || 0;
+                          storeTotals[r.Class].credit += Number(r.Credit) || 0;
+                        }
+
+                        return (
+                          <div key={company} style={styles.previewGroup}>
+                            <div style={styles.previewGroupHeader}>
+                              <span style={styles.companyName}>{company}</span>
+                              <span style={balanced && matchesEntered ? styles.balanceOk : styles.balanceBad}>
+                                {expected != null && <>Entered {expected.toFixed(2)} · </>}
+                                Dr {totalDebit.toFixed(2)} · Cr {totalCredit.toFixed(2)}
+                                {!balanced && ` ⚠ Dr/Cr out of balance by ${(totalDebit - totalCredit).toFixed(2)}`}
+                                {balanced && !matchesEntered && ` ⚠ Doesn't match entered amount`}
+                                {balanced && matchesEntered && " ✓ Balanced"}
+                              </span>
+                            </div>
+                            <div style={styles.info}>
+                              Totals above are for on-screen verification only — not included in the XLSX/CSV download.
+                            </div>
+
+                            <div style={styles.previewWrap}>
+                              <table style={styles.table}>
+                                <thead>
+                                  <tr>
+                                    <th style={styles.th}>Store</th>
+                                    <th style={styles.th}>Debit total</th>
+                                    <th style={styles.th}>Credit total</th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {storeOrder.map((store) => (
+                                    <tr key={store} style={styles.tr}>
+                                      <td style={styles.td}>{store}</td>
+                                      <td style={styles.td}>{storeTotals[store].debit.toFixed(2)}</td>
+                                      <td style={styles.td}>{storeTotals[store].credit.toFixed(2)}</td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            </div>
+
+                            <div style={styles.previewSectionTitle}>Full JV detail</div>
+                            <div style={styles.previewWrap}>
+                              <table style={styles.table}>
+                                <thead>
+                                  <tr>
+                                    {JE_COLUMNS.map((c) => (
+                                      <th key={c} style={styles.th}>
+                                        {c}
+                                      </th>
+                                    ))}
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {rows.map((r, i) => (
+                                    <tr key={i} style={styles.tr}>
+                                      {JE_COLUMNS.map((c) => (
+                                        <td key={c} style={styles.td}>
+                                          {r[c]}
+                                        </td>
+                                      ))}
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            </div>
+                          </div>
+                        );
+                      })}
+                  </div>
+                )}
+              </>
+            )}
+          </>
+        )}
+
+        {activeTab === "arcade" && (
+          <>
+            <div style={styles.card}>
+              <h2 style={styles.h2}>1. Pay period & company amounts</h2>
+              <div style={styles.fieldRow}>
+                <label style={styles.fieldBlock}>
+                  <span style={styles.fieldLabel}>Pay Period Date</span>
+                  <input
+                    type="date"
+                    style={styles.dateInput}
+                    value={arcadePayPeriodDate}
+                    onChange={(e) => setArcadePayPeriodDate(e.target.value)}
+                  />
+                </label>
+              </div>
+
+              {arcadeGridLoading && <div style={styles.info}>Loading…</div>}
+              {arcadeSaveError && <div style={styles.errorBanner}>{arcadeSaveError}</div>}
+
+              {!arcadeGridLoading && companies.length > 0 && (
+                <>
+                  <div style={styles.tableWrap}>
+                    <table style={styles.table}>
+                      <thead>
+                        <tr>
+                          <th style={{ ...styles.th, position: "sticky", left: 0, background: "var(--panel)" }}>Company</th>
+                          {ARCADE_SUBCONTRACTOR_FIELDS.map(({ key, label }) => (
+                            <th key={key} style={styles.th}>
+                              {label}
+                            </th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {companies.map((company, rowIndex) => (
+                          <tr key={company} style={styles.tr}>
+                            <td style={{ ...styles.td, position: "sticky", left: 0, background: "var(--panel)", fontWeight: 600 }}>
+                              {company}
+                            </td>
+                            {ARCADE_SUBCONTRACTOR_FIELDS.map(({ key }, colIndex) => (
+                              <td key={key} style={styles.td}>
+                                <input
+                                  id={`arcade-cell-${rowIndex}-${colIndex}`}
+                                  type="number"
+                                  step="0.01"
+                                  style={styles.numInput}
+                                  value={arcadeCompanyRows[company]?.[key] ?? ""}
+                                  onChange={(e) => handleArcadeCellChange(company, key, e.target.value)}
+                                  onKeyDown={(e) => handleArcadeGridKeyDown(e, rowIndex, colIndex)}
+                                />
+                              </td>
+                            ))}
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  <div style={styles.actionsRow}>
+                    <button style={styles.saveBtn} onClick={handleArcadeSave} disabled={arcadeSaving}>
+                      {arcadeSaving ? "Saving…" : "Save"}
+                    </button>
+                    {arcadeSaveMessage && <span style={styles.info}>{arcadeSaveMessage}</span>}
+                  </div>
+                </>
+              )}
+            </div>
+
+            <div style={styles.card}>
+              <h2 style={styles.h2}>2. Employee Timesheet</h2>
+              <input
+                ref={arcadeTimesheetInputRef}
+                type="file"
+                accept=".xlsx,.xls,.csv"
+                onChange={handleArcadeTimesheetFileChange}
+                style={{ display: "none" }}
+              />
+              <div
+                style={{ ...styles.dropzone, ...(arcadeTimesheetDragOver ? styles.dropzoneActive : {}) }}
+                onClick={() => arcadeTimesheetInputRef.current?.click()}
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  setArcadeTimesheetDragOver(true);
+                }}
+                onDragLeave={() => setArcadeTimesheetDragOver(false)}
+                onDrop={handleArcadeTimesheetDrop}
+              >
+                <div style={styles.dropzoneIcon}>📄</div>
+                <div style={styles.dropzoneText}>
+                  {arcadeTimesheetFileName || "Choose or drop Employee Timesheet export (.xlsx/.csv)"}
+                </div>
+              </div>
+              {arcadeTimesheetError && <div style={styles.errorBanner}>{arcadeTimesheetError}</div>}
+              {arcadeStoreHours && !arcadeTimesheetError && (
+                <div style={styles.info}>
+                  {Object.keys(arcadeStoreHours).length} store(s),{" "}
+                  {Object.values(arcadeStoreHours)
+                    .reduce((a, b) => a + b, 0)
+                    .toFixed(2)}{" "}
+                  total hours found.
+                </div>
+              )}
+            </div>
+
+            <div style={styles.card}>
+              <h2 style={styles.h2}>3. Generate Journal Entry</h2>
+              <button style={styles.generateBtn} onClick={handleArcadeGenerate} disabled={!arcadeCanGenerate}>
+                {arcadeGenerating ? "Generating…" : "Allocate & Generate Journal Entry"}
+              </button>
+              {arcadeGenerateError && <div style={styles.errorBanner}>{arcadeGenerateError}</div>}
+
+              {arcadeResult && arcadeResult.zeroHourCompanies.length > 0 && (
+                <div style={styles.warnBanner}>
+                  {arcadeResult.zeroHourCompanies.length} compan{arcadeResult.zeroHourCompanies.length === 1 ? "y has" : "ies have"}{" "}
+                  no hours in the uploaded timesheet, so no allocation could be made:{" "}
+                  <strong>{arcadeResult.zeroHourCompanies.join(", ")}</strong>.
+                </div>
+              )}
+              {arcadeResult && arcadeResult.unmatchedTimesheetStores.length > 0 && (
+                <div style={styles.warnBanner}>
+                  {arcadeResult.unmatchedTimesheetStores.length} store name(s) in the timesheet don't match any
+                  store's Elevate Name in Store Master, so their hours were ignored:{" "}
+                  <strong>{arcadeResult.unmatchedTimesheetStores.join(", ")}</strong>.
+                </div>
+              )}
+            </div>
+
+            {arcadeResult && arcadeTotalRows > 0 && (
+              <>
+                <div style={styles.actionsRow}>
+                  <button style={styles.previewBtn} onClick={() => setArcadePreviewOpen((v) => !v)}>
+                    👁 {arcadePreviewOpen ? "Hide preview" : "Preview selected"}
+                  </button>
+                  <button style={styles.xlsxBtn} onClick={() => downloadArcadeAllZip("xlsx")}>
+                    📘 Download all (XLSX)
+                  </button>
+                  <button style={styles.csvBtnMuted} onClick={() => downloadArcadeAllZip("csv")}>
+                    Download all (CSV)
+                  </button>
+                </div>
+
+                <div style={styles.resultsHeader}>
+                  <h2 style={styles.h2}>
+                    {arcadeCompanyEntries.length} compan{arcadeCompanyEntries.length === 1 ? "y" : "ies"} ·{" "}
+                    {arcadeTotalRows} JE line{arcadeTotalRows === 1 ? "" : "s"}
+                  </h2>
+                  <label style={styles.selectAllLabel}>
+                    <input
+                      type="checkbox"
+                      checked={arcadeSelectedCompanies.size === arcadeCompanyEntries.length && arcadeCompanyEntries.length > 0}
+                      onChange={(e) =>
+                        toggleArcadeSelectAll(
+                          arcadeCompanyEntries.map(([company]) => company),
+                          e.target.checked
+                        )
+                      }
+                    />
+                    Select all
+                  </label>
+                </div>
+
+                <div style={styles.companyGrid}>
+                  {arcadeCompanyEntries.map(([company, rows]) => (
+                    <div key={company} style={styles.companyCard}>
+                      <label style={styles.companyCheckLabel}>
+                        <input
+                          type="checkbox"
+                          checked={arcadeSelectedCompanies.has(company)}
+                          onChange={() => toggleArcadeCompany(company)}
+                        />
+                        <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
+                          <span style={styles.companyName}>{company}</span>
+                          <span style={styles.companyMeta}>{rows.length} JE line(s)</span>
+                        </div>
+                      </label>
+                      <div style={{ display: "flex", gap: 6 }}>
+                        <button style={styles.secondaryBtn} onClick={() => downloadArcadeCompanyXlsx(company, rows)}>
+                          XLSX
+                        </button>
+                        <button style={styles.secondaryBtn} onClick={() => downloadArcadeCompanyCsv(company, rows)}>
+                          CSV
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                {arcadePreviewOpen && (
+                  <div style={styles.previewGroups}>
+                    {arcadeCompanyEntries
+                      .filter(([company]) => arcadeSelectedCompanies.has(company))
+                      .map(([company, rows]) => {
+                        const totalDebit = rows.reduce((sum, r) => sum + (Number(r.Debit) || 0), 0);
+                        const totalCredit = rows.reduce((sum, r) => sum + (Number(r.Credit) || 0), 0);
+                        const balanced = Math.abs(totalDebit - totalCredit) < 0.01;
+
+                        const expected = arcadeResult.expectedTotals?.[company];
+                        const matchesEntered = expected == null || Math.abs(totalDebit - expected) < 0.01;
+
+                        return (
+                          <div key={company} style={styles.previewGroup}>
+                            <div style={styles.previewGroupHeader}>
+                              <span style={styles.companyName}>{company}</span>
+                              <span style={balanced && matchesEntered ? styles.balanceOk : styles.balanceBad}>
+                                {expected != null && <>Entered {expected.toFixed(2)} · </>}
+                                Dr {totalDebit.toFixed(2)} · Cr {totalCredit.toFixed(2)}
+                                {!balanced && ` ⚠ Dr/Cr out of balance by ${(totalDebit - totalCredit).toFixed(2)}`}
+                                {balanced && !matchesEntered && ` ⚠ Doesn't match entered amount`}
+                                {balanced && matchesEntered && " ✓ Balanced"}
+                              </span>
+                            </div>
+                            <div style={styles.info}>
+                              Totals above are for on-screen verification only — not included in the XLSX/CSV download.
+                              "Arcade Payable"/"Subcontractor Payable" credit lines are one per company (no Class), not
+                              per store.
+                            </div>
+
+                            <div style={styles.previewWrap}>
+                              <table style={styles.table}>
+                                <thead>
+                                  <tr>
+                                    {JE_COLUMNS.map((c) => (
+                                      <th key={c} style={styles.th}>
+                                        {c}
+                                      </th>
+                                    ))}
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {rows.map((r, i) => (
+                                    <tr key={i} style={styles.tr}>
+                                      {JE_COLUMNS.map((c) => (
+                                        <td key={c} style={styles.td}>
+                                          {r[c]}
+                                        </td>
+                                      ))}
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            </div>
+                          </div>
+                        );
+                      })}
+                  </div>
+                )}
+              </>
             )}
           </>
         )}
@@ -582,6 +1068,25 @@ const styles = {
   h1: { fontFamily: "var(--font-display)", fontSize: 26, margin: 0 },
   h2: { fontFamily: "var(--font-display)", fontSize: 16, margin: "0 0 14px" },
   pageSub: { fontSize: 13, color: "var(--ink-soft)", margin: "4px 0 0" },
+  tabRow: { display: "flex", gap: 8, marginBottom: 20 },
+  tab: {
+    background: "transparent",
+    color: "var(--ink-soft)",
+    border: "1px solid var(--line)",
+    borderRadius: 7,
+    padding: "8px 18px",
+    fontSize: 13,
+    fontWeight: 600,
+  },
+  tabActive: {
+    background: "var(--ledger)",
+    color: "#fff",
+    border: "1px solid var(--ledger)",
+    borderRadius: 7,
+    padding: "8px 18px",
+    fontSize: 13,
+    fontWeight: 600,
+  },
   card: {
     background: "var(--panel)",
     border: "1px solid var(--line)",

@@ -321,3 +321,49 @@ create policy "Authenticated users can delete payroll_company_data"
   on payroll_company_data for delete
   to authenticated
   using (true);
+
+-- Arcade & Subcontractor: same shape as payroll_company_data but only two
+-- amount columns — a separate sub-tab under Payroll with its own pay
+-- period date and its own Employee Timesheet upload/allocation run.
+create table if not exists payroll_arcade_subcontractor_data (
+  id uuid primary key default gen_random_uuid(),
+  pay_period_date date not null,
+  company_name text not null,
+  arcade numeric not null default 0,
+  subcontractor numeric not null default 0,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  unique (pay_period_date, company_name)
+);
+
+drop trigger if exists trg_payroll_arcade_subcontractor_data_updated_at on payroll_arcade_subcontractor_data;
+create trigger trg_payroll_arcade_subcontractor_data_updated_at
+before update on payroll_arcade_subcontractor_data
+for each row execute function set_updated_at();
+
+alter table payroll_arcade_subcontractor_data enable row level security;
+
+drop policy if exists "Authenticated users can read payroll_arcade_subcontractor_data" on payroll_arcade_subcontractor_data;
+create policy "Authenticated users can read payroll_arcade_subcontractor_data"
+  on payroll_arcade_subcontractor_data for select
+  to authenticated
+  using (true);
+
+drop policy if exists "Authenticated users can insert payroll_arcade_subcontractor_data" on payroll_arcade_subcontractor_data;
+create policy "Authenticated users can insert payroll_arcade_subcontractor_data"
+  on payroll_arcade_subcontractor_data for insert
+  to authenticated
+  with check (true);
+
+drop policy if exists "Authenticated users can update payroll_arcade_subcontractor_data" on payroll_arcade_subcontractor_data;
+create policy "Authenticated users can update payroll_arcade_subcontractor_data"
+  on payroll_arcade_subcontractor_data for update
+  to authenticated
+  using (true)
+  with check (true);
+
+drop policy if exists "Authenticated users can delete payroll_arcade_subcontractor_data" on payroll_arcade_subcontractor_data;
+create policy "Authenticated users can delete payroll_arcade_subcontractor_data"
+  on payroll_arcade_subcontractor_data for delete
+  to authenticated
+  using (true);
