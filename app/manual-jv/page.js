@@ -1,11 +1,19 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabaseClient";
 import Sidebar from "@/components/Sidebar";
 import { parseTimesheetWorkbook, buildStoreHours, formatMMDDYYYYFromIso } from "@/lib/payrollProcessor";
-import { buildActiveStoreInfo, buildManualJvJournalEntryRows, JE_COLUMNS, rowsToCsv, rowsToXlsxBuffer } from "@/lib/manualJvProcessor";
+import {
+  buildActiveStoreInfo,
+  buildManualJvJournalEntryRows,
+  buildCompanyActiveStores,
+  buildCompanySplitJournalEntryRows,
+  JE_COLUMNS,
+  rowsToCsv,
+  rowsToXlsxBuffer,
+} from "@/lib/manualJvProcessor";
 import { buildExportFileName } from "@/lib/fileNaming";
 import { buildStoreNameMap, remapStoreNamesInRows } from "@/lib/storeNameMapping";
 import { savePendingMappings } from "@/lib/pendingMappings";
@@ -22,10 +30,15 @@ function emptyLine() {
   return { account_name: "", debit: "", credit: "", split_per_store: true };
 }
 
+function emptySplitLine() {
+  return { account_name: "", company_name: "", debit: "", credit: "" };
+}
+
 export default function ManualJvPage() {
   const router = useRouter();
   const [session, setSession] = useState(undefined);
   const saved = useRef(loadPageState(STATE_KEY)).current;
+  const [activeTab, setActiveTab] = useState(saved?.activeTab ?? "manual");
 
   const [jeDate, setJeDate] = useState(saved?.jeDate ?? todayIso());
 
@@ -56,6 +69,20 @@ export default function ManualJvPage() {
   const [previewOpen, setPreviewOpen] = useState(saved?.previewOpen ?? false);
   const [selectedCompanies, setSelectedCompanies] = useState(new Set(saved?.selectedCompanies ?? []));
 
+  // ==================== Company Split tab ====================
+  const [splitJeDate, setSplitJeDate] = useState(saved?.splitJeDate ?? todayIso());
+  const [splitLines, setSplitLines] = useState([]);
+  const [splitLinesLoading, setSplitLinesLoading] = useState(false);
+  const [splitSaving, setSplitSaving] = useState(false);
+  const [splitSaveMessage, setSplitSaveMessage] = useState("");
+  const [splitSaveError, setSplitSaveError] = useState("");
+
+  const [splitGenerating, setSplitGenerating] = useState(false);
+  const [splitGenerateError, setSplitGenerateError] = useState("");
+  const [splitResult, setSplitResult] = useState(saved?.splitResult ?? null); // { byCompany, skippedCompanies }
+  const [splitPreviewOpen, setSplitPreviewOpen] = useState(saved?.splitPreviewOpen ?? false);
+  const [splitSelectedCompanies, setSplitSelectedCompanies] = useState(new Set(saved?.splitSelectedCompanies ?? []));
+
   useEffect(() => {
     const supabase = createClient();
     supabase.auth.getSession().then(({ data }) => {
@@ -66,14 +93,31 @@ export default function ManualJvPage() {
 
   useEffect(() => {
     savePageState(STATE_KEY, {
+      activeTab,
       jeDate,
       timesheetFileName,
       storeHours,
       result,
       previewOpen,
       selectedCompanies: Array.from(selectedCompanies),
+      splitJeDate,
+      splitResult,
+      splitPreviewOpen,
+      splitSelectedCompanies: Array.from(splitSelectedCompanies),
     });
-  }, [jeDate, timesheetFileName, storeHours, result, previewOpen, selectedCompanies]);
+  }, [
+    activeTab,
+    jeDate,
+    timesheetFileName,
+    storeHours,
+    result,
+    previewOpen,
+    selectedCompanies,
+    splitJeDate,
+    splitResult,
+    splitPreviewOpen,
+    splitSelectedCompanies,
+  ]);
 
   useEffect(() => {
     if (!session) return;
@@ -179,6 +223,182 @@ export default function ManualJvPage() {
     } finally {
       setSaving(false);
     }
+  }
+
+  const companyOptions = useMemo(() => {
+    if (!storeMaster) return [];
+    const names = new Set();
+    for (const s of storeMaster) {
+      if (s.status !== "Active") continue;
+      const company = s.company_name ? String(s.company_name).trim() : "";
+      if (company) names.add(company);
+    }
+    return Array.from(names).sort((a, b) => a.localeCompare(b));
+  }, [storeMaster]);
+
+  const loadSplitLines = useCallback(async (dateStr) => {
+    if (!dateStr) return;
+    setSplitLinesLoading(true);
+    setSplitSaveMessage("");
+    setSplitSaveError("");
+    try {
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from("manual_jv_company_lines")
+        .select("*")
+        .eq("je_date", dateStr)
+        .order("sort_order", { ascending: true });
+      if (error) throw new Error(error.message);
+      if (data && data.length > 0) {
+        setSplitLines(
+          data.map((r) => ({
+            account_name: r.account_name,
+            company_name: r.company_name,
+            debit: r.debit ? String(r.debit) : "",
+            credit: r.credit ? String(r.credit) : "",
+          }))
+        );
+      } else {
+        setSplitLines([emptySplitLine(), emptySplitLine()]);
+      }
+    } catch (e) {
+      setSplitSaveError(e.message || String(e));
+    } finally {
+      setSplitLinesLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadSplitLines(splitJeDate);
+  }, [splitJeDate, loadSplitLines]);
+
+  function updateSplitLine(index, field, value) {
+    setSplitLines((prev) => prev.map((l, i) => (i === index ? { ...l, [field]: value } : l)));
+  }
+
+  function addSplitLine() {
+    setSplitLines((prev) => [...prev, emptySplitLine()]);
+  }
+
+  function removeSplitLine(index) {
+    setSplitLines((prev) => prev.filter((_, i) => i !== index));
+  }
+
+  async function handleSaveSplitLines() {
+    setSplitSaving(true);
+    setSplitSaveMessage("");
+    setSplitSaveError("");
+    try {
+      const lineErrors = validateManualJvLines(splitLines);
+      splitLines.forEach((l, i) => {
+        const hasAmount = Number(l.debit) > 0 || Number(l.credit) > 0;
+        if (hasAmount && !l.company_name.trim()) {
+          lineErrors.push(`Row ${i + 1}: choose a Company.`);
+        }
+      });
+      if (lineErrors.length > 0) {
+        throw new Error(lineErrors.join(" "));
+      }
+      const supabase = createClient();
+      const cleanLines = splitLines
+        .filter((l) => l.account_name.trim() && l.company_name.trim() && (Number(l.debit) > 0 || Number(l.credit) > 0))
+        .map((l, i) => ({
+          je_date: splitJeDate,
+          account_name: l.account_name.trim(),
+          company_name: l.company_name.trim(),
+          debit: Number(l.debit) || 0,
+          credit: Number(l.credit) || 0,
+          sort_order: i,
+        }));
+      const { error: delError } = await supabase.from("manual_jv_company_lines").delete().eq("je_date", splitJeDate);
+      if (delError) throw new Error(delError.message);
+      if (cleanLines.length > 0) {
+        const { error: insError } = await supabase.from("manual_jv_company_lines").insert(cleanLines);
+        if (insError) throw new Error(insError.message);
+      }
+      setSplitSaveMessage("Saved.");
+    } catch (e) {
+      setSplitSaveError(e.message || String(e));
+    } finally {
+      setSplitSaving(false);
+    }
+  }
+
+  function handleGenerateSplit() {
+    setSplitGenerating(true);
+    setSplitGenerateError("");
+    setSplitResult(null);
+    setSplitPreviewOpen(false);
+    try {
+      const lineErrors = validateManualJvLines(splitLines);
+      splitLines.forEach((l, i) => {
+        const hasAmount = Number(l.debit) > 0 || Number(l.credit) > 0;
+        if (hasAmount && !l.company_name.trim()) {
+          lineErrors.push(`Row ${i + 1}: choose a Company.`);
+        }
+      });
+      if (lineErrors.length > 0) {
+        throw new Error(lineErrors.join(" "));
+      }
+      const cleanLines = splitLines.filter(
+        (l) => l.account_name.trim() && l.company_name.trim() && (Number(l.debit) > 0 || Number(l.credit) > 0)
+      );
+      if (cleanLines.length === 0) throw new Error("Add at least one line with an Account Name, Company, and a Debit or Credit amount.");
+      const byCompanyStores = buildCompanyActiveStores(storeMaster);
+      const { byCompany, skippedCompanies } = buildCompanySplitJournalEntryRows(
+        cleanLines,
+        byCompanyStores,
+        formatMMDDYYYYFromIso(splitJeDate)
+      );
+      if (Object.keys(byCompany).length === 0) {
+        throw new Error("No journal entry rows were generated — every referenced company has zero Active stores in Store Master.");
+      }
+      setSplitResult({ byCompany, skippedCompanies });
+      setSplitSelectedCompanies(new Set(Object.keys(byCompany)));
+    } catch (e) {
+      setSplitGenerateError(e.message || String(e));
+    } finally {
+      setSplitGenerating(false);
+    }
+  }
+
+  function toggleSplitCompany(company) {
+    setSplitSelectedCompanies((prev) => {
+      const next = new Set(prev);
+      if (next.has(company)) next.delete(company);
+      else next.add(company);
+      return next;
+    });
+  }
+
+  function toggleSplitSelectAll(allCompanyNames, checked) {
+    setSplitSelectedCompanies(checked ? new Set(allCompanyNames) : new Set());
+  }
+
+  async function downloadSplitCompanyXlsx(company, rows) {
+    const buf = rowsToXlsxBuffer(rows, company);
+    triggerDownload(new Blob([buf], { type: XLSX_MIME }), buildExportFileName(company, "CompanySplitJV", rows, "Journal Date", "xlsx"));
+  }
+
+  function downloadSplitCompanyCsv(company, rows) {
+    triggerDownload(
+      new Blob([rowsToCsv(rows)], { type: CSV_MIME }),
+      buildExportFileName(company, "CompanySplitJV", rows, "Journal Date", "csv")
+    );
+  }
+
+  async function downloadSplitAllZip(format) {
+    const JSZip = (await import("jszip")).default;
+    const zip = new JSZip();
+    for (const [company, rows] of Object.entries(splitResult.byCompany)) {
+      if (format === "xlsx") {
+        zip.file(buildExportFileName(company, "CompanySplitJV", rows, "Journal Date", "xlsx"), rowsToXlsxBuffer(rows, company));
+      } else {
+        zip.file(buildExportFileName(company, "CompanySplitJV", rows, "Journal Date", "csv"), rowsToCsv(rows));
+      }
+    }
+    const blob = await zip.generateAsync({ type: "blob" });
+    triggerDownload(blob, `CompanySplitJV-AllCompanies-${format}.zip`);
   }
 
   const processTimesheet = useCallback(
@@ -298,6 +518,21 @@ export default function ManualJvPage() {
   const lineErrors = validateManualJvLines(jvLines);
   const canGenerate = !!activeInfo && activeInfo.matchedStores.length > 0 && !generating && lineErrors.length === 0;
 
+  const splitCompanyEntries = splitResult ? Object.entries(splitResult.byCompany) : [];
+  const splitTotalRows = splitCompanyEntries.reduce((sum, [, rows]) => sum + rows.length, 0);
+  const splitEnteredDebit = splitLines.reduce((sum, l) => sum + (Number(l.debit) || 0), 0);
+  const splitEnteredCredit = splitLines.reduce((sum, l) => sum + (Number(l.credit) || 0), 0);
+  const splitEnteredBalanced = Math.abs(splitEnteredDebit - splitEnteredCredit) < 0.01;
+  const splitLineErrors = validateManualJvLines(splitLines).concat(
+    splitLines
+      .map((l, i) => {
+        const hasAmount = Number(l.debit) > 0 || Number(l.credit) > 0;
+        return hasAmount && !l.company_name.trim() ? `Row ${i + 1}: choose a Company.` : null;
+      })
+      .filter(Boolean)
+  );
+  const canGenerateSplit = !!storeMaster && !splitGenerating && splitLineErrors.length === 0;
+
   return (
     <div style={styles.shell}>
       <Sidebar userEmail={session.user.email} />
@@ -306,12 +541,29 @@ export default function ManualJvPage() {
         <div style={styles.topRow}>
           <h1 style={styles.h1}>Manual JV</h1>
           <p style={styles.pageSub}>
-            Type in any JV, upload the Employee Timesheet, and split each line equally across every store active
-            that period (or keep it as one line per company) — same allocation idea as Payroll, but a flat split
-            instead of hours-weighted.
+            {activeTab === "manual"
+              ? "Type in any JV, upload the Employee Timesheet, and split each line equally across every store active that period (or keep it as one line per company) — same allocation idea as Payroll, but a flat split instead of hours-weighted."
+              : "Type in a company-wise amount per line and it's split equally across every Active store in that company — no upload needed."}
           </p>
         </div>
 
+        <div style={styles.tabRow}>
+          <button
+            style={{ ...styles.tab, ...(activeTab === "manual" ? styles.tabActive : {}) }}
+            onClick={() => setActiveTab("manual")}
+          >
+            Manual JV
+          </button>
+          <button
+            style={{ ...styles.tab, ...(activeTab === "split" ? styles.tabActive : {}) }}
+            onClick={() => setActiveTab("split")}
+          >
+            Company Split
+          </button>
+        </div>
+
+        {activeTab === "manual" && (
+        <>
         <div style={styles.card}>
           <h2 style={styles.h2}>1. JE Date & JV lines</h2>
           <div style={styles.fieldRow}>
@@ -596,6 +848,252 @@ export default function ManualJvPage() {
             )}
           </>
         )}
+
+        {activeTab === "split" && (
+        <>
+        <div style={styles.card}>
+          <h2 style={styles.h2}>1. JE Date & Company amounts</h2>
+          <div style={styles.fieldRow}>
+            <label style={styles.fieldBlock}>
+              <span style={styles.fieldLabel}>Journal Date</span>
+              <input type="date" style={styles.dateInput} value={splitJeDate} onChange={(e) => setSplitJeDate(e.target.value)} />
+            </label>
+          </div>
+
+          {storeMasterError && <div style={styles.errorBanner}>{storeMasterError}</div>}
+          {splitLinesLoading && <div style={styles.info}>Loading…</div>}
+          {splitSaveError && <div style={styles.errorBanner}>{splitSaveError}</div>}
+
+          {!splitLinesLoading && (
+            <>
+              <div style={styles.tableWrap}>
+                <table style={styles.table}>
+                  <thead>
+                    <tr>
+                      <th style={styles.th}>Account Name</th>
+                      <th style={styles.th}>Company</th>
+                      <th style={styles.th}>Debit</th>
+                      <th style={styles.th}>Credit</th>
+                      <th style={styles.th}></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {splitLines.map((line, i) => {
+                      const debitNum = Number(line.debit);
+                      const creditNum = Number(line.credit);
+                      const debitBad = Number.isFinite(debitNum) && debitNum < 0;
+                      const creditBad = Number.isFinite(creditNum) && creditNum < 0;
+                      const bothFilled = debitNum > 0 && creditNum > 0;
+                      return (
+                        <tr key={i} style={styles.tr}>
+                          <td style={styles.td}>
+                            <input
+                              style={styles.cellInput}
+                              placeholder="e.g. Personal Expense"
+                              value={line.account_name}
+                              onChange={(e) => updateSplitLine(i, "account_name", e.target.value)}
+                            />
+                          </td>
+                          <td style={styles.td}>
+                            <select
+                              style={styles.cellInput}
+                              value={line.company_name}
+                              onChange={(e) => updateSplitLine(i, "company_name", e.target.value)}
+                            >
+                              <option value="">— select —</option>
+                              {companyOptions.map((c) => (
+                                <option key={c} value={c}>
+                                  {c}
+                                </option>
+                              ))}
+                            </select>
+                          </td>
+                          <td style={styles.td}>
+                            <input
+                              type="number"
+                              step="0.01"
+                              min="0"
+                              style={{ ...styles.numInput, ...((debitBad || bothFilled) ? styles.numInputError : {}) }}
+                              value={line.debit}
+                              onChange={(e) => updateSplitLine(i, "debit", e.target.value)}
+                            />
+                          </td>
+                          <td style={styles.td}>
+                            <input
+                              type="number"
+                              step="0.01"
+                              min="0"
+                              style={{ ...styles.numInput, ...((creditBad || bothFilled) ? styles.numInputError : {}) }}
+                              value={line.credit}
+                              onChange={(e) => updateSplitLine(i, "credit", e.target.value)}
+                            />
+                          </td>
+                          <td style={styles.td}>
+                            <button style={styles.linkBtn} onClick={() => removeSplitLine(i)}>
+                              Remove
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+
+              {splitLineErrors.length > 0 && (
+                <div style={styles.errorBanner}>
+                  {splitLineErrors.map((msg, i) => (
+                    <div key={i}>{msg}</div>
+                  ))}
+                </div>
+              )}
+
+              <div style={styles.actionsRow}>
+                <button style={styles.addBtn} onClick={addSplitLine}>
+                  + Add line
+                </button>
+                <button style={styles.saveBtn} onClick={handleSaveSplitLines} disabled={splitSaving || splitLineErrors.length > 0}>
+                  {splitSaving ? "Saving…" : "Save"}
+                </button>
+                {splitSaveMessage && <span style={styles.info}>{splitSaveMessage}</span>}
+                <span style={splitEnteredBalanced ? styles.balanceOk : styles.balanceBad}>
+                  Entered Dr {splitEnteredDebit.toFixed(2)} · Cr {splitEnteredCredit.toFixed(2)}
+                  {splitEnteredBalanced ? " ✓ Balanced" : ` ⚠ Out of balance by ${(splitEnteredDebit - splitEnteredCredit).toFixed(2)}`}
+                </span>
+              </div>
+            </>
+          )}
+        </div>
+
+        <div style={styles.card}>
+          <h2 style={styles.h2}>2. Generate Journal Entry</h2>
+          <button style={styles.generateBtn} onClick={handleGenerateSplit} disabled={!canGenerateSplit}>
+            {splitGenerating ? "Generating…" : "Allocate & Generate Journal Entry"}
+          </button>
+          {splitGenerateError && <div style={styles.errorBanner}>{splitGenerateError}</div>}
+        </div>
+
+        {splitResult && splitResult.skippedCompanies.length > 0 && (
+          <div style={styles.warnBanner}>
+            These companies have zero Active stores in Store Master, so those lines were skipped:{" "}
+            <strong>{splitResult.skippedCompanies.join(", ")}</strong>.
+          </div>
+        )}
+
+        {splitResult && splitTotalRows > 0 && (
+          <>
+            <div style={styles.actionsRow}>
+              <button style={styles.previewBtn} onClick={() => setSplitPreviewOpen((v) => !v)}>
+                👁 {splitPreviewOpen ? "Hide preview" : "Preview selected"}
+              </button>
+              <button style={styles.xlsxBtn} onClick={() => downloadSplitAllZip("xlsx")}>
+                📘 Download all (XLSX)
+              </button>
+              <button style={styles.csvBtnMuted} onClick={() => downloadSplitAllZip("csv")}>
+                Download all (CSV)
+              </button>
+            </div>
+
+            <div style={styles.resultsHeader}>
+              <h2 style={styles.h2}>
+                {splitCompanyEntries.length} compan{splitCompanyEntries.length === 1 ? "y" : "ies"} · {splitTotalRows} JE line
+                {splitTotalRows === 1 ? "" : "s"}
+              </h2>
+              <label style={styles.selectAllLabel}>
+                <input
+                  type="checkbox"
+                  checked={splitSelectedCompanies.size === splitCompanyEntries.length && splitCompanyEntries.length > 0}
+                  onChange={(e) =>
+                    toggleSplitSelectAll(
+                      splitCompanyEntries.map(([company]) => company),
+                      e.target.checked
+                    )
+                  }
+                />
+                Select all
+              </label>
+            </div>
+
+            <div style={styles.companyGrid}>
+              {splitCompanyEntries.map(([company, rows]) => (
+                <div key={company} style={styles.companyCard}>
+                  <label style={styles.companyCheckLabel}>
+                    <input
+                      type="checkbox"
+                      checked={splitSelectedCompanies.has(company)}
+                      onChange={() => toggleSplitCompany(company)}
+                    />
+                    <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
+                      <span style={styles.companyName}>{company}</span>
+                      <span style={styles.companyMeta}>{rows.length} JE line(s)</span>
+                    </div>
+                  </label>
+                  <div style={{ display: "flex", gap: 6 }}>
+                    <button style={styles.secondaryBtn} onClick={() => downloadSplitCompanyXlsx(company, rows)}>
+                      XLSX
+                    </button>
+                    <button style={styles.secondaryBtn} onClick={() => downloadSplitCompanyCsv(company, rows)}>
+                      CSV
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {splitPreviewOpen && (
+              <div style={styles.previewGroups}>
+                {splitCompanyEntries
+                  .filter(([company]) => splitSelectedCompanies.has(company))
+                  .map(([company, rows]) => {
+                    const totalDebit = rows.reduce((sum, r) => sum + (Number(r.Debit) || 0), 0);
+                    const totalCredit = rows.reduce((sum, r) => sum + (Number(r.Credit) || 0), 0);
+                    const balanced = Math.abs(totalDebit - totalCredit) < 0.01;
+                    const storeCount = rows.length;
+
+                    return (
+                      <div key={company} style={styles.previewGroup}>
+                        <div style={styles.previewGroupHeader}>
+                          <span style={styles.companyName}>
+                            {company} <span style={styles.companyMeta}>({storeCount} active store(s))</span>
+                          </span>
+                          <span style={balanced ? styles.balanceOk : styles.balanceBad}>
+                            Dr {totalDebit.toFixed(2)} · Cr {totalCredit.toFixed(2)}
+                            {balanced ? " ✓ Balanced" : ` ⚠ Out of balance by ${(totalDebit - totalCredit).toFixed(2)}`}
+                          </span>
+                        </div>
+                        <div style={styles.previewWrap}>
+                          <table style={styles.table}>
+                            <thead>
+                              <tr>
+                                {JE_COLUMNS.map((c) => (
+                                  <th key={c} style={styles.th}>
+                                    {c}
+                                  </th>
+                                ))}
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {rows.map((r, i) => (
+                                <tr key={i} style={styles.tr}>
+                                  {JE_COLUMNS.map((c) => (
+                                    <td key={c} style={styles.td}>
+                                      {r[c]}
+                                    </td>
+                                  ))}
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    );
+                  })}
+              </div>
+            )}
+          </>
+        )}
+        </>
+        )}
       </main>
     </div>
   );
@@ -605,6 +1103,26 @@ const styles = {
   ...sharedPageStyles,
 
   main: { flex: 1, padding: "36px 44px", maxWidth: 1300 },
+
+  tabRow: { display: "flex", gap: 8, marginBottom: 20 },
+  tab: {
+    background: "transparent",
+    color: "var(--ink-soft)",
+    border: "1px solid var(--line)",
+    borderRadius: 7,
+    padding: "8px 18px",
+    fontSize: 13,
+    fontWeight: 600,
+  },
+  tabActive: {
+    background: "var(--ledger)",
+    color: "#fff",
+    border: "1px solid var(--ledger)",
+    borderRadius: 7,
+    padding: "8px 18px",
+    fontSize: 13,
+    fontWeight: 600,
+  },
 
   h2: { fontFamily: "var(--font-display)", fontSize: 16, margin: "0 0 14px" },
   pageSub: { fontSize: 13, color: "var(--ink-soft)", margin: "4px 0 0", maxWidth: 760 },
