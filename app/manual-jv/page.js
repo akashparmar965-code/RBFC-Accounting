@@ -79,7 +79,7 @@ export default function ManualJvPage() {
 
   const [splitGenerating, setSplitGenerating] = useState(false);
   const [splitGenerateError, setSplitGenerateError] = useState("");
-  const [splitResult, setSplitResult] = useState(saved?.splitResult ?? null); // { byCompany, skippedCompanies }
+  const [splitResult, setSplitResult] = useState(saved?.splitResult ?? null); // { byCompany, skippedCompanies, roundingAdjustments }
   const [splitPreviewOpen, setSplitPreviewOpen] = useState(saved?.splitPreviewOpen ?? false);
   const [splitSelectedCompanies, setSplitSelectedCompanies] = useState(new Set(saved?.splitSelectedCompanies ?? []));
 
@@ -355,7 +355,7 @@ export default function ManualJvPage() {
       );
       if (cleanLines.length === 0) throw new Error("Add at least one line with an Account Name, Company, and a Debit or Credit amount.");
       const byCompanyStores = buildCompanyActiveStores(storeMaster);
-      const { byCompany, skippedCompanies } = buildCompanySplitJournalEntryRows(
+      const { byCompany, skippedCompanies, roundingAdjustments } = buildCompanySplitJournalEntryRows(
         cleanLines,
         byCompanyStores,
         formatMMDDYYYYFromIso(splitJeDate)
@@ -363,7 +363,7 @@ export default function ManualJvPage() {
       if (Object.keys(byCompany).length === 0) {
         throw new Error("No journal entry rows were generated — every referenced company has zero Active stores in Store Master.");
       }
-      setSplitResult({ byCompany, skippedCompanies });
+      setSplitResult({ byCompany, skippedCompanies, roundingAdjustments });
       setSplitSelectedCompanies(new Set(Object.keys(byCompany)));
     } catch (e) {
       setSplitGenerateError(e.message || String(e));
@@ -1069,6 +1069,7 @@ export default function ManualJvPage() {
                     const totalCredit = rows.reduce((sum, r) => sum + (Number(r.Credit) || 0), 0);
                     const balanced = Math.abs(totalDebit - totalCredit) < 0.01;
                     const storeCount = companyStoreCounts[company] ?? rows.length;
+                    const roundingNote = splitResult.roundingAdjustments?.[company];
 
                     return (
                       <div key={company} style={styles.previewGroup}>
@@ -1081,6 +1082,12 @@ export default function ManualJvPage() {
                             {balanced ? " ✓ Balanced" : ` ⚠ Out of balance by ${(totalDebit - totalCredit).toFixed(2)}`}
                           </span>
                         </div>
+                        {roundingNote && (
+                          <div style={styles.roundingNote}>
+                            Rounding adjustment: {roundingNote.total >= 0 ? "+" : ""}
+                            {roundingNote.total.toFixed(2)} placed in {roundingNote.store} to keep this company exact.
+                          </div>
+                        )}
                         <div style={styles.previewWrap}>
                           <table style={styles.table}>
                             <thead>
@@ -1300,6 +1307,7 @@ const styles = {
   },
   balanceOk: { fontFamily: "var(--font-mono)", fontSize: 11.5, color: "var(--ledger)" },
   balanceBad: { fontFamily: "var(--font-mono)", fontSize: 11.5, color: "var(--danger)", fontWeight: 700 },
+  roundingNote: { fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--ink-soft)", marginBottom: 6 },
   previewWrap: {
     background: "var(--panel)",
     border: "1px solid var(--line)",
