@@ -14,6 +14,8 @@ import {
   CSV_COLUMNS,
 } from "@/lib/salesProcessor";
 import { buildExportFileName } from "@/lib/fileNaming";
+import { buildStoreNameMap, remapStoreNamesInRows } from "@/lib/storeNameMapping";
+import { savePendingMappings } from "@/lib/pendingMappings";
 import { savePageState, loadPageState } from "@/lib/pageState";
 import { triggerDownload, todayIso } from "@/lib/download";
 import { sharedPageStyles } from "@/lib/pageStyles";
@@ -63,8 +65,15 @@ export default function SalesPage() {
     setPreviewOpen(false);
     try {
       const supabase = createClient();
-      const { data: storeMaster, error: smError } = await supabase.from("stores").select("*");
+      const [
+        { data: storeMaster, error: smError },
+        { data: storeMappings, error: mapError },
+      ] = await Promise.all([
+        supabase.from("stores").select("*"),
+        supabase.from("store_name_mappings").select("*"),
+      ]);
       if (smError) throw new Error("Could not load Store Master: " + smError.message);
+      const storeNameMap = buildStoreNameMap(mapError ? [] : storeMappings || []);
 
       const buffer = await file.arrayBuffer();
       const rawRows = parseSalesWorkbook(buffer);
@@ -72,12 +81,14 @@ export default function SalesPage() {
       if (!("Store" in rawRows[0])) {
         throw new Error("This file doesn't look like a sales export — no 'Store' column found.");
       }
+      const mappedRows = remapStoreNamesInRows(rawRows, "Store", storeNameMap);
 
-      const { totals } = aggregateByStore(rawRows);
+      const { totals } = aggregateByStore(mappedRows);
       const jvDateObj = dateStr ? new Date(`${dateStr}T00:00:00`) : new Date();
       const { byCompany, unmatchedStores } = buildJournalRows(totals, storeMaster, jvDateObj);
       setResult({ byCompany, unmatched: unmatchedStores });
       setSelectedCompanies(new Set(Object.keys(byCompany)));
+      savePendingMappings({ unmatchedStoreNames: unmatchedStores });
     } catch (e) {
       setError(e.message || String(e));
     } finally {
