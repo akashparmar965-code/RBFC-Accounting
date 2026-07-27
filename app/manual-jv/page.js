@@ -31,7 +31,7 @@ function emptyLine() {
 }
 
 function emptySplitLine() {
-  return { account_name: "", company_name: "", debit: "", credit: "" };
+  return { account_name: "", company_name: "", debit: "", credit: "", split_per_store: true };
 }
 
 export default function ManualJvPage() {
@@ -236,6 +236,14 @@ export default function ManualJvPage() {
     return Array.from(names).sort((a, b) => a.localeCompare(b));
   }, [storeMaster]);
 
+  const companyStoreCounts = useMemo(() => {
+    if (!storeMaster) return {};
+    const byCompany = buildCompanyActiveStores(storeMaster);
+    const counts = {};
+    for (const [company, stores] of Object.entries(byCompany)) counts[company] = stores.length;
+    return counts;
+  }, [storeMaster]);
+
   const loadSplitLines = useCallback(async (dateStr) => {
     if (!dateStr) return;
     setSplitLinesLoading(true);
@@ -256,6 +264,7 @@ export default function ManualJvPage() {
             company_name: r.company_name,
             debit: r.debit ? String(r.debit) : "",
             credit: r.credit ? String(r.credit) : "",
+            split_per_store: r.split_per_store,
           }))
         );
       } else {
@@ -308,6 +317,7 @@ export default function ManualJvPage() {
           company_name: l.company_name.trim(),
           debit: Number(l.debit) || 0,
           credit: Number(l.credit) || 0,
+          split_per_store: !!l.split_per_store,
           sort_order: i,
         }));
       const { error: delError } = await supabase.from("manual_jv_company_lines").delete().eq("je_date", splitJeDate);
@@ -876,6 +886,7 @@ export default function ManualJvPage() {
                       <th style={styles.th}>Company</th>
                       <th style={styles.th}>Debit</th>
                       <th style={styles.th}>Credit</th>
+                      <th style={styles.th}>Split per store</th>
                       <th style={styles.th}></th>
                     </tr>
                   </thead>
@@ -928,6 +939,13 @@ export default function ManualJvPage() {
                               style={{ ...styles.numInput, ...((creditBad || bothFilled) ? styles.numInputError : {}) }}
                               value={line.credit}
                               onChange={(e) => updateSplitLine(i, "credit", e.target.value)}
+                            />
+                          </td>
+                          <td style={{ ...styles.td, textAlign: "center" }}>
+                            <input
+                              type="checkbox"
+                              checked={line.split_per_store}
+                              onChange={(e) => updateSplitLine(i, "split_per_store", e.target.checked)}
                             />
                           </td>
                           <td style={styles.td}>
@@ -1050,7 +1068,7 @@ export default function ManualJvPage() {
                     const totalDebit = rows.reduce((sum, r) => sum + (Number(r.Debit) || 0), 0);
                     const totalCredit = rows.reduce((sum, r) => sum + (Number(r.Credit) || 0), 0);
                     const balanced = Math.abs(totalDebit - totalCredit) < 0.01;
-                    const storeCount = rows.length;
+                    const storeCount = companyStoreCounts[company] ?? rows.length;
 
                     return (
                       <div key={company} style={styles.previewGroup}>
