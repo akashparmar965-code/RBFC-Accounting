@@ -848,6 +848,8 @@ export default function ManualJvPage() {
             )}
           </>
         )}
+        </>
+        )}
 
         {activeTab === "split" && (
         <>
