@@ -15,7 +15,7 @@ import {
   rowsToXlsxBuffer,
 } from "@/lib/storeTransferProcessor";
 import { formatMMDDYYYYFromIso } from "@/lib/payrollProcessor";
-import { buildExportFileName, parseDateRangeFromFileName, isIsoDateWithinRange } from "@/lib/fileNaming";
+import { buildExportFileName, parseDateRangeFromFileName, isFileRangeWithinMonth, currentMonthIso } from "@/lib/fileNaming";
 import { buildStoreNameMap, remapStoreNamesInRows } from "@/lib/storeNameMapping";
 import { savePendingMappings } from "@/lib/pendingMappings";
 import { savePageState, loadPageState } from "@/lib/pageState";
@@ -33,6 +33,7 @@ export default function StoreTransferPage() {
   const saved = useRef(loadPageState(STATE_KEY)).current;
 
   const [jeDate, setJeDate] = useState(saved?.jeDate ?? todayIso());
+  const [periodMonth, setPeriodMonth] = useState(saved?.periodMonth ?? currentMonthIso());
 
   const [fileName, setFileName] = useState(saved?.fileName ?? null);
   const [dragOver, setDragOver] = useState(false);
@@ -60,6 +61,7 @@ export default function StoreTransferPage() {
   useEffect(() => {
     savePageState(STATE_KEY, {
       jeDate,
+      periodMonth,
       fileName,
       transferData,
       verifyTab,
@@ -67,7 +69,7 @@ export default function StoreTransferPage() {
       previewOpen,
       selectedCompanies: Array.from(selectedCompanies),
     });
-  }, [jeDate, fileName, transferData, verifyTab, result, previewOpen, selectedCompanies]);
+  }, [jeDate, periodMonth, fileName, transferData, verifyTab, result, previewOpen, selectedCompanies]);
 
   const processFile = useCallback(async (file) => {
     setProcessing(true);
@@ -90,9 +92,9 @@ export default function StoreTransferPage() {
         throw new Error('This file is missing expected "From"/"To"/"Ext Cost" columns.');
       }
       const { start, end } = parseDateRangeFromFileName(file.name);
-      if (start && end && !isIsoDateWithinRange(jeDate, start, end)) {
+      if (start && end && !isFileRangeWithinMonth(start, end, periodMonth)) {
         throw new Error(
-          `This file's dates (${start}–${end}) don't include the selected JE Date (${formatMMDDYYYYFromIso(jeDate)}) — not loaded. Pick a JE Date within that range or upload the correct file.`
+          `This file's dates (${start}–${end}) don't fall within the selected Month (${periodMonth}) — not loaded. Pick the correct Month or upload the correct file.`
         );
       }
 
@@ -108,7 +110,7 @@ export default function StoreTransferPage() {
     } finally {
       setProcessing(false);
     }
-  }, [jeDate]);
+  }, [periodMonth]);
 
   function handleFile(file) {
     if (!file) return;
@@ -210,6 +212,10 @@ export default function StoreTransferPage() {
               <span style={styles.fieldLabel}>JE Date</span>
               <input type="date" style={styles.dateInput} value={jeDate} onChange={(e) => setJeDate(e.target.value)} />
             </label>
+            <label style={styles.fieldBlock}>
+              <span style={styles.fieldLabel}>Month</span>
+              <input type="month" style={styles.dateInput} value={periodMonth} onChange={(e) => setPeriodMonth(e.target.value)} />
+            </label>
           </div>
 
           <input ref={fileInputRef} type="file" accept=".xlsx,.xls,.csv" onChange={handleFileChange} style={{ display: "none" }} />
@@ -227,7 +233,7 @@ export default function StoreTransferPage() {
             <div style={styles.dropzoneText}>{fileName || "Choose or drop Store Transfer Receiving Details export"}</div>
           </div>
           <div style={styles.info}>
-            If the file name's own dates don't include the selected JE Date, it won't be loaded.
+            If the file name's own dates don't fall within the selected Month, it won't be loaded.
           </div>
 
           {processing && <div style={styles.info}>Processing…</div>}

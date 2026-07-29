@@ -13,8 +13,7 @@ import {
   rowsToXlsxBuffer,
   CSV_COLUMNS,
 } from "@/lib/salesProcessor";
-import { buildExportFileName, parseDateRangeFromFileName, isIsoDateWithinRange } from "@/lib/fileNaming";
-import { formatMMDDYYYYFromIso } from "@/lib/payrollProcessor";
+import { buildExportFileName, parseDateRangeFromFileName, isFileRangeWithinMonth, currentMonthIso } from "@/lib/fileNaming";
 import { buildStoreNameMap, remapStoreNamesInRows } from "@/lib/storeNameMapping";
 import { savePendingMappings } from "@/lib/pendingMappings";
 import { savePageState, loadPageState } from "@/lib/pageState";
@@ -31,6 +30,7 @@ export default function SalesPage() {
   const [session, setSession] = useState(undefined);
   const saved = useRef(loadPageState(STATE_KEY)).current;
   const [jvDate, setJvDate] = useState(saved?.jvDate ?? todayIso());
+  const [periodMonth, setPeriodMonth] = useState(saved?.periodMonth ?? currentMonthIso());
   const [fileName, setFileName] = useState(saved?.fileName ?? null);
   const [dragOver, setDragOver] = useState(false);
   const [processing, setProcessing] = useState(false);
@@ -44,12 +44,13 @@ export default function SalesPage() {
   useEffect(() => {
     savePageState(STATE_KEY, {
       jvDate,
+      periodMonth,
       fileName,
       result,
       previewOpen,
       selectedCompanies: Array.from(selectedCompanies),
     });
-  }, [jvDate, fileName, result, previewOpen, selectedCompanies]);
+  }, [jvDate, periodMonth, fileName, result, previewOpen, selectedCompanies]);
 
   useEffect(() => {
     const supabase = createClient();
@@ -59,7 +60,7 @@ export default function SalesPage() {
     });
   }, [router]);
 
-  const processFile = useCallback(async (file, dateStr) => {
+  const processFile = useCallback(async (file, dateStr, monthStr) => {
     setProcessing(true);
     setError("");
     setResult(null);
@@ -83,9 +84,9 @@ export default function SalesPage() {
         throw new Error("This file doesn't look like a sales export — no 'Store' column found.");
       }
       const { start, end } = parseDateRangeFromFileName(file.name);
-      if (start && end && !isIsoDateWithinRange(dateStr, start, end)) {
+      if (start && end && !isFileRangeWithinMonth(start, end, monthStr)) {
         throw new Error(
-          `This file's dates (${start}–${end}) don't include the selected JV Date (${formatMMDDYYYYFromIso(dateStr)}) — not loaded. Pick a JV Date within that range or upload the correct file.`
+          `This file's dates (${start}–${end}) don't fall within the selected Month (${monthStr}) — not loaded. Pick the correct Month or upload the correct file.`
         );
       }
       const mappedRows = remapStoreNamesInRows(rawRows, "Store", storeNameMap);
@@ -107,7 +108,7 @@ export default function SalesPage() {
     if (!file) return;
     setFileName(file.name);
     lastFileRef.current = file;
-    processFile(file, jvDate);
+    processFile(file, jvDate, periodMonth);
   }
 
   function handleFileChange(e) {
@@ -117,7 +118,13 @@ export default function SalesPage() {
   function handleDateChange(e) {
     const next = e.target.value;
     setJvDate(next);
-    if (lastFileRef.current) processFile(lastFileRef.current, next);
+    if (lastFileRef.current) processFile(lastFileRef.current, next, periodMonth);
+  }
+
+  function handleMonthChange(e) {
+    const next = e.target.value;
+    setPeriodMonth(next);
+    if (lastFileRef.current) processFile(lastFileRef.current, jvDate, next);
   }
 
   function handleDrop(e) {
@@ -197,6 +204,11 @@ export default function SalesPage() {
               <input type="date" style={styles.dateInput} value={jvDate} onChange={handleDateChange} />
             </label>
 
+            <label style={styles.fieldBlock}>
+              <span style={styles.fieldLabel}>Month</span>
+              <input type="month" style={styles.dateInput} value={periodMonth} onChange={handleMonthChange} />
+            </label>
+
             <div style={{ ...styles.fieldBlock, flex: 1.6 }}>
               <span style={styles.fieldLabel}>Upload File</span>
               <input
@@ -222,7 +234,7 @@ export default function SalesPage() {
             </div>
           </div>
           <div style={styles.info}>
-            If the file name's own dates don't include the selected JV Date, it won't be loaded.
+            If the file name's own dates don't fall within the selected Month, it won't be loaded.
           </div>
         </div>
 
