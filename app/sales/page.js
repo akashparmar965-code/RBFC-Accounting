@@ -13,7 +13,8 @@ import {
   rowsToXlsxBuffer,
   CSV_COLUMNS,
 } from "@/lib/salesProcessor";
-import { buildExportFileName } from "@/lib/fileNaming";
+import { buildExportFileName, parseDateRangeFromFileName, isIsoDateWithinRange } from "@/lib/fileNaming";
+import { formatMMDDYYYYFromIso } from "@/lib/payrollProcessor";
 import { buildStoreNameMap, remapStoreNamesInRows } from "@/lib/storeNameMapping";
 import { savePendingMappings } from "@/lib/pendingMappings";
 import { savePageState, loadPageState } from "@/lib/pageState";
@@ -80,6 +81,12 @@ export default function SalesPage() {
       if (!rawRows.length) throw new Error("No rows found in this file.");
       if (!("Store" in rawRows[0])) {
         throw new Error("This file doesn't look like a sales export — no 'Store' column found.");
+      }
+      const { start, end } = parseDateRangeFromFileName(file.name);
+      if (start && end && !isIsoDateWithinRange(dateStr, start, end)) {
+        throw new Error(
+          `This file's dates (${start}–${end}) don't include the selected JV Date (${formatMMDDYYYYFromIso(dateStr)}) — not loaded. Pick a JV Date within that range or upload the correct file.`
+        );
       }
       const mappedRows = remapStoreNamesInRows(rawRows, "Store", storeNameMap);
 
@@ -213,6 +220,9 @@ export default function SalesPage() {
                 <div style={styles.dropzoneText}>{fileName || "Choose or drop sales export (.xlsx)"}</div>
               </div>
             </div>
+          </div>
+          <div style={styles.info}>
+            If the file name's own dates don't include the selected JV Date, it won't be loaded.
           </div>
         </div>
 

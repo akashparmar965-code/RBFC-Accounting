@@ -8,7 +8,6 @@ import {
   PAYROLL_FIELDS,
   ARCADE_SUBCONTRACTOR_FIELDS,
   parseTimesheetWorkbook,
-  parseDateRangeFromFileName,
   parsePayrollReportFile,
   guessCompanyFromFileName,
   buildStoreHours,
@@ -22,7 +21,7 @@ import {
   rowsToCsv,
   rowsToXlsxBuffer,
 } from "@/lib/payrollProcessor";
-import { buildExportFileName } from "@/lib/fileNaming";
+import { buildExportFileName, parseDateRangeFromFileName } from "@/lib/fileNaming";
 import { buildStoreNameMap, remapStoreNamesInRows } from "@/lib/storeNameMapping";
 import { savePendingMappings } from "@/lib/pendingMappings";
 import { savePageState, loadPageState } from "@/lib/pageState";

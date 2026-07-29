@@ -15,7 +15,7 @@ import {
   rowsToXlsxBuffer,
 } from "@/lib/storeTransferProcessor";
 import { formatMMDDYYYYFromIso } from "@/lib/payrollProcessor";
-import { buildExportFileName } from "@/lib/fileNaming";
+import { buildExportFileName, parseDateRangeFromFileName, isIsoDateWithinRange } from "@/lib/fileNaming";
 import { buildStoreNameMap, remapStoreNamesInRows } from "@/lib/storeNameMapping";
 import { savePendingMappings } from "@/lib/pendingMappings";
 import { savePageState, loadPageState } from "@/lib/pageState";
@@ -89,6 +89,12 @@ export default function StoreTransferPage() {
       if (!rawRows.length || !("From" in rawRows[0]) || !("To" in rawRows[0]) || !("Ext Cost" in rawRows[0])) {
         throw new Error('This file is missing expected "From"/"To"/"Ext Cost" columns.');
       }
+      const { start, end } = parseDateRangeFromFileName(file.name);
+      if (start && end && !isIsoDateWithinRange(jeDate, start, end)) {
+        throw new Error(
+          `This file's dates (${start}–${end}) don't include the selected JE Date (${formatMMDDYYYYFromIso(jeDate)}) — not loaded. Pick a JE Date within that range or upload the correct file.`
+        );
+      }
 
       const storeNameMap = buildStoreNameMap(storeNameMappings || []);
       const mappedFrom = remapStoreNamesInRows(rawRows, "From", storeNameMap);
@@ -102,7 +108,7 @@ export default function StoreTransferPage() {
     } finally {
       setProcessing(false);
     }
-  }, []);
+  }, [jeDate]);
 
   function handleFile(file) {
     if (!file) return;
@@ -219,6 +225,9 @@ export default function StoreTransferPage() {
           >
             <div style={styles.dropzoneIcon}>📄</div>
             <div style={styles.dropzoneText}>{fileName || "Choose or drop Store Transfer Receiving Details export"}</div>
+          </div>
+          <div style={styles.info}>
+            If the file name's own dates don't include the selected JE Date, it won't be loaded.
           </div>
 
           {processing && <div style={styles.info}>Processing…</div>}
