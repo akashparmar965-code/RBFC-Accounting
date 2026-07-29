@@ -8,6 +8,7 @@ import {
   PAYROLL_FIELDS,
   ARCADE_SUBCONTRACTOR_FIELDS,
   parseTimesheetWorkbook,
+  parseDateRangeFromFileName,
   parsePayrollReportFile,
   guessCompanyFromFileName,
   buildStoreHours,
@@ -345,12 +346,22 @@ export default function PayrollPage() {
           "This file doesn't look like an Employee Timesheet export — expected 'Store' and 'Total Working Time Decimal' columns."
         );
       }
+      const { start, end } = parseDateRangeFromFileName(file.name);
+      if (start && end) {
+        const expectedStart = formatMMDDYYYYFromIso(payPeriodStart);
+        const expectedEnd = formatMMDDYYYYFromIso(payPeriodDate);
+        if (start !== expectedStart || end !== expectedEnd) {
+          throw new Error(
+            `This timesheet's dates (${start}–${end}) don't match the selected Period Start/Pay Period Date (${expectedStart}–${expectedEnd}) — not loaded. Fix the period above or upload the correct timesheet.`
+          );
+        }
+      }
       const mappedRows = remapStoreNamesInRows(rawRows, "Store", storeNameMap);
       setStoreHours(buildStoreHours(mappedRows));
     } catch (e) {
       setTimesheetError(e.message || String(e));
     }
-  }, [storeNameMap]);
+  }, [storeNameMap, payPeriodStart, payPeriodDate]);
 
   function handleTimesheetFile(file) {
     if (!file) return;
