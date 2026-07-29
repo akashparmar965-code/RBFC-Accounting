@@ -8,6 +8,8 @@ import {
   PAYROLL_FIELDS,
   ARCADE_SUBCONTRACTOR_FIELDS,
   parseTimesheetWorkbook,
+  parsePayrollReportFile,
+  guessCompanyFromFileName,
   buildStoreHours,
   allocatePayrollByHours,
   expectedCompanyTotal,
@@ -54,6 +56,10 @@ export default function PayrollPage() {
   const [saving, setSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState("");
   const [saveError, setSaveError] = useState("");
+
+  const [payrollReportDragOver, setPayrollReportDragOver] = useState(false);
+  const [payrollReportResults, setPayrollReportResults] = useState([]); // [{ fileName, company, values, unmatchedHeaders, error }]
+  const payrollReportInputRef = useRef(null);
 
   const [timesheetFileName, setTimesheetFileName] = useState(saved?.timesheetFileName ?? null);
   const [timesheetDragOver, setTimesheetDragOver] = useState(false);
@@ -195,6 +201,56 @@ export default function PayrollPage() {
       ...prev,
       [company]: { ...prev[company], [key]: value },
     }));
+  }
+
+  function applyPayrollReportValues(company, values) {
+    setCompanyRows((prev) => ({
+      ...prev,
+      [company]: {
+        ...prev[company],
+        ...Object.fromEntries(Object.entries(values).map(([k, v]) => [k, String(v)])),
+      },
+    }));
+  }
+
+  async function handlePayrollReportFiles(fileList) {
+    const files = Array.from(fileList || []);
+    if (!files.length) return;
+    const results = [];
+    for (const file of files) {
+      try {
+        const buffer = await file.arrayBuffer();
+        const { values, unmatchedHeaders } = parsePayrollReportFile(buffer);
+        const company = guessCompanyFromFileName(file.name, companies);
+        if (company) applyPayrollReportValues(company, values);
+        results.push({ fileName: file.name, company, values, unmatchedHeaders, error: null });
+      } catch (e) {
+        results.push({ fileName: file.name, company: null, values: null, unmatchedHeaders: [], error: e.message || String(e) });
+      }
+    }
+    setPayrollReportResults((prev) => [...results, ...prev]);
+  }
+
+  function handlePayrollReportFileChange(e) {
+    handlePayrollReportFiles(e.target.files);
+    e.target.value = "";
+  }
+
+  function handlePayrollReportDrop(e) {
+    e.preventDefault();
+    setPayrollReportDragOver(false);
+    handlePayrollReportFiles(e.dataTransfer.files);
+  }
+
+  function assignPayrollReportCompany(index, company) {
+    setPayrollReportResults((prev) => {
+      const item = prev[index];
+      if (!item) return prev;
+      applyPayrollReportValues(company, item.values);
+      const next = [...prev];
+      next[index] = { ...item, company };
+      return next;
+    });
   }
 
   function handleGridKeyDown(e, rowIndex, colIndex) {
@@ -596,6 +652,68 @@ export default function PayrollPage() {
                     onChange={(e) => setPayPeriodDate(e.target.value)}
                   />
                 </label>
+              </div>
+
+              <div style={styles.reportUploadBlock}>
+                <span style={styles.fieldLabel}>Or upload company payroll report(s)</span>
+                <input
+                  ref={payrollReportInputRef}
+                  type="file"
+                  accept=".xlsx,.xls,.csv"
+                  multiple
+                  onChange={handlePayrollReportFileChange}
+                  style={{ display: "none" }}
+                />
+                <div
+                  style={{ ...styles.dropzone, ...(payrollReportDragOver ? styles.dropzoneActive : {}) }}
+                  onClick={() => payrollReportInputRef.current?.click()}
+                  onDragOver={(e) => {
+                    e.preventDefault();
+                    setPayrollReportDragOver(true);
+                  }}
+                  onDragLeave={() => setPayrollReportDragOver(false)}
+                  onDrop={handlePayrollReportDrop}
+                >
+                  <div style={styles.dropzoneIcon}>📄</div>
+                  <div style={styles.dropzoneText}>
+                    Choose or drop one or more "Custom Report" exports (.xlsx/.csv) — one file per company, any
+                    column order
+                  </div>
+                </div>
+
+                {payrollReportResults.length > 0 && (
+                  <div style={styles.reportResultsList}>
+                    {payrollReportResults.map((r, i) => (
+                      <div key={i} style={styles.reportResultRow}>
+                        <span style={styles.reportFileName}>{r.fileName}</span>
+                        {r.error ? (
+                          <span style={styles.reportError}>{r.error}</span>
+                        ) : r.company ? (
+                          <span style={styles.reportOk}>
+                            → {r.company} ({Object.keys(r.values).length}/{PAYROLL_FIELDS.length} fields)
+                            {r.unmatchedHeaders.length > 0 && ` — ignored unrecognized column(s): ${r.unmatchedHeaders.join(", ")}`}
+                          </span>
+                        ) : (
+                          <label style={styles.reportAssign}>
+                            Couldn't tell which company from the file name — pick one:
+                            <select
+                              style={styles.reportAssignSelect}
+                              value=""
+                              onChange={(e) => e.target.value && assignPayrollReportCompany(i, e.target.value)}
+                            >
+                              <option value="">— select —</option>
+                              {companies.map((c) => (
+                                <option key={c} value={c}>
+                                  {c}
+                                </option>
+                              ))}
+                            </select>
+                          </label>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
 
               {gridLoading && <div style={styles.info}>Loading…</div>}
@@ -1177,6 +1295,32 @@ const styles = {
   },
 
   dropzoneIcon: { fontSize: 22 },
+
+  reportUploadBlock: { display: "flex", flexDirection: "column", gap: 8, marginBottom: 16 },
+  reportResultsList: { display: "flex", flexDirection: "column", gap: 6, marginTop: 4 },
+  reportResultRow: {
+    display: "flex",
+    flexWrap: "wrap",
+    alignItems: "center",
+    gap: 8,
+    fontSize: 12.5,
+    padding: "6px 10px",
+    borderRadius: 6,
+    background: "var(--field)",
+    border: "1px solid var(--line)",
+  },
+  reportFileName: { fontFamily: "var(--font-mono)", fontSize: 11.5, color: "var(--ink-soft)" },
+  reportOk: { color: "var(--ledger)" },
+  reportError: { color: "var(--danger)" },
+  reportAssign: { display: "flex", alignItems: "center", gap: 8, color: "var(--warn-text)" },
+  reportAssignSelect: {
+    padding: "5px 8px",
+    borderRadius: 5,
+    border: "1px solid var(--line)",
+    fontSize: 12,
+    background: "var(--field)",
+    color: "var(--ink)",
+  },
 
   info: { fontSize: 13, color: "var(--ink-soft)" },
   errorBanner: {
