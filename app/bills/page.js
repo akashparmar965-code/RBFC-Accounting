@@ -21,10 +21,11 @@ import {
   INCOME_COLUMNS,
   PURCHASE_COLUMNS,
 } from "@/lib/epayProcessor";
-import { buildExportFileName } from "@/lib/fileNaming";
+import { buildExportFileName, parseDateRangeFromFileName, isIsoDateWithinRange } from "@/lib/fileNaming";
+import { formatMMDDYYYYFromIso } from "@/lib/payrollProcessor";
 import { savePendingMappings } from "@/lib/pendingMappings";
 import { savePageState, loadPageState } from "@/lib/pageState";
-import { triggerDownload } from "@/lib/download";
+import { triggerDownload, todayIso } from "@/lib/download";
 import { sharedPageStyles } from "@/lib/pageStyles";
 
 const STATE_KEY = "bills";
@@ -39,6 +40,7 @@ export default function BillsPage() {
   const [activeTab, setActiveTab] = useState(saved?.activeTab ?? "vip");
 
   // ---- VIP tab state ----
+  const [vipDate, setVipDate] = useState(saved?.vipDate ?? todayIso());
   const [fileName, setFileName] = useState(saved?.fileName ?? null);
   const [dragOver, setDragOver] = useState(false);
   const [processing, setProcessing] = useState(false);
@@ -49,6 +51,7 @@ export default function BillsPage() {
   const fileInputRef = useRef(null);
 
   // ---- Epay tab state ----
+  const [epayDate, setEpayDate] = useState(saved?.epayDate ?? todayIso());
   const [epayFileName, setEpayFileName] = useState(saved?.epayFileName ?? null);
   const [epayDragOver, setEpayDragOver] = useState(false);
   const [epayProcessing, setEpayProcessing] = useState(false);
@@ -69,16 +72,30 @@ export default function BillsPage() {
   useEffect(() => {
     savePageState(STATE_KEY, {
       activeTab,
+      vipDate,
       fileName,
       result,
       previewOpen,
       selectedCompanies: Array.from(selectedCompanies),
+      epayDate,
       epayFileName,
       epayResult,
       epayPreviewOpen,
       epaySelectedCompanies: Array.from(epaySelectedCompanies),
     });
-  }, [activeTab, fileName, result, previewOpen, selectedCompanies, epayFileName, epayResult, epayPreviewOpen, epaySelectedCompanies]);
+  }, [
+    activeTab,
+    vipDate,
+    fileName,
+    result,
+    previewOpen,
+    selectedCompanies,
+    epayDate,
+    epayFileName,
+    epayResult,
+    epayPreviewOpen,
+    epaySelectedCompanies,
+  ]);
 
   // ===================== VIP =====================
 
@@ -104,6 +121,12 @@ export default function BillsPage() {
           "This file doesn't look like a VIP export — no 'Door Number' column found in the Bill sheet."
         );
       }
+      const { start, end } = parseDateRangeFromFileName(file.name);
+      if (start && end && !isIsoDateWithinRange(vipDate, start, end)) {
+        throw new Error(
+          `This file's dates (${start}–${end}) don't include the selected Date (${formatMMDDYYYYFromIso(vipDate)}) — not loaded. Pick a Date within that range or upload the correct file.`
+        );
+      }
 
       const groupedLines = aggregateBillLines(rawRows, productMappings || []);
       const { byCompany, unmatchedDoors, unmappedProducts } = buildBillRows(
@@ -120,7 +143,7 @@ export default function BillsPage() {
     } finally {
       setProcessing(false);
     }
-  }, []);
+  }, [vipDate]);
 
   function handleFile(file) {
     if (!file) return;
@@ -202,6 +225,12 @@ export default function BillsPage() {
       if (!("Account Number" in rawRows[0])) {
         throw new Error("This file doesn't look like an Epay export — no 'Account Number' column found.");
       }
+      const { start, end } = parseDateRangeFromFileName(file.name);
+      if (start && end && !isIsoDateWithinRange(epayDate, start, end)) {
+        throw new Error(
+          `This file's dates (${start}–${end}) don't include the selected Date (${formatMMDDYYYYFromIso(epayDate)}) — not loaded. Pick a Date within that range or upload the correct file.`
+        );
+      }
 
       const { incomeByCompany, purchaseByCompany, unmatchedAccounts } = buildEpayRows(
         rawRows,
@@ -218,7 +247,7 @@ export default function BillsPage() {
     } finally {
       setEpayProcessing(false);
     }
-  }, []);
+  }, [epayDate]);
 
   function handleEpayFile(file) {
     if (!file) return;
@@ -334,6 +363,12 @@ export default function BillsPage() {
         {activeTab === "vip" && (
           <>
             <div style={styles.card}>
+              <div style={styles.fieldRow}>
+                <label style={styles.fieldBlock}>
+                  <span style={styles.fieldLabel}>Date</span>
+                  <input type="date" style={styles.dateInput} value={vipDate} onChange={(e) => setVipDate(e.target.value)} />
+                </label>
+              </div>
               <input
                 ref={fileInputRef}
                 type="file"
@@ -354,6 +389,7 @@ export default function BillsPage() {
                 <div style={styles.dropzoneIcon}>📄</div>
                 <div style={styles.dropzoneText}>{fileName || "Choose or drop VIP export (.xlsx)"}</div>
               </div>
+              <div style={styles.info}>If the file name's own dates don't include the selected Date, it won't be loaded.</div>
             </div>
 
             {processing && <div style={styles.info}>Processing…</div>}
@@ -485,6 +521,12 @@ export default function BillsPage() {
         {activeTab === "epay" && (
           <>
             <div style={styles.card}>
+              <div style={styles.fieldRow}>
+                <label style={styles.fieldBlock}>
+                  <span style={styles.fieldLabel}>Date</span>
+                  <input type="date" style={styles.dateInput} value={epayDate} onChange={(e) => setEpayDate(e.target.value)} />
+                </label>
+              </div>
               <input
                 ref={epayFileInputRef}
                 type="file"
@@ -505,6 +547,7 @@ export default function BillsPage() {
                 <div style={styles.dropzoneIcon}>📄</div>
                 <div style={styles.dropzoneText}>{epayFileName || "Choose or drop Epay invoices export (.csv/.xlsx)"}</div>
               </div>
+              <div style={styles.info}>If the file name's own dates don't include the selected Date, it won't be loaded.</div>
             </div>
 
             {epayProcessing && <div style={styles.info}>Processing…</div>}
@@ -704,6 +747,25 @@ const styles = {
     padding: "8px 18px",
     fontSize: 13,
     fontWeight: 600,
+  },
+
+  fieldRow: { display: "flex", gap: 20, flexWrap: "wrap", marginBottom: 16 },
+  fieldBlock: { display: "flex", flexDirection: "column", gap: 8, flex: 1, minWidth: 180 },
+  fieldLabel: {
+    fontSize: 11,
+    fontWeight: 700,
+    letterSpacing: "0.05em",
+    textTransform: "uppercase",
+    color: "var(--ink-soft)",
+  },
+  dateInput: {
+    padding: "11px 12px",
+    borderRadius: 8,
+    border: "1px solid var(--line)",
+    fontSize: 14,
+    background: "var(--field)",
+    color: "var(--ink)",
+    maxWidth: 220,
   },
 
   dropzone: {
