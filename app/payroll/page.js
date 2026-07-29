@@ -59,25 +59,25 @@ export default function PayrollPage() {
   const [saveError, setSaveError] = useState("");
 
   const [payrollReportDragOver, setPayrollReportDragOver] = useState(false);
-  const [payrollReportResults, setPayrollReportResults] = useState([]); // [{ fileName, company, values, unmatchedHeaders, periodStart, periodEnd, error }]
+  const [payrollReportResults, setPayrollReportResults] = useState([]); // [{ fileName, company, values, unmatchedHeaders, periodStart, periodEnd, periodMismatch, error }]
   const payrollReportInputRef = useRef(null);
 
-  // Companies whose most recently uploaded report file declared a "Time
-  // Period" that doesn't match the selected Period Start/Pay Period Date —
-  // recomputed live so changing the date range re-flags without re-uploading.
+  // Companies whose most recently uploaded report file's declared "Time
+  // Period" didn't match the Period Start/Pay Period Date selected at
+  // upload time — periodMismatch is decided once per file, in
+  // handlePayrollReportFiles, and blocks applying that file's values, so
+  // this is just for the grid's red-row warning, not a live re-check.
   const periodMismatchCompanies = useMemo(() => {
-    const expectedStart = formatMMDDYYYYFromIso(payPeriodStart);
-    const expectedEnd = formatMMDDYYYYFromIso(payPeriodDate);
     const set = new Set();
     const seen = new Set(); // results are newest-first; only the latest upload per company counts
     for (const r of payrollReportResults) {
-      if (!r.company || !r.periodStart || !r.periodEnd) continue;
+      if (!r.company) continue;
       if (seen.has(r.company)) continue;
       seen.add(r.company);
-      if (r.periodStart !== expectedStart || r.periodEnd !== expectedEnd) set.add(r.company);
+      if (r.periodMismatch) set.add(r.company);
     }
     return set;
-  }, [payrollReportResults, payPeriodStart, payPeriodDate]);
+  }, [payrollReportResults]);
 
   const [timesheetFileName, setTimesheetFileName] = useState(saved?.timesheetFileName ?? null);
   const [timesheetDragOver, setTimesheetDragOver] = useState(false);
@@ -236,16 +236,31 @@ export default function PayrollPage() {
   async function handlePayrollReportFiles(fileList) {
     const files = Array.from(fileList || []);
     if (!files.length) return;
+    const expectedStart = formatMMDDYYYYFromIso(payPeriodStart);
+    const expectedEnd = formatMMDDYYYYFromIso(payPeriodDate);
     const results = [];
     for (const file of files) {
       try {
         const buffer = await file.arrayBuffer();
-        const { values, unmatchedHeaders } = parsePayrollReportFile(buffer);
+        const { values, unmatchedHeaders, periodStart, periodEnd } = parsePayrollReportFile(buffer);
+        const periodMismatch = !!periodStart && !!periodEnd && (periodStart !== expectedStart || periodEnd !== expectedEnd);
         const company = guessCompanyFromFileName(file.name, companies);
-        if (company) applyPayrollReportValues(company, values);
-        results.push({ fileName: file.name, company, values, unmatchedHeaders, error: null });
+        // Never apply a file whose own declared Time Period doesn't match
+        // the selected Period Start/Pay Period Date — a wrong-period file
+        // must be rejected, not silently merged into the grid.
+        if (company && !periodMismatch) applyPayrollReportValues(company, values);
+        results.push({ fileName: file.name, company, values, unmatchedHeaders, periodStart, periodEnd, periodMismatch, error: null });
       } catch (e) {
-        results.push({ fileName: file.name, company: null, values: null, unmatchedHeaders: [], error: e.message || String(e) });
+        results.push({
+          fileName: file.name,
+          company: null,
+          values: null,
+          unmatchedHeaders: [],
+          periodStart: null,
+          periodEnd: null,
+          periodMismatch: false,
+          error: e.message || String(e),
+        });
       }
     }
     setPayrollReportResults((prev) => [...results, ...prev]);
@@ -266,7 +281,7 @@ export default function PayrollPage() {
     setPayrollReportResults((prev) => {
       const item = prev[index];
       if (!item) return prev;
-      applyPayrollReportValues(company, item.values);
+      if (!item.periodMismatch) applyPayrollReportValues(company, item.values);
       const next = [...prev];
       next[index] = { ...item, company };
       return next;
@@ -695,8 +710,8 @@ export default function PayrollPage() {
               <div style={styles.reportUploadBlock}>
                 <span style={styles.fieldLabel}>Or upload company payroll report(s)</span>
                 <span style={styles.info}>
-                  Each file's own "Time Period" is checked against Period Start–Pay Period Date above; a company
-                  whose file doesn't match is highlighted red in the grid below.
+                  Each file's own "Time Period" is checked against Period Start–Pay Period Date above — a file that
+                  doesn't match is rejected (not applied) and that company is highlighted red in the grid below.
                 </span>
                 <input
                   ref={payrollReportInputRef}
@@ -735,11 +750,17 @@ export default function PayrollPage() {
                         <span style={styles.reportFileName}>{r.fileName}</span>
                         {r.error ? (
                           <span style={styles.reportError}>{r.error}</span>
+                        ) : r.periodMismatch ? (
+                          <span style={styles.reportError}>
+                            ⚠ NOT applied — file period {r.periodStart}–{r.periodEnd} doesn't match the selected Period
+                            Start/Pay Period Date ({formatMMDDYYYYFromIso(payPeriodStart)}–{formatMMDDYYYYFromIso(payPeriodDate)})
+                            {r.company && ` (file looks like ${r.company})`}. Fix the period above or re-upload the
+                            correct file.
+                          </span>
                         ) : r.company ? (
-                          <span style={periodMismatchCompanies.has(r.company) ? styles.reportError : styles.reportOk}>
+                          <span style={styles.reportOk}>
                             → {r.company} ({Object.keys(r.values).length}/{PAYROLL_FIELDS.length} fields)
                             {r.periodStart && r.periodEnd && ` · file period ${r.periodStart}–${r.periodEnd}`}
-                            {periodMismatchCompanies.has(r.company) && " ⚠ doesn't match Period Start/Pay Period Date above"}
                             {r.unmatchedHeaders.length > 0 && ` — ignored unrecognized column(s): ${r.unmatchedHeaders.join(", ")}`}
                           </span>
                         ) : (
