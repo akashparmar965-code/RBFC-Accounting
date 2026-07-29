@@ -109,7 +109,12 @@ export default function ChecklistPage() {
 
   function openStatusMenu(e, item, monthKey) {
     const rect = e.currentTarget.getBoundingClientRect();
-    setOpenCell({ itemId: item.id, monthKey, top: rect.bottom + 4, left: rect.left });
+    setOpenCell({
+      itemId: item.id,
+      monthKey,
+      top: rect.bottom + window.scrollY + 4,
+      left: rect.left + window.scrollX,
+    });
   }
 
   async function selectStatus(itemId, monthKey, value) {
@@ -394,7 +399,7 @@ const styles = {
     zIndex: 90,
   },
   statusMenu: {
-    position: "fixed",
+    position: "absolute",
     zIndex: 100,
     background: "var(--panel)",
     border: "1px solid var(--line)",
