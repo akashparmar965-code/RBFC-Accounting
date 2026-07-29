@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabaseClient";
 import Sidebar from "@/components/Sidebar";
@@ -25,7 +25,7 @@ import { buildExportFileName } from "@/lib/fileNaming";
 import { buildStoreNameMap, remapStoreNamesInRows } from "@/lib/storeNameMapping";
 import { savePendingMappings } from "@/lib/pendingMappings";
 import { savePageState, loadPageState } from "@/lib/pageState";
-import { triggerDownload, todayIso } from "@/lib/download";
+import { triggerDownload, todayIso, firstOfMonthIso } from "@/lib/download";
 import { sharedPageStyles } from "@/lib/pageStyles";
 import { findNegativeGridEntries } from "@/lib/validation";
 
@@ -50,6 +50,7 @@ export default function PayrollPage() {
   const [storeNameMap, setStoreNameMap] = useState({});
 
   // ==================== Payroll tab ====================
+  const [payPeriodStart, setPayPeriodStart] = useState(saved?.payPeriodStart ?? firstOfMonthIso());
   const [payPeriodDate, setPayPeriodDate] = useState(saved?.payPeriodDate ?? todayIso());
   const [companyRows, setCompanyRows] = useState({}); // { [company]: { [fieldKey]: string } }
   const [gridLoading, setGridLoading] = useState(false);
@@ -58,8 +59,25 @@ export default function PayrollPage() {
   const [saveError, setSaveError] = useState("");
 
   const [payrollReportDragOver, setPayrollReportDragOver] = useState(false);
-  const [payrollReportResults, setPayrollReportResults] = useState([]); // [{ fileName, company, values, unmatchedHeaders, error }]
+  const [payrollReportResults, setPayrollReportResults] = useState([]); // [{ fileName, company, values, unmatchedHeaders, periodStart, periodEnd, error }]
   const payrollReportInputRef = useRef(null);
+
+  // Companies whose most recently uploaded report file declared a "Time
+  // Period" that doesn't match the selected Period Start/Pay Period Date —
+  // recomputed live so changing the date range re-flags without re-uploading.
+  const periodMismatchCompanies = useMemo(() => {
+    const expectedStart = formatMMDDYYYYFromIso(payPeriodStart);
+    const expectedEnd = formatMMDDYYYYFromIso(payPeriodDate);
+    const set = new Set();
+    const seen = new Set(); // results are newest-first; only the latest upload per company counts
+    for (const r of payrollReportResults) {
+      if (!r.company || !r.periodStart || !r.periodEnd) continue;
+      if (seen.has(r.company)) continue;
+      seen.add(r.company);
+      if (r.periodStart !== expectedStart || r.periodEnd !== expectedEnd) set.add(r.company);
+    }
+    return set;
+  }, [payrollReportResults, payPeriodStart, payPeriodDate]);
 
   const [timesheetFileName, setTimesheetFileName] = useState(saved?.timesheetFileName ?? null);
   const [timesheetDragOver, setTimesheetDragOver] = useState(false);
@@ -104,6 +122,7 @@ export default function PayrollPage() {
   useEffect(() => {
     savePageState(STATE_KEY, {
       activeTab,
+      payPeriodStart,
       payPeriodDate,
       timesheetFileName,
       storeHours,
@@ -119,6 +138,7 @@ export default function PayrollPage() {
     });
   }, [
     activeTab,
+    payPeriodStart,
     payPeriodDate,
     timesheetFileName,
     storeHours,
@@ -644,6 +664,15 @@ export default function PayrollPage() {
               <h2 style={styles.h2}>1. Pay period & company payroll</h2>
               <div style={styles.fieldRow}>
                 <label style={styles.fieldBlock}>
+                  <span style={styles.fieldLabel}>Period Start</span>
+                  <input
+                    type="date"
+                    style={styles.dateInput}
+                    value={payPeriodStart}
+                    onChange={(e) => setPayPeriodStart(e.target.value)}
+                  />
+                </label>
+                <label style={styles.fieldBlock}>
                   <span style={styles.fieldLabel}>Pay Period Date</span>
                   <input
                     type="date"
@@ -656,6 +685,10 @@ export default function PayrollPage() {
 
               <div style={styles.reportUploadBlock}>
                 <span style={styles.fieldLabel}>Or upload company payroll report(s)</span>
+                <span style={styles.info}>
+                  Each file's own "Time Period" is checked against Period Start–Pay Period Date above; a company
+                  whose file doesn't match is highlighted red in the grid below.
+                </span>
                 <input
                   ref={payrollReportInputRef}
                   type="file"
@@ -689,8 +722,10 @@ export default function PayrollPage() {
                         {r.error ? (
                           <span style={styles.reportError}>{r.error}</span>
                         ) : r.company ? (
-                          <span style={styles.reportOk}>
+                          <span style={periodMismatchCompanies.has(r.company) ? styles.reportError : styles.reportOk}>
                             → {r.company} ({Object.keys(r.values).length}/{PAYROLL_FIELDS.length} fields)
+                            {r.periodStart && r.periodEnd && ` · file period ${r.periodStart}–${r.periodEnd}`}
+                            {periodMismatchCompanies.has(r.company) && " ⚠ doesn't match Period Start/Pay Period Date above"}
                             {r.unmatchedHeaders.length > 0 && ` — ignored unrecognized column(s): ${r.unmatchedHeaders.join(", ")}`}
                           </span>
                         ) : (
@@ -734,30 +769,43 @@ export default function PayrollPage() {
                         </tr>
                       </thead>
                       <tbody>
-                        {companies.map((company, rowIndex) => (
-                          <tr key={company} style={styles.tr}>
-                            <td style={{ ...styles.td, position: "sticky", left: 0, background: "var(--panel)", fontWeight: 600 }}>
-                              {company}
-                            </td>
-                            {PAYROLL_FIELDS.map(({ key }, colIndex) => {
-                              const isNegative = Number(companyRows[company]?.[key]) < 0;
-                              return (
-                                <td key={key} style={styles.td}>
-                                  <input
-                                    id={`payroll-cell-${rowIndex}-${colIndex}`}
-                                    type="number"
-                                    step="0.01"
-                                    min="0"
-                                    style={{ ...styles.numInput, ...(isNegative ? styles.numInputError : {}) }}
-                                    value={companyRows[company]?.[key] ?? ""}
-                                    onChange={(e) => handleCellChange(company, key, e.target.value)}
-                                    onKeyDown={(e) => handleGridKeyDown(e, rowIndex, colIndex)}
-                                  />
-                                </td>
-                              );
-                            })}
-                          </tr>
-                        ))}
+                        {companies.map((company, rowIndex) => {
+                          const periodMismatch = periodMismatchCompanies.has(company);
+                          return (
+                            <tr key={company} style={{ ...styles.tr, ...(periodMismatch ? styles.trMismatch : {}) }}>
+                              <td
+                                style={{
+                                  ...styles.td,
+                                  position: "sticky",
+                                  left: 0,
+                                  background: periodMismatch ? "var(--danger-bg)" : "var(--panel)",
+                                  fontWeight: 600,
+                                  color: periodMismatch ? "var(--danger)" : undefined,
+                                }}
+                              >
+                                {company}
+                                {periodMismatch && <span style={styles.mismatchBadge}> ⚠ period mismatch</span>}
+                              </td>
+                              {PAYROLL_FIELDS.map(({ key }, colIndex) => {
+                                const isNegative = Number(companyRows[company]?.[key]) < 0;
+                                return (
+                                  <td key={key} style={styles.td}>
+                                    <input
+                                      id={`payroll-cell-${rowIndex}-${colIndex}`}
+                                      type="number"
+                                      step="0.01"
+                                      min="0"
+                                      style={{ ...styles.numInput, ...(isNegative ? styles.numInputError : {}) }}
+                                      value={companyRows[company]?.[key] ?? ""}
+                                      onChange={(e) => handleCellChange(company, key, e.target.value)}
+                                      onKeyDown={(e) => handleGridKeyDown(e, rowIndex, colIndex)}
+                                    />
+                                  </td>
+                                );
+                              })}
+                            </tr>
+                          );
+                        })}
                       </tbody>
                     </table>
                   </div>
@@ -1321,6 +1369,8 @@ const styles = {
     background: "var(--field)",
     color: "var(--ink)",
   },
+  trMismatch: { background: "var(--danger-bg)" },
+  mismatchBadge: { color: "var(--danger)", fontSize: 10.5, fontWeight: 700, whiteSpace: "nowrap" },
 
   info: { fontSize: 13, color: "var(--ink-soft)" },
   errorBanner: {
