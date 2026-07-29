@@ -273,6 +273,15 @@ export default function PayrollPage() {
     });
   }
 
+  function handleClearAllPayrollAmounts() {
+    setCompanyRows((prev) => {
+      const next = {};
+      for (const company of companies) next[company] = emptyRow(PAYROLL_FIELDS);
+      return next;
+    });
+    setPayrollReportResults([]);
+  }
+
   function handleGridKeyDown(e, rowIndex, colIndex) {
     if (e.key !== "ArrowUp" && e.key !== "ArrowDown") return;
     e.preventDefault();
@@ -716,6 +725,11 @@ export default function PayrollPage() {
 
                 {payrollReportResults.length > 0 && (
                   <div style={styles.reportResultsList}>
+                    <div style={styles.reportResultsHeader}>
+                      <button style={styles.clearAllBtn} onClick={handleClearAllPayrollAmounts}>
+                        Clear all
+                      </button>
+                    </div>
                     {payrollReportResults.map((r, i) => (
                       <div key={i} style={styles.reportResultRow}>
                         <span style={styles.reportFileName}>{r.fileName}</span>
@@ -1346,6 +1360,16 @@ const styles = {
 
   reportUploadBlock: { display: "flex", flexDirection: "column", gap: 8, marginBottom: 16 },
   reportResultsList: { display: "flex", flexDirection: "column", gap: 6, marginTop: 4 },
+  reportResultsHeader: { display: "flex", justifyContent: "flex-end" },
+  clearAllBtn: {
+    background: "transparent",
+    color: "var(--danger)",
+    border: "1px solid var(--danger)",
+    borderRadius: 6,
+    padding: "5px 12px",
+    fontSize: 11.5,
+    fontWeight: 600,
+  },
   reportResultRow: {
     display: "flex",
     flexWrap: "wrap",
