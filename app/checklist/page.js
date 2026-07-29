@@ -282,12 +282,6 @@ export default function ChecklistPage() {
         <>
           <div style={styles.menuOverlay} onClick={() => setOpenCell(null)} />
           <div style={{ ...styles.statusMenu, top: openCell.top, left: openCell.left }}>
-            <button
-              style={styles.statusMenuClear}
-              onClick={() => selectStatus(openCell.itemId, openCell.monthKey, "")}
-            >
-              — Clear —
-            </button>
             {STATUS_OPTIONS.map((o) => (
               <button
                 key={o.value}
@@ -297,6 +291,12 @@ export default function ChecklistPage() {
                 {o.value}
               </button>
             ))}
+            <button
+              style={styles.statusMenuClear}
+              onClick={() => selectStatus(openCell.itemId, openCell.monthKey, "")}
+            >
+              — Clear —
+            </button>
           </div>
         </>
       )}
