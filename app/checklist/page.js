@@ -43,6 +43,8 @@ export default function ChecklistPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [confirmDeleteId, setConfirmDeleteId] = useState(null);
+  const [editingItemId, setEditingItemId] = useState(null);
+  const [editItemText, setEditItemText] = useState("");
   const [newItemText, setNewItemText] = useState({}); // section -> draft text
   const [openCell, setOpenCell] = useState(null); // { itemId, monthKey, top, left }
 
@@ -154,6 +156,24 @@ export default function ChecklistPage() {
     setConfirmDeleteId(null);
   }
 
+  function startEditItem(item) {
+    setEditingItemId(item.id);
+    setEditItemText(item.item_name);
+  }
+
+  async function handleRenameItem(id) {
+    const text = editItemText.trim();
+    if (!text) return;
+    setError("");
+    const { error } = await supabase.from("checklist_items").update({ item_name: text }).eq("id", id);
+    if (error) {
+      setError(error.message);
+      return;
+    }
+    setItems((prev) => prev.map((i) => (i.id === id ? { ...i, item_name: text } : i)));
+    setEditingItemId(null);
+  }
+
   if (session === undefined) {
     return <div style={styles.loadingScreen}>Loading…</div>;
   }
@@ -204,7 +224,22 @@ export default function ChecklistPage() {
                   <tbody>
                     {sectionItems.map((item) => (
                       <tr key={item.id} style={styles.tr}>
-                        <td style={{ ...styles.td, textAlign: "left" }}>{item.item_name}</td>
+                        <td style={{ ...styles.td, textAlign: "left" }}>
+                          {editingItemId === item.id ? (
+                            <input
+                              autoFocus
+                              style={styles.editInput}
+                              value={editItemText}
+                              onChange={(e) => setEditItemText(e.target.value)}
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter") handleRenameItem(item.id);
+                                if (e.key === "Escape") setEditingItemId(null);
+                              }}
+                            />
+                          ) : (
+                            item.item_name
+                          )}
+                        </td>
                         {MONTHS.map((m) => {
                           const st = statusStyle(item[m.key]);
                           return (
@@ -224,7 +259,16 @@ export default function ChecklistPage() {
                           );
                         })}
                         <td style={{ ...styles.td, whiteSpace: "nowrap" }}>
-                          {confirmDeleteId === item.id ? (
+                          {editingItemId === item.id ? (
+                            <>
+                              <button style={styles.linkBtn} onClick={() => handleRenameItem(item.id)}>
+                                Save
+                              </button>
+                              <button style={styles.linkBtn} onClick={() => setEditingItemId(null)}>
+                                Cancel
+                              </button>
+                            </>
+                          ) : confirmDeleteId === item.id ? (
                             <>
                               <button
                                 style={{ ...styles.linkBtn, color: "var(--danger)" }}
@@ -237,12 +281,17 @@ export default function ChecklistPage() {
                               </button>
                             </>
                           ) : (
-                            <button
-                              style={{ ...styles.linkBtn, color: "var(--danger)" }}
-                              onClick={() => setConfirmDeleteId(item.id)}
-                            >
-                              Delete
-                            </button>
+                            <>
+                              <button style={styles.linkBtn} onClick={() => startEditItem(item)}>
+                                Edit
+                              </button>
+                              <button
+                                style={{ ...styles.linkBtn, color: "var(--danger)" }}
+                                onClick={() => setConfirmDeleteId(item.id)}
+                              >
+                                Delete
+                              </button>
+                            </>
                           )}
                         </td>
                       </tr>
@@ -438,6 +487,16 @@ const styles = {
     marginRight: 12,
     padding: 0,
     fontFamily: "var(--font-body)",
+  },
+  editInput: {
+    width: "100%",
+    minWidth: 160,
+    padding: "6px 8px",
+    borderRadius: 5,
+    border: "1px solid var(--line)",
+    fontSize: 12.5,
+    background: "var(--field)",
+    color: "var(--ink)",
   },
   addRow: { display: "flex", gap: 10, padding: "6px 0" },
   addInput: {
