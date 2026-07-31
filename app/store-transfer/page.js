@@ -50,6 +50,8 @@ export default function StoreTransferPage() {
   const [previewOpen, setPreviewOpen] = useState(saved?.previewOpen ?? false);
   const [selectedCompanies, setSelectedCompanies] = useState(new Set(saved?.selectedCompanies ?? []));
 
+  const [accountNames, setAccountNames] = useState({}); // { devices_transfer_out, devices_transfer_in, stock_transfer } from Mapping Master
+
   useEffect(() => {
     const supabase = createClient();
     supabase.auth.getSession().then(({ data }) => {
@@ -57,6 +59,20 @@ export default function StoreTransferPage() {
       if (!data.session) router.push("/login");
     });
   }, [router]);
+
+  useEffect(() => {
+    if (!session) return;
+    const supabase = createClient();
+    supabase
+      .from("stock_transfer_account_names")
+      .select("*")
+      .then(({ data, error }) => {
+        if (error) return;
+        const next = {};
+        for (const row of data || []) next[row.key] = row.account_name;
+        setAccountNames(next);
+      });
+  }, [session]);
 
   useEffect(() => {
     savePageState(STATE_KEY, {
@@ -134,7 +150,7 @@ export default function StoreTransferPage() {
     setResult(null);
     setPreviewOpen(false);
     try {
-      const byCompany = buildStoreTransferJournalEntryRows(transferData.transferRows, formatMMDDYYYYFromIso(jeDate));
+      const byCompany = buildStoreTransferJournalEntryRows(transferData.transferRows, formatMMDDYYYYFromIso(jeDate), accountNames);
       setResult({ byCompany });
       setSelectedCompanies(new Set(Object.keys(byCompany)));
     } catch (e) {

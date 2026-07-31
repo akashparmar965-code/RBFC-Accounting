@@ -18,6 +18,17 @@ const emptyDoorDraft = { door_number: "", company_name: "", qbo_class: "", notes
 const emptyAccountDraft = { account_number: "", company_name: "", qbo_class: "", notes: "" };
 const emptyStoreNameDraft = { raw_name: "", elevate_name: "", notes: "" };
 
+const STOCK_TRANSFER_ACCOUNT_LABELS = {
+  devices_transfer_out: "Devices Transfer Out",
+  devices_transfer_in: "Devices Transfer In",
+  stock_transfer: "Stock Transfer",
+};
+const STOCK_TRANSFER_ACCOUNT_HINTS = {
+  devices_transfer_out: "Credited on the sending store's books for its whole outgoing total.",
+  devices_transfer_in: "Debited on the receiving store's books for its whole incoming total.",
+  stock_transfer: 'Inter-company balance line — a different destination/source company appends ": <Company>" to this name automatically.',
+};
+
 export default function MappingsPage() {
   const router = useRouter();
   const supabase = useMemo(() => createClient(), []);
@@ -28,6 +39,7 @@ export default function MappingsPage() {
   const [doorRows, setDoorRows] = useState([]);
   const [accountRows, setAccountRows] = useState([]);
   const [storeNameRows, setStoreNameRows] = useState([]);
+  const [stockTransferAccountRows, setStockTransferAccountRows] = useState([]);
   const [elevateNameOptions, setElevateNameOptions] = useState([]); // [{ value, label }]
   const [companyOptions, setCompanyOptions] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -65,13 +77,14 @@ export default function MappingsPage() {
   const loadAll = useCallback(async () => {
     setLoading(true);
     setError("");
-    const [productRes, doorRes, accountRes, checklistRes, storeNameRes, storesRes] = await Promise.all([
+    const [productRes, doorRes, accountRes, checklistRes, storeNameRes, storesRes, stockTransferAccountRes] = await Promise.all([
       supabase.from("product_mappings").select("*").order("product_prefix", { ascending: true }),
       supabase.from("door_mappings").select("*").order("door_number", { ascending: true }),
       supabase.from("epay_account_mappings").select("*").order("account_number", { ascending: true }),
       supabase.from("checklist_items").select("company"),
       supabase.from("store_name_mappings").select("*").order("raw_name", { ascending: true }),
       supabase.from("stores").select("elevate_name, company_name").order("elevate_name", { ascending: true }),
+      supabase.from("stock_transfer_account_names").select("*").order("key", { ascending: true }),
     ]);
     if (productRes.error) setError(productRes.error.message);
     else setProductRows(productRes.data || []);
@@ -81,6 +94,8 @@ export default function MappingsPage() {
     else setAccountRows(accountRes.data || []);
     if (storeNameRes.error) setError(storeNameRes.error.message);
     else setStoreNameRows(storeNameRes.data || []);
+    if (stockTransferAccountRes.error) setError(stockTransferAccountRes.error.message);
+    else setStockTransferAccountRows(stockTransferAccountRes.data || []);
     if (!checklistRes.error) {
       setCompanyOptions(Array.from(new Set((checklistRes.data || []).map((r) => r.company))).sort());
     }
@@ -218,6 +233,15 @@ export default function MappingsPage() {
     if (error) setError(error.message);
   }
 
+  async function updateStockTransferAccountField(id, field, value) {
+    setStockTransferAccountRows((prev) => prev.map((r) => (r.id === id ? { ...r, [field]: value } : r)));
+    const { error } = await supabase
+      .from("stock_transfer_account_names")
+      .update({ [field]: field === "account_name" ? value.trim() : value || null })
+      .eq("id", id);
+    if (error) setError(error.message);
+  }
+
   async function addStoreNameRow() {
     if (!storeNameDraft.raw_name.trim() || !storeNameDraft.elevate_name.trim()) {
       setError("Raw Store Name and Elevate Name are required.");
@@ -336,6 +360,12 @@ export default function MappingsPage() {
             onClick={() => setActiveTab("storemap")}
           >
             Store Mapping
+          </button>
+          <button
+            style={activeTab === "stocktransfer" ? styles.tabActive : styles.tab}
+            onClick={() => setActiveTab("stocktransfer")}
+          >
+            Stock Transfer
           </button>
         </div>
 
@@ -777,7 +807,7 @@ export default function MappingsPage() {
               </div>
             </div>
           </>
-        ) : (
+        ) : activeTab === "storemap" ? (
           <>
             <div style={styles.sectionCard}>
               <div style={styles.sectionTitle}>Store Mapping</div>
@@ -906,6 +936,46 @@ export default function MappingsPage() {
                         </button>
                       </td>
                     </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </>
+        ) : (
+          <>
+            <div style={styles.sectionCard}>
+              <div style={styles.sectionTitle}>Stock Transfer</div>
+              <div style={styles.sectionSub}>
+                The account names Stock Transfer's Journal Entry uses — edit here instead of in code.
+                "Stock Transfer" is the base name only: a different destination/source company gets its
+                own line named "<em>this name</em>: &lt;Company&gt;" automatically, so you don't set that
+                per company.
+              </div>
+
+              <div style={styles.tableWrap}>
+                <table style={styles.table}>
+                  <thead>
+                    <tr>
+                      <th style={{ ...styles.th, textAlign: "left" }}>Line</th>
+                      <th style={{ ...styles.th, textAlign: "left" }}>Account Name</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {stockTransferAccountRows.map((r) => (
+                      <tr key={r.id} style={styles.tr}>
+                        <td style={styles.td}>
+                          <div style={{ fontWeight: 600 }}>{STOCK_TRANSFER_ACCOUNT_LABELS[r.key] || r.key}</div>
+                          <div style={styles.sectionSub}>{STOCK_TRANSFER_ACCOUNT_HINTS[r.key] || ""}</div>
+                        </td>
+                        <td style={styles.td}>
+                          <input
+                            style={styles.cellInput}
+                            defaultValue={r.account_name}
+                            onBlur={(e) => updateStockTransferAccountField(r.id, "account_name", e.target.value)}
+                          />
+                        </td>
+                      </tr>
+                    ))}
                   </tbody>
                 </table>
               </div>
