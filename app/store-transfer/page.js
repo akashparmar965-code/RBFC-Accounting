@@ -198,7 +198,7 @@ export default function StoreTransferPage() {
 
       <main style={styles.main}>
         <div style={styles.topRow}>
-          <h1 style={styles.h1}>Store Transfer</h1>
+          <h1 style={styles.h1}>Stock Transfer</h1>
           <p style={styles.pageSub}>
             Upload the Store Transfer Receiving Details export to verify device transfers between stores, then
             generate a per-company Journal Entry.

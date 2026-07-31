@@ -783,7 +783,7 @@ export default function MappingsPage() {
               <div style={styles.sectionTitle}>Store Mapping</div>
               <div style={styles.sectionSub}>
                 A fallback for raw store names (from Payroll's Employee Timesheet, Change in Inventory's
-                Opening/Closing uploads, or Store Transfer's From/To columns) that don't exactly match a
+                Opening/Closing uploads, or Stock Transfer's From/To columns) that don't exactly match a
                 store's Elevate Name in Store Master — renames, typos, or casing drift. Map the raw name
                 to the correct Elevate Name and re-upload to pick it up.
               </div>
