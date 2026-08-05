@@ -38,26 +38,26 @@ const SLOTS = [
   {
     key: "poReceiving",
     label: "Purchase Order Receiving",
-    hint: "Optional — new stock received this month",
+    hint: "New stock received this month",
     parser: "transfer",
     requiredCol: "Serial #",
-    required: false,
+    required: true,
   },
   {
     key: "shipment",
     label: "Store Transfer Shipment",
-    hint: "Optional — devices shipped out to another store",
+    hint: "Devices shipped out to another store",
     parser: "transfer",
     requiredCol: "Serial #",
-    required: false,
+    required: true,
   },
   {
     key: "receiving",
     label: "Store Transfer Receiving",
-    hint: "Optional — devices received from another store",
+    hint: "Devices received from another store",
     parser: "transfer",
     requiredCol: "Serial #",
-    required: false,
+    required: true,
   },
   {
     key: "sales",
@@ -70,10 +70,10 @@ const SLOTS = [
   {
     key: "rmaReturn",
     label: "Vendor Return (RMA)",
-    hint: "Optional — RMA Shipment Details, devices sent back to the vendor",
+    hint: "RMA Shipment Details, devices sent back to the vendor",
     parser: "transfer",
     requiredCol: "Serial #",
-    required: false,
+    required: true,
   },
 ];
 
