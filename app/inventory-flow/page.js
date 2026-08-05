@@ -67,11 +67,24 @@ const SLOTS = [
     requiredCol: "Serial 1",
     required: true,
   },
+  {
+    key: "rmaReturn",
+    label: "Vendor Return (RMA)",
+    hint: "Optional — RMA Shipment Details, devices sent back to the vendor",
+    parser: "transfer",
+    requiredCol: "Serial #",
+    required: false,
+  },
 ];
 
 function formatCell(v) {
   if (v instanceof Date) return v.toISOString().slice(0, 10);
   return v == null ? "" : String(v);
+}
+
+function formatMoney(n) {
+  const v = Number(n) || 0;
+  return "$" + v.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
 function buildFlatSections(result) {
@@ -84,6 +97,7 @@ function buildFlatSections(result) {
     Timeline: m.events
       .map((e) => `${e.type}@${e.store || "-"}${e.date ? " " + formatCell(e.date) : ""}`)
       .join(" → "),
+    Value: m.cost || 0,
   }));
 
   const inTransitFlat = result.inTransit.map((t) => ({
@@ -92,6 +106,7 @@ function buildFlatSections(result) {
     From: t.from || "",
     To: t.to || "",
     "Shipped Date": formatCell(t.shippedDate),
+    Value: t.cost || 0,
   }));
 
   const storeMismatchFlat = result.storeMismatch.map((m) => ({
@@ -99,6 +114,7 @@ function buildFlatSections(result) {
     Product: m.productDesc,
     "Expected Store": m.expectedStore || "",
     "Found Store": m.foundStore || "",
+    Value: m.cost || 0,
   }));
 
   const unexplainedNewFlat = result.unexplainedNew.map((u) => ({
@@ -106,6 +122,7 @@ function buildFlatSections(result) {
     Product: u.productDesc,
     Store: u.store || "",
     Note: u.note || "",
+    Value: u.cost || 0,
   }));
 
   const soldAnomaliesFlat = result.soldAnomalies.map((a) => ({
@@ -113,6 +130,16 @@ function buildFlatSections(result) {
     Product: a.productDesc,
     Store: a.store || "",
     Note: a.note || "",
+    Value: a.cost || 0,
+  }));
+
+  const vendorReturnsFlat = result.vendorReturns.map((v) => ({
+    Serial: v.serial,
+    Product: v.productDesc,
+    Store: v.store || "",
+    Vendor: v.vendor || "",
+    Date: formatCell(v.date),
+    Value: v.cost || 0,
   }));
 
   const flowByRouteFlat = result.flowByRoute
@@ -164,9 +191,16 @@ function buildFlatSections(result) {
       severe: false,
     },
     {
+      key: "vendorReturns",
+      title: "Vendor Returns (RMA)",
+      desc: "Shipped back to the vendor this month — a known, final disposition, not counted as Missing.",
+      rows: vendorReturnsFlat,
+      severe: false,
+    },
+    {
       key: "flowByRoute",
-      title: "Transfer & Purchase Flow",
-      desc: "Volume moved this month by route (serial counts + dollar totals).",
+      title: "Transfer, Purchase & Return Flow",
+      desc: "Volume moved this month by route (serial counts + dollar totals) — store transfers, purchase order receiving, and vendor returns.",
       rows: flowByRouteFlat,
       severe: false,
     },
@@ -249,6 +283,7 @@ export default function InventoryFlowPage() {
         poReceivingRows: rowsRef.current.poReceiving || [],
         shipmentRows: rowsRef.current.shipment || [],
         receivingRows: rowsRef.current.receiving || [],
+        rmaRows: rowsRef.current.rmaReturn || [],
         salesRows: rowsRef.current.sales || [],
       });
       setResult(report);
@@ -396,6 +431,80 @@ export default function InventoryFlowPage() {
                 <div style={styles.statValue}>{result.stats.totalUnexplainedNew}</div>
                 <div style={styles.statLabel}>Unexplained new</div>
               </div>
+              <div style={styles.statChip}>
+                <div style={styles.statValue}>{result.stats.totalVendorReturns}</div>
+                <div style={styles.statLabel}>Vendor returns</div>
+              </div>
+            </div>
+
+            <div style={styles.card}>
+              <div style={styles.analyticsTitle}>Value Analytics</div>
+
+              <div style={styles.analyticsGroupLabel}>Inventory value</div>
+              <div style={styles.statsRow}>
+                <div style={styles.statChip}>
+                  <div style={styles.statValueMoney}>{formatMoney(result.stats.totalOpeningValue)}</div>
+                  <div style={styles.statLabel}>Opening value</div>
+                </div>
+                <div style={styles.statChip}>
+                  <div style={styles.statValueMoney}>{formatMoney(result.stats.totalClosingValue)}</div>
+                  <div style={styles.statLabel}>Closing value</div>
+                </div>
+                <div style={styles.statChip}>
+                  <div style={styles.statValueMoney}>
+                    {formatMoney(result.stats.totalClosingValue - result.stats.totalOpeningValue)}
+                  </div>
+                  <div style={styles.statLabel}>Net change</div>
+                </div>
+              </div>
+
+              <div style={styles.analyticsGroupLabel}>Flagged value (dollar exposure)</div>
+              <div style={styles.statsRow}>
+                <div style={{ ...styles.statChip, ...styles.statChipSevere }}>
+                  <div style={styles.statValueMoney}>{formatMoney(result.stats.totalMissingValue)}</div>
+                  <div style={styles.statLabel}>Missing</div>
+                </div>
+                <div style={{ ...styles.statChip, ...styles.statChipSevere }}>
+                  <div style={styles.statValueMoney}>{formatMoney(result.stats.totalStoreMismatchValue)}</div>
+                  <div style={styles.statLabel}>Store mismatch</div>
+                </div>
+                <div style={{ ...styles.statChip, ...styles.statChipSevere }}>
+                  <div style={styles.statValueMoney}>{formatMoney(result.stats.totalSoldAnomaliesValue)}</div>
+                  <div style={styles.statLabel}>Sold anomalies</div>
+                </div>
+                <div style={styles.statChip}>
+                  <div style={styles.statValueMoney}>{formatMoney(result.stats.totalInTransitValue)}</div>
+                  <div style={styles.statLabel}>In transit</div>
+                </div>
+                <div style={styles.statChip}>
+                  <div style={styles.statValueMoney}>{formatMoney(result.stats.totalUnexplainedNewValue)}</div>
+                  <div style={styles.statLabel}>Unexplained new</div>
+                </div>
+                <div style={styles.statChip}>
+                  <div style={styles.statValueMoney}>{formatMoney(result.stats.totalVendorReturnsValue)}</div>
+                  <div style={styles.statLabel}>Vendor returns</div>
+                </div>
+              </div>
+
+              <div style={styles.analyticsGroupLabel}>Flow value (this month's movement)</div>
+              <div style={styles.statsRow}>
+                <div style={styles.statChip}>
+                  <div style={styles.statValueMoney}>{formatMoney(result.stats.totalPurchaseInValue)}</div>
+                  <div style={styles.statLabel}>Purchased in</div>
+                </div>
+                <div style={styles.statChip}>
+                  <div style={styles.statValueMoney}>{formatMoney(result.stats.totalTransferOutValue)}</div>
+                  <div style={styles.statLabel}>Transferred out</div>
+                </div>
+                <div style={styles.statChip}>
+                  <div style={styles.statValueMoney}>{formatMoney(result.stats.totalTransferInValue)}</div>
+                  <div style={styles.statLabel}>Transferred in</div>
+                </div>
+                <div style={styles.statChip}>
+                  <div style={styles.statValueMoney}>{formatMoney(result.stats.totalVendorReturnOutValue)}</div>
+                  <div style={styles.statLabel}>Returned to vendor</div>
+                </div>
+              </div>
             </div>
 
             <div style={styles.actionsRow}>
@@ -446,7 +555,7 @@ export default function InventoryFlowPage() {
                           <tr key={i} style={styles.tr}>
                             {Object.keys(section.rows[0]).map((c) => (
                               <td key={c} style={styles.td}>
-                                {r[c]}
+                                {c === "Value" || c === "Total Ext Cost" ? formatMoney(r[c]) : r[c]}
                               </td>
                             ))}
                           </tr>
@@ -537,7 +646,18 @@ const styles = {
   },
   statChipSevere: { borderColor: "var(--danger)" },
   statValue: { fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 20 },
+  statValueMoney: { fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 16 },
   statLabel: { fontSize: 10.5, color: "var(--ink-soft)", marginTop: 2, textTransform: "uppercase", letterSpacing: "0.03em" },
+
+  analyticsTitle: { fontFamily: "var(--font-display)", fontWeight: 600, fontSize: 15, marginBottom: 10 },
+  analyticsGroupLabel: {
+    fontSize: 11,
+    color: "var(--ink-soft)",
+    fontWeight: 600,
+    textTransform: "uppercase",
+    letterSpacing: "0.03em",
+    margin: "14px 0 8px",
+  },
 
   sectionCard: {
     background: "var(--panel)",
