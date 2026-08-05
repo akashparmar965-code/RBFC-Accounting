@@ -90,17 +90,20 @@ function formatMoney(n) {
 function buildFlatSections(result) {
   if (!result) return [];
 
-  const missingFlat = result.missing.map((m) => ({
+  // Defensive defaults: `result` may be a stale shape restored from a
+  // browser's sessionStorage (see savePageState) saved before a category
+  // was added — without these, a missing key crashes `.map` on load.
+  const missingFlat = (result.missing || []).map((m) => ({
     Serial: m.serial,
     Product: m.productDesc,
     "Last Known Store": m.lastKnownStore || "",
-    Timeline: m.events
+    Timeline: (m.events || [])
       .map((e) => `${e.type}@${e.store || "-"}${e.date ? " " + formatCell(e.date) : ""}`)
       .join(" → "),
     Value: m.cost || 0,
   }));
 
-  const inTransitFlat = result.inTransit.map((t) => ({
+  const inTransitFlat = (result.inTransit || []).map((t) => ({
     Serial: t.serial,
     Product: t.productDesc,
     From: t.from || "",
@@ -109,7 +112,7 @@ function buildFlatSections(result) {
     Value: t.cost || 0,
   }));
 
-  const storeMismatchFlat = result.storeMismatch.map((m) => ({
+  const storeMismatchFlat = (result.storeMismatch || []).map((m) => ({
     Serial: m.serial,
     Product: m.productDesc,
     "Expected Store": m.expectedStore || "",
@@ -117,7 +120,7 @@ function buildFlatSections(result) {
     Value: m.cost || 0,
   }));
 
-  const unexplainedNewFlat = result.unexplainedNew.map((u) => ({
+  const unexplainedNewFlat = (result.unexplainedNew || []).map((u) => ({
     Serial: u.serial,
     Product: u.productDesc,
     Store: u.store || "",
@@ -125,7 +128,7 @@ function buildFlatSections(result) {
     Value: u.cost || 0,
   }));
 
-  const soldAnomaliesFlat = result.soldAnomalies.map((a) => ({
+  const soldAnomaliesFlat = (result.soldAnomalies || []).map((a) => ({
     Serial: a.serial,
     Product: a.productDesc,
     Store: a.store || "",
@@ -133,7 +136,7 @@ function buildFlatSections(result) {
     Value: a.cost || 0,
   }));
 
-  const vendorReturnsFlat = result.vendorReturns.map((v) => ({
+  const vendorReturnsFlat = (result.vendorReturns || []).map((v) => ({
     Serial: v.serial,
     Product: v.productDesc,
     Store: v.store || "",
@@ -142,7 +145,7 @@ function buildFlatSections(result) {
     Value: v.cost || 0,
   }));
 
-  const flowByRouteFlat = result.flowByRoute
+  const flowByRouteFlat = (result.flowByRoute || [])
     .slice()
     .sort((a, b) => b.serialCount - a.serialCount)
     .map((r) => ({
