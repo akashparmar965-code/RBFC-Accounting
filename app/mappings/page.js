@@ -29,19 +29,6 @@ const STOCK_TRANSFER_ACCOUNT_HINTS = {
   stock_transfer: 'Inter-company balance line — a different destination/source company appends ": <Company>" to this name automatically.',
 };
 
-const emptyFinAccountDraft = { account_name: "", section: "Expense", is_subtotal: false, sort_order: "", notes: "" };
-const FIN_SECTION_OPTIONS = [
-  "Income",
-  "COGS",
-  "Expense",
-  "Other Income",
-  "Other Expense",
-  "Gross Profit",
-  "Net Ordinary Income",
-  "Net Other Income",
-  "Net Income",
-];
-
 export default function MappingsPage() {
   const router = useRouter();
   const supabase = useMemo(() => createClient(), []);
@@ -53,7 +40,6 @@ export default function MappingsPage() {
   const [accountRows, setAccountRows] = useState([]);
   const [storeNameRows, setStoreNameRows] = useState([]);
   const [stockTransferAccountRows, setStockTransferAccountRows] = useState([]);
-  const [finAccountRows, setFinAccountRows] = useState([]);
   const [elevateNameOptions, setElevateNameOptions] = useState([]); // [{ value, label }]
   const [companyOptions, setCompanyOptions] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -62,7 +48,6 @@ export default function MappingsPage() {
   const [doorDraft, setDoorDraft] = useState(emptyDoorDraft);
   const [accountDraft, setAccountDraft] = useState(emptyAccountDraft);
   const [storeNameDraft, setStoreNameDraft] = useState(emptyStoreNameDraft);
-  const [finAccountDraft, setFinAccountDraft] = useState(emptyFinAccountDraft);
   const [confirmDelete, setConfirmDelete] = useState(null); // { table, id }
   const [pendingDoors, setPendingDoors] = useState([]);
   const [pendingProducts, setPendingProducts] = useState([]);
@@ -92,17 +77,15 @@ export default function MappingsPage() {
   const loadAll = useCallback(async () => {
     setLoading(true);
     setError("");
-    const [productRes, doorRes, accountRes, checklistRes, storeNameRes, storesRes, stockTransferAccountRes, finAccountRes] =
-      await Promise.all([
-        supabase.from("product_mappings").select("*").order("product_prefix", { ascending: true }),
-        supabase.from("door_mappings").select("*").order("door_number", { ascending: true }),
-        supabase.from("epay_account_mappings").select("*").order("account_number", { ascending: true }),
-        supabase.from("checklist_items").select("company"),
-        supabase.from("store_name_mappings").select("*").order("raw_name", { ascending: true }),
-        supabase.from("stores").select("elevate_name, company_name").order("elevate_name", { ascending: true }),
-        supabase.from("stock_transfer_account_names").select("*").order("key", { ascending: true }),
-        supabase.from("fin_accounts").select("*").order("sort_order", { ascending: true }),
-      ]);
+    const [productRes, doorRes, accountRes, checklistRes, storeNameRes, storesRes, stockTransferAccountRes] = await Promise.all([
+      supabase.from("product_mappings").select("*").order("product_prefix", { ascending: true }),
+      supabase.from("door_mappings").select("*").order("door_number", { ascending: true }),
+      supabase.from("epay_account_mappings").select("*").order("account_number", { ascending: true }),
+      supabase.from("checklist_items").select("company"),
+      supabase.from("store_name_mappings").select("*").order("raw_name", { ascending: true }),
+      supabase.from("stores").select("elevate_name, company_name").order("elevate_name", { ascending: true }),
+      supabase.from("stock_transfer_account_names").select("*").order("key", { ascending: true }),
+    ]);
     if (productRes.error) setError(productRes.error.message);
     else setProductRows(productRes.data || []);
     if (doorRes.error) setError(doorRes.error.message);
@@ -113,8 +96,6 @@ export default function MappingsPage() {
     else setStoreNameRows(storeNameRes.data || []);
     if (stockTransferAccountRes.error) setError(stockTransferAccountRes.error.message);
     else setStockTransferAccountRows(stockTransferAccountRes.data || []);
-    if (finAccountRes.error) setError(finAccountRes.error.message);
-    else setFinAccountRows(finAccountRes.data || []);
     if (!checklistRes.error) {
       setCompanyOptions(Array.from(new Set((checklistRes.data || []).map((r) => r.company))).sort());
     }
@@ -261,44 +242,6 @@ export default function MappingsPage() {
     if (error) setError(error.message);
   }
 
-  async function updateFinAccountField(id, field, value) {
-    setFinAccountRows((prev) => prev.map((r) => (r.id === id ? { ...r, [field]: value } : r)));
-    let payload = value;
-    if (field === "account_name") payload = value.trim();
-    else if (field === "sort_order") payload = Number(value) || 0;
-    else if (field === "notes") payload = value.trim() || null;
-    const { error } = await supabase
-      .from("fin_accounts")
-      .update({ [field]: payload })
-      .eq("id", id);
-    if (error) setError(error.message);
-  }
-
-  async function addFinAccountRow() {
-    if (!finAccountDraft.account_name.trim()) {
-      setError("Account Name is required.");
-      return;
-    }
-    const { data, error } = await supabase
-      .from("fin_accounts")
-      .insert([
-        {
-          account_name: finAccountDraft.account_name.trim(),
-          section: finAccountDraft.section,
-          is_subtotal: !!finAccountDraft.is_subtotal,
-          sort_order: Number(finAccountDraft.sort_order) || 0,
-          notes: finAccountDraft.notes.trim() || null,
-        },
-      ])
-      .select();
-    if (error) {
-      setError(error.message);
-      return;
-    }
-    setFinAccountRows((prev) => [...prev, ...(data || [])].sort((a, b) => a.sort_order - b.sort_order));
-    setFinAccountDraft(emptyFinAccountDraft);
-  }
-
   async function addStoreNameRow() {
     if (!storeNameDraft.raw_name.trim() || !storeNameDraft.elevate_name.trim()) {
       setError("Raw Store Name and Elevate Name are required.");
@@ -369,7 +312,6 @@ export default function MappingsPage() {
     if (table === "product_mappings") setProductRows((prev) => prev.filter((r) => r.id !== id));
     else if (table === "door_mappings") setDoorRows((prev) => prev.filter((r) => r.id !== id));
     else if (table === "epay_account_mappings") setAccountRows((prev) => prev.filter((r) => r.id !== id));
-    else if (table === "fin_accounts") setFinAccountRows((prev) => prev.filter((r) => r.id !== id));
     else setStoreNameRows((prev) => prev.filter((r) => r.id !== id));
     setConfirmDelete(null);
   }
@@ -424,12 +366,6 @@ export default function MappingsPage() {
             onClick={() => setActiveTab("stocktransfer")}
           >
             Stock Transfer
-          </button>
-          <button
-            style={activeTab === "finaccounts" ? styles.tabActive : styles.tab}
-            onClick={() => setActiveTab("finaccounts")}
-          >
-            Financial Accounts
           </button>
         </div>
 
@@ -1005,7 +941,7 @@ export default function MappingsPage() {
               </div>
             </div>
           </>
-        ) : activeTab === "stocktransfer" ? (
+        ) : (
           <>
             <div style={styles.sectionCard}>
               <div style={styles.sectionTitle}>Stock Transfer</div>
@@ -1040,152 +976,6 @@ export default function MappingsPage() {
                         </td>
                       </tr>
                     ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          </>
-        ) : (
-          <>
-            <div style={styles.sectionCard}>
-              <div style={styles.sectionTitle}>Financial Accounts</div>
-              <div style={styles.sectionSub}>
-                The account list Financial Statements uploads build against — new account names are added here
-                automatically the first time they're seen in an uploaded P&amp;L, matched by exact name. Adjust
-                Section/Subtotal/Sort Order here to control how the dashboard groups and orders them.
-              </div>
-
-              <div style={styles.tableWrap}>
-                <table style={styles.table}>
-                  <thead>
-                    <tr>
-                      <th style={{ ...styles.th, textAlign: "left" }}>Account Name</th>
-                      <th style={{ ...styles.th, textAlign: "left" }}>Section</th>
-                      <th style={styles.th}>Subtotal</th>
-                      <th style={styles.th}>Sort Order</th>
-                      <th style={{ ...styles.th, textAlign: "left" }}>Notes</th>
-                      <th style={styles.th}></th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {finAccountRows.map((r) => (
-                      <tr key={r.id} style={styles.tr}>
-                        <td style={styles.td}>
-                          <input
-                            style={styles.cellInput}
-                            defaultValue={r.account_name}
-                            onBlur={(e) => updateFinAccountField(r.id, "account_name", e.target.value)}
-                          />
-                        </td>
-                        <td style={styles.td}>
-                          <select
-                            style={styles.cellInput}
-                            value={r.section}
-                            onChange={(e) => updateFinAccountField(r.id, "section", e.target.value)}
-                          >
-                            {FIN_SECTION_OPTIONS.map((s) => (
-                              <option key={s} value={s}>
-                                {s}
-                              </option>
-                            ))}
-                            {r.section && !FIN_SECTION_OPTIONS.includes(r.section) && <option value={r.section}>{r.section}</option>}
-                          </select>
-                        </td>
-                        <td style={{ ...styles.td, textAlign: "center" }}>
-                          <input
-                            type="checkbox"
-                            checked={!!r.is_subtotal}
-                            onChange={(e) => updateFinAccountField(r.id, "is_subtotal", e.target.checked)}
-                          />
-                        </td>
-                        <td style={styles.td}>
-                          <input
-                            type="number"
-                            style={{ ...styles.cellInput, width: 80, minWidth: 60 }}
-                            defaultValue={r.sort_order}
-                            onBlur={(e) => updateFinAccountField(r.id, "sort_order", e.target.value)}
-                          />
-                        </td>
-                        <td style={styles.td}>
-                          <input
-                            style={styles.cellInput}
-                            defaultValue={r.notes || ""}
-                            onBlur={(e) => updateFinAccountField(r.id, "notes", e.target.value)}
-                          />
-                        </td>
-                        <td style={{ ...styles.td, whiteSpace: "nowrap" }}>
-                          {confirmDelete?.table === "fin_accounts" && confirmDelete.id === r.id ? (
-                            <>
-                              <button style={{ ...styles.linkBtn, color: "var(--danger)" }} onClick={handleDelete}>
-                                Confirm
-                              </button>
-                              <button style={styles.linkBtn} onClick={() => setConfirmDelete(null)}>
-                                Cancel
-                              </button>
-                            </>
-                          ) : (
-                            <button
-                              style={{ ...styles.linkBtn, color: "var(--danger)" }}
-                              onClick={() => setConfirmDelete({ table: "fin_accounts", id: r.id })}
-                            >
-                              Delete
-                            </button>
-                          )}
-                        </td>
-                      </tr>
-                    ))}
-                    <tr>
-                      <td style={styles.td}>
-                        <input
-                          style={styles.cellInput}
-                          placeholder="e.g. Accessories"
-                          value={finAccountDraft.account_name}
-                          onChange={(e) => setFinAccountDraft((d) => ({ ...d, account_name: e.target.value }))}
-                        />
-                      </td>
-                      <td style={styles.td}>
-                        <select
-                          style={styles.cellInput}
-                          value={finAccountDraft.section}
-                          onChange={(e) => setFinAccountDraft((d) => ({ ...d, section: e.target.value }))}
-                        >
-                          {FIN_SECTION_OPTIONS.map((s) => (
-                            <option key={s} value={s}>
-                              {s}
-                            </option>
-                          ))}
-                        </select>
-                      </td>
-                      <td style={{ ...styles.td, textAlign: "center" }}>
-                        <input
-                          type="checkbox"
-                          checked={finAccountDraft.is_subtotal}
-                          onChange={(e) => setFinAccountDraft((d) => ({ ...d, is_subtotal: e.target.checked }))}
-                        />
-                      </td>
-                      <td style={styles.td}>
-                        <input
-                          type="number"
-                          style={{ ...styles.cellInput, width: 80, minWidth: 60 }}
-                          placeholder="0"
-                          value={finAccountDraft.sort_order}
-                          onChange={(e) => setFinAccountDraft((d) => ({ ...d, sort_order: e.target.value }))}
-                        />
-                      </td>
-                      <td style={styles.td}>
-                        <input
-                          style={styles.cellInput}
-                          placeholder="(optional)"
-                          value={finAccountDraft.notes}
-                          onChange={(e) => setFinAccountDraft((d) => ({ ...d, notes: e.target.value }))}
-                        />
-                      </td>
-                      <td style={styles.td}>
-                        <button style={styles.addBtn} onClick={addFinAccountRow}>
-                          + Add
-                        </button>
-                      </td>
-                    </tr>
                   </tbody>
                 </table>
               </div>
