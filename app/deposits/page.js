@@ -110,6 +110,26 @@ export default function DepositsPage() {
       });
   }, [session]);
 
+  // Received From / From Account / Memo default from Mapping Master's AR
+  // Deposits > Defaults (edited there) — only applied if this browser
+  // session hasn't already got its own saved/edited value for this run.
+  useEffect(() => {
+    if (!session) return;
+    const supabase = createClient();
+    supabase
+      .from("deposit_defaults")
+      .select("*")
+      .then(({ data, error }) => {
+        if (error || !data) return;
+        const byKey = {};
+        for (const r of data) byKey[r.key] = r.value;
+        if (saved?.receivedFrom == null && byKey.received_from != null) setReceivedFrom(byKey.received_from);
+        if (saved?.fromAccount == null && byKey.from_account != null) setFromAccount(byKey.from_account);
+        if (saved?.memo == null && byKey.memo != null) setMemo(byKey.memo);
+      });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [session]);
+
   const processFile = useCallback(async (file) => {
     setError("");
     setRawRows(null);
@@ -235,6 +255,10 @@ export default function DepositsPage() {
 
         <div style={styles.card}>
           <h2 style={styles.h2}>1. Deposit Date, defaults & upload</h2>
+          <p style={styles.info}>
+            Received From / From Account / Memo default from Mapping Master → AR Deposits — edit them here
+            for just this run, or there to change the default going forward.
+          </p>
           <div style={styles.fieldRow}>
             <label style={styles.fieldBlock}>
               <span style={styles.fieldLabel}>Deposit Date</span>

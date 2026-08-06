@@ -31,6 +31,12 @@ const STOCK_TRANSFER_ACCOUNT_HINTS = {
   stock_transfer: 'Inter-company balance line — a different destination/source company appends ": <Company>" to this name automatically.',
 };
 
+const DEPOSIT_DEFAULT_LABELS = {
+  received_from: "Received From",
+  from_account: "From Account",
+  memo: "Memo",
+};
+
 export default function MappingsPage() {
   const router = useRouter();
   const supabase = useMemo(() => createClient(), []);
@@ -43,6 +49,7 @@ export default function MappingsPage() {
   const [storeNameRows, setStoreNameRows] = useState([]);
   const [stockTransferAccountRows, setStockTransferAccountRows] = useState([]);
   const [depositAccountRows, setDepositAccountRows] = useState([]);
+  const [depositDefaultRows, setDepositDefaultRows] = useState([]);
   const [elevateNameOptions, setElevateNameOptions] = useState([]); // [{ value, label }]
   const [companyOptions, setCompanyOptions] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -92,6 +99,7 @@ export default function MappingsPage() {
       storesRes,
       stockTransferAccountRes,
       depositAccountRes,
+      depositDefaultRes,
     ] = await Promise.all([
       supabase.from("product_mappings").select("*").order("product_prefix", { ascending: true }),
       supabase.from("door_mappings").select("*").order("door_number", { ascending: true }),
@@ -101,6 +109,7 @@ export default function MappingsPage() {
       supabase.from("stores").select("elevate_name, company_name").order("elevate_name", { ascending: true }),
       supabase.from("stock_transfer_account_names").select("*").order("key", { ascending: true }),
       supabase.from("deposit_account_mappings").select("*").order("tender_type", { ascending: true }),
+      supabase.from("deposit_defaults").select("*").order("key", { ascending: true }),
     ]);
     if (productRes.error) setError(productRes.error.message);
     else setProductRows(productRes.data || []);
@@ -114,6 +123,8 @@ export default function MappingsPage() {
     else setStockTransferAccountRows(stockTransferAccountRes.data || []);
     if (depositAccountRes.error) setError(depositAccountRes.error.message);
     else setDepositAccountRows(depositAccountRes.data || []);
+    if (depositDefaultRes.error) setError(depositDefaultRes.error.message);
+    else setDepositDefaultRows(depositDefaultRes.data || []);
     if (!checklistRes.error) {
       setCompanyOptions(Array.from(new Set((checklistRes.data || []).map((r) => r.company))).sort());
     }
@@ -303,6 +314,12 @@ export default function MappingsPage() {
   function dismissPendingTenderType(tenderType) {
     removePendingTenderType(tenderType);
     setPendingTenderTypes((prev) => prev.filter((t) => t !== tenderType));
+  }
+
+  async function updateDepositDefaultField(id, value) {
+    setDepositDefaultRows((prev) => prev.map((r) => (r.id === id ? { ...r, value } : r)));
+    const { error } = await supabase.from("deposit_defaults").update({ value }).eq("id", id);
+    if (error) setError(error.message);
   }
 
   async function addStoreNameRow() {
@@ -1053,6 +1070,41 @@ export default function MappingsPage() {
           </>
         ) : (
           <>
+            <div style={styles.sectionCard}>
+              <div style={styles.sectionTitle}>AR Deposits — Defaults</div>
+              <div style={styles.sectionSub}>
+                Applied to every line on the AR Deposits page (still editable there per-run, but this is
+                the default it loads with).
+              </div>
+
+              <div style={styles.tableWrap}>
+                <table style={styles.table}>
+                  <thead>
+                    <tr>
+                      <th style={{ ...styles.th, textAlign: "left" }}>Field</th>
+                      <th style={{ ...styles.th, textAlign: "left" }}>Value</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {depositDefaultRows.map((r) => (
+                      <tr key={r.id} style={styles.tr}>
+                        <td style={styles.td}>
+                          <div style={{ fontWeight: 600 }}>{DEPOSIT_DEFAULT_LABELS[r.key] || r.key}</div>
+                        </td>
+                        <td style={styles.td}>
+                          <input
+                            style={styles.cellInput}
+                            defaultValue={r.value}
+                            onBlur={(e) => updateDepositDefaultField(r.id, e.target.value)}
+                          />
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
             <div style={styles.sectionCard}>
               <div style={styles.sectionTitle}>AR Deposits — Deposit Account Mapping</div>
               <div style={styles.sectionSub}>
