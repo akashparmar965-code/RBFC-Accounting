@@ -13,8 +13,14 @@ import {
   rowsToCsv,
   rowsToXlsxBuffer,
 } from "@/lib/inventoryProcessor";
+import {
+  parseInventoryAgingWorkbook,
+  sumAgingLossByRawStore,
+  matchAgingLossToStores,
+  buildDevicesLostJournalEntryRows,
+} from "@/lib/inventoryAgingProcessor";
 import { formatMMDDYYYYFromIso } from "@/lib/payrollProcessor";
-import { buildExportFileName } from "@/lib/fileNaming";
+import { buildExportFileName, parseSingleDateFromFileName } from "@/lib/fileNaming";
 import { buildStoreNameMap, remapStoreNamesInRows } from "@/lib/storeNameMapping";
 import { savePendingMappings } from "@/lib/pendingMappings";
 import { savePageState, loadPageState } from "@/lib/pageState";
@@ -30,6 +36,7 @@ export default function InventoryPage() {
   const router = useRouter();
   const [session, setSession] = useState(undefined);
   const saved = useRef(loadPageState(STATE_KEY)).current;
+  const [activeTab, setActiveTab] = useState(saved?.activeTab ?? "change");
 
   const [jeDate, setJeDate] = useState(saved?.jeDate ?? todayIso());
 
@@ -61,6 +68,26 @@ export default function InventoryPage() {
   const [previewOpen, setPreviewOpen] = useState(saved?.previewOpen ?? false);
   const [selectedCompanies, setSelectedCompanies] = useState(new Set(saved?.selectedCompanies ?? []));
 
+  // ---- Devices Lost (Inventory Aging) tab state ----
+  const [agingJeDate, setAgingJeDate] = useState(saved?.agingJeDate ?? todayIso());
+  const [agingReportDate, setAgingReportDate] = useState(saved?.agingReportDate ?? "");
+  const [agingMonth, setAgingMonth] = useState(saved?.agingMonth ?? "");
+  const [agingFileName, setAgingFileName] = useState(saved?.agingFileName ?? null);
+  const [agingDragOver, setAgingDragOver] = useState(false);
+  const [agingError, setAgingError] = useState("");
+  const [agingRows, setAgingRows] = useState(null);
+  const agingInputRef = useRef(null);
+
+  // lossResult is derived (small) — not the raw agingRows, same reasoning
+  // as changeResult above.
+  const [agingLossResult, setAgingLossResult] = useState(saved?.agingLossResult ?? null); // { lossRows, unmatchedStores }
+
+  const [agingGenerating, setAgingGenerating] = useState(false);
+  const [agingGenerateError, setAgingGenerateError] = useState("");
+  const [agingResult, setAgingResult] = useState(saved?.agingResult ?? null); // { byCompany }
+  const [agingPreviewOpen, setAgingPreviewOpen] = useState(saved?.agingPreviewOpen ?? false);
+  const [agingSelectedCompanies, setAgingSelectedCompanies] = useState(new Set(saved?.agingSelectedCompanies ?? []));
+
   useEffect(() => {
     const supabase = createClient();
     supabase.auth.getSession().then(({ data }) => {
@@ -71,6 +98,7 @@ export default function InventoryPage() {
 
   useEffect(() => {
     savePageState(STATE_KEY, {
+      activeTab,
       jeDate,
       openingFileName,
       closingFileName,
@@ -78,8 +106,33 @@ export default function InventoryPage() {
       result,
       previewOpen,
       selectedCompanies: Array.from(selectedCompanies),
+      agingJeDate,
+      agingReportDate,
+      agingMonth,
+      agingFileName,
+      agingLossResult,
+      agingResult,
+      agingPreviewOpen,
+      agingSelectedCompanies: Array.from(agingSelectedCompanies),
     });
-  }, [jeDate, openingFileName, closingFileName, changeResult, result, previewOpen, selectedCompanies]);
+  }, [
+    activeTab,
+    jeDate,
+    openingFileName,
+    closingFileName,
+    changeResult,
+    result,
+    previewOpen,
+    selectedCompanies,
+    agingJeDate,
+    agingReportDate,
+    agingMonth,
+    agingFileName,
+    agingLossResult,
+    agingResult,
+    agingPreviewOpen,
+    agingSelectedCompanies,
+  ]);
 
   useEffect(() => {
     if (!session) return;
@@ -180,6 +233,102 @@ export default function InventoryPage() {
     savePendingMappings({ unmatchedStoreNames: unmatchedStores });
   }, [openingRows, closingRows, storeMaster, storeNameMap]);
 
+  const processAgingFile = useCallback(async (file) => {
+    setAgingError("");
+    setAgingRows(null);
+    try {
+      const buffer = await file.arrayBuffer();
+      const rows = parseInventoryAgingWorkbook(buffer);
+      if (!rows.length || !("Store" in rows[0]) || !("Age in Store" in rows[0]) || !("Cost" in rows[0])) {
+        throw new Error('This file is missing expected "Store"/"Age in Store"/"Cost" columns.');
+      }
+      setAgingRows(rows);
+      const parsedDate = parseSingleDateFromFileName(file.name);
+      if (parsedDate) setAgingReportDate(parsedDate);
+    } catch (e) {
+      setAgingError(e.message || String(e));
+    }
+  }, []);
+
+  function handleAgingFile(file) {
+    if (!file) return;
+    setAgingFileName(file.name);
+    processAgingFile(file);
+  }
+
+  function handleAgingFileChange(e) {
+    handleAgingFile(e.target.files?.[0]);
+  }
+
+  function handleAgingDrop(e) {
+    e.preventDefault();
+    setAgingDragOver(false);
+    handleAgingFile(e.dataTransfer.files?.[0]);
+  }
+
+  useEffect(() => {
+    if (!agingRows || !storeMaster || !agingReportDate || !agingMonth) return;
+    const mappedAging = remapStoreNamesInRows(agingRows, "Store", storeNameMap);
+    const lossByRawStore = sumAgingLossByRawStore(mappedAging, agingReportDate, agingMonth);
+    const { lossRows, unmatchedStores } = matchAgingLossToStores(lossByRawStore, storeMaster);
+    setAgingLossResult({ lossRows, unmatchedStores });
+    setAgingResult(null);
+    setAgingPreviewOpen(false);
+    savePendingMappings({ unmatchedStoreNames: unmatchedStores });
+  }, [agingRows, storeMaster, storeNameMap, agingReportDate, agingMonth]);
+
+  function handleGenerateAging() {
+    setAgingGenerating(true);
+    setAgingGenerateError("");
+    setAgingResult(null);
+    setAgingPreviewOpen(false);
+    try {
+      const byCompany = buildDevicesLostJournalEntryRows(agingLossResult.lossRows, formatMMDDYYYYFromIso(agingJeDate));
+      setAgingResult({ byCompany });
+      setAgingSelectedCompanies(new Set(Object.keys(byCompany)));
+    } catch (e) {
+      setAgingGenerateError(e.message || String(e));
+    } finally {
+      setAgingGenerating(false);
+    }
+  }
+
+  function toggleAgingCompany(company) {
+    setAgingSelectedCompanies((prev) => {
+      const next = new Set(prev);
+      if (next.has(company)) next.delete(company);
+      else next.add(company);
+      return next;
+    });
+  }
+
+  function toggleAgingSelectAll(allCompanyNames, checked) {
+    setAgingSelectedCompanies(checked ? new Set(allCompanyNames) : new Set());
+  }
+
+  async function downloadAgingCompanyXlsx(company, rows) {
+    const buf = rowsToXlsxBuffer(rows, company);
+    triggerDownload(new Blob([buf], { type: XLSX_MIME }), buildExportFileName(company, "DevicesLostJE", rows, "Date", "xlsx"));
+  }
+
+  function downloadAgingCompanyCsv(company, rows) {
+    triggerDownload(new Blob([rowsToCsv(rows)], { type: CSV_MIME }), buildExportFileName(company, "DevicesLostJE", rows, "Date", "csv"));
+  }
+
+  async function downloadAgingAllZip(format) {
+    const JSZip = (await import("jszip")).default;
+    const zip = new JSZip();
+    for (const [company, rows] of Object.entries(agingResult.byCompany)) {
+      if (format === "xlsx") {
+        zip.file(buildExportFileName(company, "DevicesLostJE", rows, "Date", "xlsx"), rowsToXlsxBuffer(rows, company));
+      } else {
+        zip.file(buildExportFileName(company, "DevicesLostJE", rows, "Date", "csv"), rowsToCsv(rows));
+      }
+    }
+    const blob = await zip.generateAsync({ type: "blob" });
+    triggerDownload(blob, `DevicesLost-AllCompanies-${format}.zip`);
+  }
+
   function handleGenerate() {
     setGenerating(true);
     setGenerateError("");
@@ -241,6 +390,10 @@ export default function InventoryPage() {
   const totalRows = companyEntries.reduce((sum, [, rows]) => sum + rows.length, 0);
   const changeRows = changeResult?.changeRows || [];
 
+  const agingCompanyEntries = agingResult ? Object.entries(agingResult.byCompany) : [];
+  const agingTotalRows = agingCompanyEntries.reduce((sum, [, rows]) => sum + rows.length, 0);
+  const agingLossRows = agingLossResult?.lossRows || [];
+
   return (
     <div style={styles.shell}>
       <Sidebar userEmail={session.user.email} />
@@ -249,11 +402,23 @@ export default function InventoryPage() {
         <div style={styles.topRow}>
           <h1 style={styles.h1}>Change in Inventory</h1>
           <p style={styles.pageSub}>
-            Upload your opening and closing inventory exports separately to get per-store Opening/Closing/Change in
-            Inventory, then generate a per-company Journal Entry.
+            {activeTab === "change"
+              ? "Upload your opening and closing inventory exports separately to get per-store Opening/Closing/Change in Inventory, then generate a per-company Journal Entry."
+              : "Upload an Inventory Aging (Devices Lost) export, pick the entry month, and generate the write-off Journal Entry per store."}
           </p>
         </div>
 
+        <div style={styles.tabRow}>
+          <button style={activeTab === "change" ? styles.tabActive : styles.tab} onClick={() => setActiveTab("change")}>
+            Change in Inventory
+          </button>
+          <button style={activeTab === "aging" ? styles.tabActive : styles.tab} onClick={() => setActiveTab("aging")}>
+            Devices Lost
+          </button>
+        </div>
+
+        {activeTab === "change" && (
+          <>
         <div style={styles.card}>
           <h2 style={styles.h2}>1. JE Date & upload</h2>
           <div style={styles.fieldRow}>
@@ -472,6 +637,225 @@ export default function InventoryPage() {
             )}
           </>
         )}
+          </>
+        )}
+
+        {activeTab === "aging" && (
+          <>
+            <div style={styles.card}>
+              <h2 style={styles.h2}>1. Report Date, Entry Month & upload</h2>
+              <div style={styles.fieldRow}>
+                <label style={styles.fieldBlock}>
+                  <span style={styles.fieldLabel}>Report Date (aging as-of date)</span>
+                  <input
+                    type="date"
+                    style={styles.dateInput}
+                    value={agingReportDate}
+                    onChange={(e) => setAgingReportDate(e.target.value)}
+                  />
+                </label>
+                <label style={styles.fieldBlock}>
+                  <span style={styles.fieldLabel}>Entry Month</span>
+                  <input type="month" style={styles.dateInput} value={agingMonth} onChange={(e) => setAgingMonth(e.target.value)} />
+                </label>
+                <label style={styles.fieldBlock}>
+                  <span style={styles.fieldLabel}>JE Date</span>
+                  <input
+                    type="date"
+                    style={styles.dateInput}
+                    value={agingJeDate}
+                    onChange={(e) => setAgingJeDate(e.target.value)}
+                  />
+                </label>
+              </div>
+
+              {storeMasterError && <div style={styles.errorBanner}>{storeMasterError}</div>}
+
+              <div style={styles.uploadCol}>
+                <span style={styles.fieldLabel}>Inventory Aging export</span>
+                <input
+                  ref={agingInputRef}
+                  type="file"
+                  accept=".xlsx,.xls,.csv"
+                  onChange={handleAgingFileChange}
+                  style={{ display: "none" }}
+                />
+                <div
+                  style={{ ...styles.dropzone, ...(agingDragOver ? styles.dropzoneActive : {}) }}
+                  onClick={() => agingInputRef.current?.click()}
+                  onDragOver={(e) => {
+                    e.preventDefault();
+                    setAgingDragOver(true);
+                  }}
+                  onDragLeave={() => setAgingDragOver(false)}
+                  onDrop={handleAgingDrop}
+                >
+                  <div style={styles.dropzoneIcon}>📄</div>
+                  <div style={styles.dropzoneText}>{agingFileName || "Choose or drop Inventory Aging export"}</div>
+                </div>
+                {agingRows && !agingError && <div style={styles.info}>{agingRows.length} row(s) loaded.</div>}
+                {agingError && <div style={styles.errorBanner}>{agingError}</div>}
+              </div>
+
+              {agingRows && (!agingReportDate || !agingMonth) && (
+                <div style={styles.warnBanner}>Set both Report Date and Entry Month to compute each store's loss.</div>
+              )}
+
+              {agingLossResult && agingLossResult.unmatchedStores.length > 0 && (
+                <div style={styles.warnBanner}>
+                  {agingLossResult.unmatchedStores.length} store name(s) in the file don't match any store's Elevate
+                  Name in Store Master, so their loss was excluded:{" "}
+                  <strong>{agingLossResult.unmatchedStores.join(", ")}</strong>.
+                </div>
+              )}
+            </div>
+
+            {agingLossResult && agingLossRows.length > 0 && (
+              <div style={styles.card}>
+                <h2 style={styles.h2}>2. Devices Lost by store (preview)</h2>
+                <div style={styles.tableWrap}>
+                  <table style={styles.table}>
+                    <thead>
+                      <tr>
+                        <th style={styles.th}>Company</th>
+                        <th style={styles.th}>Store</th>
+                        <th style={styles.th}>Loss Amount</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {agingLossRows.map((r, i) => (
+                        <tr key={i} style={styles.tr}>
+                          <td style={styles.td}>{r.company}</td>
+                          <td style={styles.td}>{r.storeLabel}</td>
+                          <td style={styles.td}>{r.amount.toFixed(2)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
+            {agingLossResult && agingLossRows.length > 0 && (
+              <div style={styles.card}>
+                <h2 style={styles.h2}>3. Generate Journal Entry</h2>
+                <button style={styles.generateBtn} onClick={handleGenerateAging} disabled={agingGenerating}>
+                  {agingGenerating ? "Generating…" : "Generate Journal Entry"}
+                </button>
+                {agingGenerateError && <div style={styles.errorBanner}>{agingGenerateError}</div>}
+              </div>
+            )}
+
+            {agingResult && agingTotalRows > 0 && (
+              <>
+                <div style={styles.actionsRow}>
+                  <button style={styles.previewBtn} onClick={() => setAgingPreviewOpen((v) => !v)}>
+                    👁 {agingPreviewOpen ? "Hide preview" : "Preview selected"}
+                  </button>
+                  <button style={styles.xlsxBtn} onClick={() => downloadAgingAllZip("xlsx")}>
+                    📘 Download all (XLSX)
+                  </button>
+                  <button style={styles.csvBtnMuted} onClick={() => downloadAgingAllZip("csv")}>
+                    Download all (CSV)
+                  </button>
+                </div>
+
+                <div style={styles.resultsHeader}>
+                  <h2 style={styles.h2}>
+                    {agingCompanyEntries.length} compan{agingCompanyEntries.length === 1 ? "y" : "ies"} ·{" "}
+                    {agingTotalRows} JE line{agingTotalRows === 1 ? "" : "s"}
+                  </h2>
+                  <label style={styles.selectAllLabel}>
+                    <input
+                      type="checkbox"
+                      checked={agingSelectedCompanies.size === agingCompanyEntries.length && agingCompanyEntries.length > 0}
+                      onChange={(e) =>
+                        toggleAgingSelectAll(
+                          agingCompanyEntries.map(([company]) => company),
+                          e.target.checked
+                        )
+                      }
+                    />
+                    Select all
+                  </label>
+                </div>
+
+                <div style={styles.companyGrid}>
+                  {agingCompanyEntries.map(([company, rows]) => (
+                    <div key={company} style={styles.companyCard}>
+                      <label style={styles.companyCheckLabel}>
+                        <input
+                          type="checkbox"
+                          checked={agingSelectedCompanies.has(company)}
+                          onChange={() => toggleAgingCompany(company)}
+                        />
+                        <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
+                          <span style={styles.companyName}>{company}</span>
+                          <span style={styles.companyMeta}>{rows.length} JE line(s)</span>
+                        </div>
+                      </label>
+                      <div style={{ display: "flex", gap: 6 }}>
+                        <button style={styles.secondaryBtn} onClick={() => downloadAgingCompanyXlsx(company, rows)}>
+                          XLSX
+                        </button>
+                        <button style={styles.secondaryBtn} onClick={() => downloadAgingCompanyCsv(company, rows)}>
+                          CSV
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                {agingPreviewOpen && (
+                  <div style={styles.previewGroups}>
+                    {agingCompanyEntries
+                      .filter(([company]) => agingSelectedCompanies.has(company))
+                      .map(([company, rows]) => {
+                        const totalDebit = rows.reduce((sum, r) => sum + (Number(r.Debit) || 0), 0);
+                        const totalCredit = rows.reduce((sum, r) => sum + (Number(r.Credit) || 0), 0);
+                        const balanced = Math.abs(totalDebit - totalCredit) < 0.01;
+                        return (
+                          <div key={company} style={styles.previewGroup}>
+                            <div style={styles.previewGroupHeader}>
+                              <span style={styles.companyName}>{company}</span>
+                              <span style={balanced ? styles.balanceOk : styles.balanceBad}>
+                                Dr {totalDebit.toFixed(2)} · Cr {totalCredit.toFixed(2)}
+                                {balanced ? " ✓ Balanced" : ` ⚠ Out of balance by ${(totalDebit - totalCredit).toFixed(2)}`}
+                              </span>
+                            </div>
+                            <div style={styles.previewWrap}>
+                              <table style={styles.table}>
+                                <thead>
+                                  <tr>
+                                    {JE_COLUMNS.map((c) => (
+                                      <th key={c} style={styles.th}>
+                                        {c}
+                                      </th>
+                                    ))}
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {rows.map((r, i) => (
+                                    <tr key={i} style={styles.tr}>
+                                      {JE_COLUMNS.map((c) => (
+                                        <td key={c} style={styles.td}>
+                                          {r[c]}
+                                        </td>
+                                      ))}
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            </div>
+                          </div>
+                        );
+                      })}
+                  </div>
+                )}
+              </>
+            )}
+          </>
+        )}
       </main>
     </div>
   );
@@ -484,6 +868,26 @@ const styles = {
 
   h2: { fontFamily: "var(--font-display)", fontSize: 16, margin: "0 0 14px" },
   pageSub: { fontSize: 13, color: "var(--ink-soft)", margin: "4px 0 0" },
+
+  tabRow: { display: "flex", gap: 8, margin: "20px 0" },
+  tab: {
+    background: "transparent",
+    color: "var(--ink-soft)",
+    border: "1px solid var(--line)",
+    borderRadius: 7,
+    padding: "8px 18px",
+    fontSize: 13,
+    fontWeight: 600,
+  },
+  tabActive: {
+    background: "var(--ledger)",
+    color: "#fff",
+    border: "1px solid var(--ledger)",
+    borderRadius: 7,
+    padding: "8px 18px",
+    fontSize: 13,
+    fontWeight: 600,
+  },
 
   fieldRow: { display: "flex", gap: 20, flexWrap: "wrap", marginBottom: 16 },
   fieldBlock: { display: "flex", flexDirection: "column", gap: 8, flex: 1, minWidth: 180 },
