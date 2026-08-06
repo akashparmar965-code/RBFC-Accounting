@@ -11,12 +11,14 @@ import {
   removePendingAccount,
   removePendingProductsMatching,
   removePendingStoreName,
+  removePendingTenderType,
 } from "@/lib/pendingMappings";
 
 const emptyProductDraft = { product_prefix: "", expense_account: "", expense_memo: "", notes: "" };
 const emptyDoorDraft = { door_number: "", company_name: "", qbo_class: "", notes: "" };
 const emptyAccountDraft = { account_number: "", company_name: "", qbo_class: "", notes: "" };
 const emptyStoreNameDraft = { raw_name: "", elevate_name: "", notes: "" };
+const emptyDepositAccountDraft = { tender_type: "", deposit_to_account: "", payment_method: "", notes: "" };
 
 const STOCK_TRANSFER_ACCOUNT_LABELS = {
   devices_transfer_out: "Devices Transfer Out",
@@ -40,6 +42,7 @@ export default function MappingsPage() {
   const [accountRows, setAccountRows] = useState([]);
   const [storeNameRows, setStoreNameRows] = useState([]);
   const [stockTransferAccountRows, setStockTransferAccountRows] = useState([]);
+  const [depositAccountRows, setDepositAccountRows] = useState([]);
   const [elevateNameOptions, setElevateNameOptions] = useState([]); // [{ value, label }]
   const [companyOptions, setCompanyOptions] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -48,11 +51,13 @@ export default function MappingsPage() {
   const [doorDraft, setDoorDraft] = useState(emptyDoorDraft);
   const [accountDraft, setAccountDraft] = useState(emptyAccountDraft);
   const [storeNameDraft, setStoreNameDraft] = useState(emptyStoreNameDraft);
+  const [depositAccountDraft, setDepositAccountDraft] = useState(emptyDepositAccountDraft);
   const [confirmDelete, setConfirmDelete] = useState(null); // { table, id }
   const [pendingDoors, setPendingDoors] = useState([]);
   const [pendingProducts, setPendingProducts] = useState([]);
   const [pendingAccounts, setPendingAccounts] = useState([]);
   const [pendingStoreNames, setPendingStoreNames] = useState([]);
+  const [pendingTenderTypes, setPendingTenderTypes] = useState([]);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
@@ -72,12 +77,22 @@ export default function MappingsPage() {
     setPendingProducts(pending.unmappedProducts);
     setPendingAccounts(pending.unmatchedAccounts);
     setPendingStoreNames(pending.unmatchedStoreNames);
+    setPendingTenderTypes(pending.unmatchedTenderTypes);
   }, []);
 
   const loadAll = useCallback(async () => {
     setLoading(true);
     setError("");
-    const [productRes, doorRes, accountRes, checklistRes, storeNameRes, storesRes, stockTransferAccountRes] = await Promise.all([
+    const [
+      productRes,
+      doorRes,
+      accountRes,
+      checklistRes,
+      storeNameRes,
+      storesRes,
+      stockTransferAccountRes,
+      depositAccountRes,
+    ] = await Promise.all([
       supabase.from("product_mappings").select("*").order("product_prefix", { ascending: true }),
       supabase.from("door_mappings").select("*").order("door_number", { ascending: true }),
       supabase.from("epay_account_mappings").select("*").order("account_number", { ascending: true }),
@@ -85,6 +100,7 @@ export default function MappingsPage() {
       supabase.from("store_name_mappings").select("*").order("raw_name", { ascending: true }),
       supabase.from("stores").select("elevate_name, company_name").order("elevate_name", { ascending: true }),
       supabase.from("stock_transfer_account_names").select("*").order("key", { ascending: true }),
+      supabase.from("deposit_account_mappings").select("*").order("tender_type", { ascending: true }),
     ]);
     if (productRes.error) setError(productRes.error.message);
     else setProductRows(productRes.data || []);
@@ -96,6 +112,8 @@ export default function MappingsPage() {
     else setStoreNameRows(storeNameRes.data || []);
     if (stockTransferAccountRes.error) setError(stockTransferAccountRes.error.message);
     else setStockTransferAccountRows(stockTransferAccountRes.data || []);
+    if (depositAccountRes.error) setError(depositAccountRes.error.message);
+    else setDepositAccountRows(depositAccountRes.data || []);
     if (!checklistRes.error) {
       setCompanyOptions(Array.from(new Set((checklistRes.data || []).map((r) => r.company))).sort());
     }
@@ -242,6 +260,51 @@ export default function MappingsPage() {
     if (error) setError(error.message);
   }
 
+  async function updateDepositAccountField(id, field, value) {
+    setDepositAccountRows((prev) => prev.map((r) => (r.id === id ? { ...r, [field]: value } : r)));
+    const { error } = await supabase
+      .from("deposit_account_mappings")
+      .update({ [field]: value })
+      .eq("id", id);
+    if (error) setError(error.message);
+  }
+
+  async function addDepositAccountRow() {
+    if (!depositAccountDraft.tender_type.trim()) {
+      setError("Tender Type is required.");
+      return;
+    }
+    const { data, error } = await supabase
+      .from("deposit_account_mappings")
+      .insert([
+        {
+          tender_type: depositAccountDraft.tender_type.trim(),
+          deposit_to_account: depositAccountDraft.deposit_to_account.trim(),
+          payment_method: depositAccountDraft.payment_method.trim(),
+          notes: depositAccountDraft.notes.trim() || null,
+        },
+      ])
+      .select();
+    if (error) {
+      setError(error.message);
+      return;
+    }
+    setDepositAccountRows((prev) => [...prev, ...(data || [])]);
+    const addedTenderType = depositAccountDraft.tender_type.trim();
+    setDepositAccountDraft(emptyDepositAccountDraft);
+    removePendingTenderType(addedTenderType);
+    setPendingTenderTypes((prev) => prev.filter((t) => t !== addedTenderType));
+  }
+
+  function useTenderTypeSuggestion(tenderType) {
+    setDepositAccountDraft((d) => ({ ...d, tender_type: tenderType }));
+  }
+
+  function dismissPendingTenderType(tenderType) {
+    removePendingTenderType(tenderType);
+    setPendingTenderTypes((prev) => prev.filter((t) => t !== tenderType));
+  }
+
   async function addStoreNameRow() {
     if (!storeNameDraft.raw_name.trim() || !storeNameDraft.elevate_name.trim()) {
       setError("Raw Store Name and Elevate Name are required.");
@@ -312,6 +375,7 @@ export default function MappingsPage() {
     if (table === "product_mappings") setProductRows((prev) => prev.filter((r) => r.id !== id));
     else if (table === "door_mappings") setDoorRows((prev) => prev.filter((r) => r.id !== id));
     else if (table === "epay_account_mappings") setAccountRows((prev) => prev.filter((r) => r.id !== id));
+    else if (table === "deposit_account_mappings") setDepositAccountRows((prev) => prev.filter((r) => r.id !== id));
     else setStoreNameRows((prev) => prev.filter((r) => r.id !== id));
     setConfirmDelete(null);
   }
@@ -366,6 +430,12 @@ export default function MappingsPage() {
             onClick={() => setActiveTab("stocktransfer")}
           >
             Stock Transfer
+          </button>
+          <button
+            style={activeTab === "ardeposits" ? styles.tabActive : styles.tab}
+            onClick={() => setActiveTab("ardeposits")}
+          >
+            AR Deposits
           </button>
         </div>
 
@@ -941,7 +1011,7 @@ export default function MappingsPage() {
               </div>
             </div>
           </>
-        ) : (
+        ) : activeTab === "stocktransfer" ? (
           <>
             <div style={styles.sectionCard}>
               <div style={styles.sectionTitle}>Stock Transfer</div>
@@ -976,6 +1046,139 @@ export default function MappingsPage() {
                         </td>
                       </tr>
                     ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </>
+        ) : (
+          <>
+            <div style={styles.sectionCard}>
+              <div style={styles.sectionTitle}>AR Deposits — Deposit Account Mapping</div>
+              <div style={styles.sectionSub}>
+                Maps each X-Report Tender Type to a Deposit To Account and Payment Method for AR Deposits.
+                A tender type with no row here still posts (Deposit To Account/Payment Method left blank),
+                but is flagged on the AR Deposits page so you know to add it.
+              </div>
+
+              {pendingTenderTypes.length > 0 && (
+                <div style={styles.pendingRow}>
+                  <span style={styles.pendingLabel}>From your last upload:</span>
+                  {pendingTenderTypes.map((t) => (
+                    <span key={t} style={styles.chip}>
+                      <button style={styles.chipMain} onClick={() => useTenderTypeSuggestion(t)}>
+                        {t}
+                      </button>
+                      <button style={styles.chipDismiss} onClick={() => dismissPendingTenderType(t)}>
+                        ×
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              )}
+
+              <div style={styles.tableWrap}>
+                <table style={styles.table}>
+                  <thead>
+                    <tr>
+                      <th style={{ ...styles.th, textAlign: "left" }}>Tender Type</th>
+                      <th style={{ ...styles.th, textAlign: "left" }}>Deposit To Account</th>
+                      <th style={{ ...styles.th, textAlign: "left" }}>Payment Method</th>
+                      <th style={{ ...styles.th, textAlign: "left" }}>Notes</th>
+                      <th style={styles.th}></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {depositAccountRows.map((r) => (
+                      <tr key={r.id} style={styles.tr}>
+                        <td style={styles.td}>
+                          <input
+                            style={styles.cellInput}
+                            defaultValue={r.tender_type}
+                            onBlur={(e) => updateDepositAccountField(r.id, "tender_type", e.target.value.trim())}
+                          />
+                        </td>
+                        <td style={styles.td}>
+                          <input
+                            style={styles.cellInput}
+                            defaultValue={r.deposit_to_account}
+                            onBlur={(e) => updateDepositAccountField(r.id, "deposit_to_account", e.target.value)}
+                          />
+                        </td>
+                        <td style={styles.td}>
+                          <input
+                            style={styles.cellInput}
+                            defaultValue={r.payment_method}
+                            onBlur={(e) => updateDepositAccountField(r.id, "payment_method", e.target.value)}
+                          />
+                        </td>
+                        <td style={styles.td}>
+                          <input
+                            style={styles.cellInput}
+                            defaultValue={r.notes || ""}
+                            onBlur={(e) => updateDepositAccountField(r.id, "notes", e.target.value || null)}
+                          />
+                        </td>
+                        <td style={{ ...styles.td, whiteSpace: "nowrap" }}>
+                          {confirmDelete?.table === "deposit_account_mappings" && confirmDelete.id === r.id ? (
+                            <>
+                              <button style={{ ...styles.linkBtn, color: "var(--danger)" }} onClick={handleDelete}>
+                                Confirm
+                              </button>
+                              <button style={styles.linkBtn} onClick={() => setConfirmDelete(null)}>
+                                Cancel
+                              </button>
+                            </>
+                          ) : (
+                            <button
+                              style={{ ...styles.linkBtn, color: "var(--danger)" }}
+                              onClick={() => setConfirmDelete({ table: "deposit_account_mappings", id: r.id })}
+                            >
+                              Delete
+                            </button>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                    <tr>
+                      <td style={styles.td}>
+                        <input
+                          style={styles.cellInput}
+                          placeholder="e.g. Zelle"
+                          value={depositAccountDraft.tender_type}
+                          onChange={(e) => setDepositAccountDraft((d) => ({ ...d, tender_type: e.target.value }))}
+                        />
+                      </td>
+                      <td style={styles.td}>
+                        <input
+                          style={styles.cellInput}
+                          placeholder="e.g. Cash in Hand"
+                          value={depositAccountDraft.deposit_to_account}
+                          onChange={(e) => setDepositAccountDraft((d) => ({ ...d, deposit_to_account: e.target.value }))}
+                        />
+                      </td>
+                      <td style={styles.td}>
+                        <input
+                          style={styles.cellInput}
+                          placeholder="e.g. Bank"
+                          value={depositAccountDraft.payment_method}
+                          onChange={(e) => setDepositAccountDraft((d) => ({ ...d, payment_method: e.target.value }))}
+                        />
+                      </td>
+                      <td style={styles.td}>
+                        <input
+                          style={styles.cellInput}
+                          placeholder="(optional)"
+                          value={depositAccountDraft.notes}
+                          onChange={(e) => setDepositAccountDraft((d) => ({ ...d, notes: e.target.value }))}
+                        />
+                      </td>
+                      <td style={styles.td}>
+                        <button style={styles.addBtn} onClick={addDepositAccountRow}>
+                          + Add
+                        </button>
+                      </td>
+                    </tr>
                   </tbody>
                 </table>
               </div>

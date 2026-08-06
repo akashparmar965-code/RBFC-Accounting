@@ -7,6 +7,7 @@ import { clearAllPageState } from "@/lib/pageState";
 
 const NAV = [
   { href: "/sales", label: "Sales", ready: true },
+  { href: "/deposits", label: "AR Deposits", ready: true },
   { href: "/bills", label: "Bills", ready: true },
   { href: "/payroll", label: "Payroll", ready: true },
   { href: "/inventory", label: "Change in Inventory", ready: true },
