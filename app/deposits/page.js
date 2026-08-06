@@ -254,27 +254,11 @@ export default function DepositsPage() {
         </div>
 
         <div style={styles.card}>
-          <h2 style={styles.h2}>1. Deposit Date, defaults & upload</h2>
-          <p style={styles.info}>
-            Received From / From Account / Memo default from Mapping Master → AR Deposits — edit them here
-            for just this run, or there to change the default going forward.
-          </p>
+          <h2 style={styles.h2}>1. Deposit Date & upload</h2>
           <div style={styles.fieldRow}>
             <label style={styles.fieldBlock}>
               <span style={styles.fieldLabel}>Deposit Date</span>
               <input type="date" style={styles.dateInput} value={depositDate} onChange={(e) => setDepositDate(e.target.value)} />
-            </label>
-            <label style={styles.fieldBlock}>
-              <span style={styles.fieldLabel}>Received From</span>
-              <input style={styles.dateInput} value={receivedFrom} onChange={(e) => setReceivedFrom(e.target.value)} />
-            </label>
-            <label style={styles.fieldBlock}>
-              <span style={styles.fieldLabel}>From Account</span>
-              <input style={styles.dateInput} value={fromAccount} onChange={(e) => setFromAccount(e.target.value)} />
-            </label>
-            <label style={styles.fieldBlock}>
-              <span style={styles.fieldLabel}>Memo</span>
-              <input style={styles.dateInput} value={memo} onChange={(e) => setMemo(e.target.value)} />
             </label>
           </div>
 
