@@ -324,9 +324,6 @@ export default function DepositsPage() {
         {result && totalRows > 0 && (
           <>
             <div style={styles.actionsRow}>
-              <button style={styles.previewBtn} onClick={() => setPreviewOpen((v) => !v)}>
-                👁 {previewOpen ? "Hide preview" : "Preview all data"}
-              </button>
               <button style={styles.xlsxBtn} onClick={() => downloadAllData("xlsx")}>
                 📘 Download All Data (XLSX)
               </button>
@@ -335,34 +332,10 @@ export default function DepositsPage() {
               </button>
             </div>
 
-            {previewOpen && (
-              <div style={styles.previewWrap}>
-                <table style={styles.table}>
-                  <thead>
-                    <tr>
-                      {ALL_DATA_COLUMNS.map((c) => (
-                        <th key={c} style={styles.th}>
-                          {c}
-                        </th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {result.rows.map((r, i) => (
-                      <tr key={i} style={styles.tr}>
-                        {ALL_DATA_COLUMNS.map((c) => (
-                          <td key={c} style={styles.td}>
-                            {r[c]}
-                          </td>
-                        ))}
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-
             <div style={styles.actionsRow}>
+              <button style={styles.previewBtn} onClick={() => setPreviewOpen((v) => !v)}>
+                👁 {previewOpen ? "Hide preview" : "Preview selected"}
+              </button>
               <button style={styles.xlsxBtn} onClick={() => downloadAllZip("xlsx")}>
                 📘 Download by company (XLSX)
               </button>
@@ -412,6 +385,50 @@ export default function DepositsPage() {
                 </div>
               ))}
             </div>
+
+            {previewOpen && (
+              <div style={styles.previewGroups}>
+                {companyEntries
+                  .filter(([company]) => selectedCompanies.has(company))
+                  .map(([company, rows]) => {
+                    const total = rows.reduce((sum, r) => sum + (Number(r["Deposit Amount"]) || 0), 0);
+                    return (
+                      <div key={company} style={styles.previewGroup}>
+                        <div style={styles.previewGroupHeader}>
+                          <span style={styles.companyName}>{company}</span>
+                          <span style={styles.balanceOk}>
+                            {rows.length} line{rows.length === 1 ? "" : "s"} · ${total.toFixed(2)}
+                          </span>
+                        </div>
+                        <div style={styles.previewWrap}>
+                          <table style={styles.table}>
+                            <thead>
+                              <tr>
+                                {COMPANY_COLUMNS.map((c) => (
+                                  <th key={c} style={styles.th}>
+                                    {c}
+                                  </th>
+                                ))}
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {rows.map((r, i) => (
+                                <tr key={i} style={styles.tr}>
+                                  {COMPANY_COLUMNS.map((c) => (
+                                    <td key={c} style={styles.td}>
+                                      {r[c]}
+                                    </td>
+                                  ))}
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    );
+                  })}
+              </div>
+            )}
           </>
         )}
       </main>
@@ -509,4 +526,16 @@ const styles = {
   },
 
   companyMeta: { fontSize: 10.5, color: "var(--ink-soft)" },
+
+  previewGroups: { display: "flex", flexDirection: "column", gap: 16 },
+  previewGroup: {},
+  previewGroupHeader: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "baseline",
+    gap: 12,
+    marginBottom: 6,
+    flexWrap: "wrap",
+  },
+  balanceOk: { fontFamily: "var(--font-mono)", fontSize: 11.5, color: "var(--ledger)" },
 };
