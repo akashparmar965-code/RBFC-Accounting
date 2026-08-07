@@ -22,6 +22,8 @@ const SECTION_FIELDS = [
   { key: "watch_for", label: "Watch For", hint: "Real gotchas — check these every run." },
 ];
 
+const CONCEPTS_TAB = "__concepts__";
+
 function Bulleted({ text }) {
   const lines = (text || "").split("\n").map((l) => l.trim()).filter(Boolean);
   if (!lines.length) return <div style={styles.emptyField}>— nothing written yet —</div>;
@@ -45,7 +47,7 @@ export default function SopPage() {
   const [sections, setSections] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [openSections, setOpenSections] = useState(new Set());
+  const [activeTab, setActiveTab] = useState(CONCEPTS_TAB);
 
   const [editingConceptId, setEditingConceptId] = useState(null);
   const [conceptDraft, setConceptDraft] = useState(null);
@@ -108,7 +110,6 @@ export default function SopPage() {
     const draft = { title: s.title, summary: s.summary };
     for (const f of SECTION_FIELDS) draft[f.key] = s[f.key] || "";
     setSectionDraft(draft);
-    setOpenSections((prev) => new Set(prev).add(s.key));
   }
 
   function cancelEditSection() {
@@ -127,27 +128,19 @@ export default function SopPage() {
     setSectionDraft(null);
   }
 
-  function toggleSection(key) {
-    setOpenSections((prev) => {
-      const next = new Set(prev);
-      if (next.has(key)) next.delete(key);
-      else next.add(key);
-      return next;
-    });
-  }
-
-  function expandAll() {
-    setOpenSections(new Set(sections.map((s) => s.key)));
-  }
-
-  function collapseAll() {
-    setOpenSections(new Set());
+  function switchTab(tab) {
+    // Leaving a tab mid-edit discards the unsaved draft, same as clicking Cancel.
+    if (editingConceptId) cancelEditConcept();
+    if (editingSectionId) cancelEditSection();
+    setActiveTab(tab);
   }
 
   if (session === undefined) {
     return <div style={styles.loadingScreen}>Loading…</div>;
   }
   if (!session) return null;
+
+  const activeSection = sections.find((s) => s.key === activeTab) || null;
 
   return (
     <div style={styles.shell}>
@@ -169,121 +162,109 @@ export default function SopPage() {
           <div style={styles.emptyState}>Loading…</div>
         ) : (
           <>
-            <div style={styles.card}>
-              <h2 style={styles.h2}>Shared concepts</h2>
-              <p style={styles.sectionSub}>
-                These ideas show up on almost every page below — understand these first and the rest reads much
-                faster.
-              </p>
-              <div style={styles.conceptGrid}>
-                {concepts.map((c) => {
-                  const isEditing = editingConceptId === c.id;
-                  return (
-                    <div key={c.id} style={styles.conceptCard}>
-                      {isEditing ? (
-                        <>
-                          <input
-                            style={styles.conceptTermInput}
-                            value={conceptDraft.term}
-                            onChange={(e) => setConceptDraft((d) => ({ ...d, term: e.target.value }))}
-                          />
-                          <textarea
-                            style={styles.conceptBodyInput}
-                            value={conceptDraft.body}
-                            onChange={(e) => setConceptDraft((d) => ({ ...d, body: e.target.value }))}
-                          />
-                          <div style={styles.editActionsRow}>
-                            <button style={styles.saveBtn} onClick={() => saveEditConcept(c.id)}>
-                              Save
-                            </button>
-                            <button style={styles.cancelBtn} onClick={cancelEditConcept}>
-                              Cancel
-                            </button>
-                          </div>
-                        </>
-                      ) : (
-                        <>
-                          <div style={styles.conceptTermRead}>{c.term}</div>
-                          <div style={styles.conceptBodyRead}>{c.body}</div>
-                          <button style={styles.editBtn} onClick={() => startEditConcept(c)}>
-                            ✎ Edit
-                          </button>
-                        </>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-
-            <div style={styles.jumpRow}>
-              <span style={styles.jumpLabel}>Jump to:</span>
+            <div style={styles.tabRow}>
+              <button
+                style={activeTab === CONCEPTS_TAB ? styles.tabActive : styles.tab}
+                onClick={() => switchTab(CONCEPTS_TAB)}
+              >
+                Shared Concepts
+              </button>
               {sections.map((s) => (
-                <a key={s.key} href={`#${s.key}`} style={styles.jumpLink}>
+                <button key={s.key} style={activeTab === s.key ? styles.tabActive : styles.tab} onClick={() => switchTab(s.key)}>
                   {s.title}
-                </a>
+                </button>
               ))}
             </div>
 
-            <div style={styles.actionsRow}>
-              <button style={styles.secondaryBtn} onClick={expandAll}>
-                Expand all
-              </button>
-              <button style={styles.secondaryBtn} onClick={collapseAll}>
-                Collapse all
-              </button>
-            </div>
+            {activeTab === CONCEPTS_TAB && (
+              <div style={styles.card}>
+                <h2 style={styles.h2}>Shared concepts</h2>
+                <p style={styles.sectionSub}>
+                  These ideas show up on almost every page — understand these first and the rest reads much faster.
+                </p>
+                <div style={styles.conceptGrid}>
+                  {concepts.map((c) => {
+                    const isEditing = editingConceptId === c.id;
+                    return (
+                      <div key={c.id} style={styles.conceptCard}>
+                        {isEditing ? (
+                          <>
+                            <input
+                              style={styles.conceptTermInput}
+                              value={conceptDraft.term}
+                              onChange={(e) => setConceptDraft((d) => ({ ...d, term: e.target.value }))}
+                            />
+                            <textarea
+                              style={styles.conceptBodyInput}
+                              value={conceptDraft.body}
+                              onChange={(e) => setConceptDraft((d) => ({ ...d, body: e.target.value }))}
+                            />
+                            <div style={styles.editActionsRow}>
+                              <button style={styles.saveBtn} onClick={() => saveEditConcept(c.id)}>
+                                Save
+                              </button>
+                              <button style={styles.cancelBtn} onClick={cancelEditConcept}>
+                                Cancel
+                              </button>
+                            </div>
+                          </>
+                        ) : (
+                          <>
+                            <div style={styles.conceptTermRead}>{c.term}</div>
+                            <div style={styles.conceptBodyRead}>{c.body}</div>
+                            <button style={styles.editBtn} onClick={() => startEditConcept(c)}>
+                              ✎ Edit
+                            </button>
+                          </>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
 
-            {sections.map((s) => {
-              const isEditing = editingSectionId === s.id;
-              const isOpen = openSections.has(s.key);
-              return (
-                <div key={s.key} id={s.key} style={styles.sectionCard}>
-                  <div style={styles.sectionHeader} onClick={() => !isEditing && toggleSection(s.key)}>
-                    <div style={{ flex: 1 }}>
-                      {isEditing ? (
-                        <input
-                          style={styles.titleInput}
-                          value={sectionDraft.title}
-                          onClick={(e) => e.stopPropagation()}
-                          onChange={(e) => setSectionDraft((d) => ({ ...d, title: e.target.value }))}
-                        />
-                      ) : (
-                        <div style={styles.titleRead}>{s.title}</div>
-                      )}
-                      {isEditing ? (
-                        <input
-                          style={styles.summaryInput}
-                          value={sectionDraft.summary}
-                          onClick={(e) => e.stopPropagation()}
-                          onChange={(e) => setSectionDraft((d) => ({ ...d, summary: e.target.value }))}
-                        />
-                      ) : (
-                        <div style={styles.summaryRead}>{s.summary}</div>
-                      )}
+            {activeSection &&
+              (() => {
+                const s = activeSection;
+                const isEditing = editingSectionId === s.id;
+                return (
+                  <div style={styles.sectionCard}>
+                    <div style={styles.sectionHeader}>
+                      <div style={{ flex: 1 }}>
+                        {isEditing ? (
+                          <input
+                            style={styles.titleInput}
+                            value={sectionDraft.title}
+                            onChange={(e) => setSectionDraft((d) => ({ ...d, title: e.target.value }))}
+                          />
+                        ) : (
+                          <div style={styles.titleRead}>{s.title}</div>
+                        )}
+                        {isEditing ? (
+                          <input
+                            style={styles.summaryInput}
+                            value={sectionDraft.summary}
+                            onChange={(e) => setSectionDraft((d) => ({ ...d, summary: e.target.value }))}
+                          />
+                        ) : (
+                          <div style={styles.summaryRead}>{s.summary}</div>
+                        )}
+                      </div>
+                      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                        {!isEditing && s.route && (
+                          <Link href={s.route} style={styles.pageLink}>
+                            Open page →
+                          </Link>
+                        )}
+                        {!isEditing && (
+                          <button style={styles.editBtn} onClick={() => startEditSection(s)}>
+                            ✎ Edit
+                          </button>
+                        )}
+                      </div>
                     </div>
-                    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                      {!isEditing && s.route && (
-                        <Link href={s.route} style={styles.pageLink} onClick={(e) => e.stopPropagation()}>
-                          Open page →
-                        </Link>
-                      )}
-                      {!isEditing && (
-                        <button
-                          style={styles.editBtn}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            startEditSection(s);
-                          }}
-                        >
-                          ✎ Edit
-                        </button>
-                      )}
-                      <span style={styles.chevron}>{isOpen ? "▾" : "▸"}</span>
-                    </div>
-                  </div>
 
-                  {isOpen && (
                     <div style={styles.sectionBody}>
                       {SECTION_FIELDS.map((f) => (
                         <div key={f.key} style={styles.subSection}>
@@ -312,10 +293,9 @@ export default function SopPage() {
                         </div>
                       )}
                     </div>
-                  )}
-                </div>
-              );
-            })}
+                  </div>
+                );
+              })()}
           </>
         )}
       </main>
@@ -343,6 +323,26 @@ const styles = {
   emptyField: { fontSize: 12.5, color: "var(--ink-soft)", fontStyle: "italic" },
 
   sectionSub: { fontSize: 12.5, color: "var(--ink-soft)", marginBottom: 14, lineHeight: 1.5, maxWidth: 720 },
+
+  tabRow: { display: "flex", gap: 8, flexWrap: "wrap", margin: "20px 0" },
+  tab: {
+    background: "transparent",
+    color: "var(--ink-soft)",
+    border: "1px solid var(--line)",
+    borderRadius: 7,
+    padding: "8px 16px",
+    fontSize: 12.5,
+    fontWeight: 600,
+  },
+  tabActive: {
+    background: "var(--ledger)",
+    color: "#fff",
+    border: "1px solid var(--ledger)",
+    borderRadius: 7,
+    padding: "8px 16px",
+    fontSize: 12.5,
+    fontWeight: 600,
+  },
 
   conceptGrid: {
     display: "grid",
@@ -383,27 +383,6 @@ const styles = {
     padding: "6px 8px",
   },
 
-  jumpRow: { display: "flex", flexWrap: "wrap", gap: 10, alignItems: "center", margin: "20px 0 14px" },
-  jumpLabel: { fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--ink-soft)" },
-  jumpLink: {
-    fontSize: 12.5,
-    color: "var(--ledger)",
-    textDecoration: "none",
-    border: "1px solid var(--line)",
-    borderRadius: 6,
-    padding: "4px 10px",
-  },
-
-  actionsRow: { display: "flex", gap: 10, marginBottom: 16 },
-  secondaryBtn: {
-    background: "transparent",
-    color: "var(--ink)",
-    border: "1px solid var(--line)",
-    borderRadius: 5,
-    padding: "6px 14px",
-    fontSize: 12,
-    fontWeight: 600,
-  },
   editBtn: {
     background: "transparent",
     color: "var(--ledger)",
@@ -438,19 +417,17 @@ const styles = {
     background: "var(--panel)",
     border: "1px solid var(--line)",
     borderRadius: 10,
-    marginBottom: 12,
     overflow: "hidden",
-    scrollMarginTop: 20,
   },
   sectionHeader: {
     display: "flex",
     justifyContent: "space-between",
     alignItems: "center",
     padding: "16px 18px",
-    cursor: "pointer",
     gap: 12,
+    borderBottom: "1px solid var(--line)",
   },
-  titleRead: { fontFamily: "var(--font-display)", fontWeight: 600, fontSize: 15, marginBottom: 3 },
+  titleRead: { fontFamily: "var(--font-display)", fontWeight: 600, fontSize: 16, marginBottom: 3 },
   summaryRead: { fontSize: 12.5, color: "var(--ink-soft)" },
   titleInput: {
     fontFamily: "var(--font-display)",
@@ -473,10 +450,9 @@ const styles = {
     width: "100%",
     padding: "5px 8px",
   },
-  chevron: { color: "var(--ink-soft)", fontSize: 12 },
   pageLink: { fontSize: 12, color: "var(--ledger)", fontWeight: 600, textDecoration: "none", whiteSpace: "nowrap" },
 
-  sectionBody: { padding: "0 18px 18px" },
+  sectionBody: { padding: "18px" },
   subSection: { marginBottom: 16 },
   subSectionTitle: {
     fontSize: 11,
