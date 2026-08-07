@@ -18,6 +18,7 @@ const NAV = [
 ];
 
 const UTILITY_NAV = [
+  { href: "/sop", label: "SOP", ready: true },
   { href: "/checklist", label: "Checklist", ready: true },
   { href: "/mappings", label: "Mapping Master", ready: true },
 ];
