@@ -22,6 +22,20 @@ const SECTION_FIELDS = [
   { key: "watch_for", label: "Watch For", hint: "Real gotchas — check these every run." },
 ];
 
+function Bulleted({ text }) {
+  const lines = (text || "").split("\n").map((l) => l.trim()).filter(Boolean);
+  if (!lines.length) return <div style={styles.emptyField}>— nothing written yet —</div>;
+  return (
+    <ul style={styles.readList}>
+      {lines.map((line, i) => (
+        <li key={i} style={styles.readListItem}>
+          {line}
+        </li>
+      ))}
+    </ul>
+  );
+}
+
 export default function SopPage() {
   const router = useRouter();
   const supabase = useMemo(() => createClient(), []);
@@ -32,6 +46,12 @@ export default function SopPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [openSections, setOpenSections] = useState(new Set());
+
+  const [editingConceptId, setEditingConceptId] = useState(null);
+  const [conceptDraft, setConceptDraft] = useState(null);
+
+  const [editingSectionId, setEditingSectionId] = useState(null);
+  const [sectionDraft, setSectionDraft] = useState(null);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
@@ -58,16 +78,53 @@ export default function SopPage() {
     if (session) loadAll();
   }, [session, loadAll]);
 
-  async function updateConceptField(id, field, value) {
-    setConcepts((prev) => prev.map((c) => (c.id === id ? { ...c, [field]: value } : c)));
-    const { error } = await supabase.from("sop_shared_concepts").update({ [field]: value }).eq("id", id);
-    if (error) setError(error.message);
+  // ---- Shared concepts edit/save/cancel ----
+
+  function startEditConcept(c) {
+    setEditingConceptId(c.id);
+    setConceptDraft({ term: c.term, body: c.body });
   }
 
-  async function updateSectionField(id, field, value) {
-    setSections((prev) => prev.map((s) => (s.id === id ? { ...s, [field]: value } : s)));
-    const { error } = await supabase.from("sop_sections").update({ [field]: value }).eq("id", id);
-    if (error) setError(error.message);
+  function cancelEditConcept() {
+    setEditingConceptId(null);
+    setConceptDraft(null);
+  }
+
+  async function saveEditConcept(id) {
+    const { error } = await supabase.from("sop_shared_concepts").update(conceptDraft).eq("id", id);
+    if (error) {
+      setError(error.message);
+      return;
+    }
+    setConcepts((prev) => prev.map((c) => (c.id === id ? { ...c, ...conceptDraft } : c)));
+    setEditingConceptId(null);
+    setConceptDraft(null);
+  }
+
+  // ---- Sections edit/save/cancel ----
+
+  function startEditSection(s) {
+    setEditingSectionId(s.id);
+    const draft = { title: s.title, summary: s.summary };
+    for (const f of SECTION_FIELDS) draft[f.key] = s[f.key] || "";
+    setSectionDraft(draft);
+    setOpenSections((prev) => new Set(prev).add(s.key));
+  }
+
+  function cancelEditSection() {
+    setEditingSectionId(null);
+    setSectionDraft(null);
+  }
+
+  async function saveEditSection(id) {
+    const { error } = await supabase.from("sop_sections").update(sectionDraft).eq("id", id);
+    if (error) {
+      setError(error.message);
+      return;
+    }
+    setSections((prev) => prev.map((s) => (s.id === id ? { ...s, ...sectionDraft } : s)));
+    setEditingSectionId(null);
+    setSectionDraft(null);
   }
 
   function toggleSection(key) {
@@ -102,7 +159,7 @@ export default function SopPage() {
           <p style={styles.pageSub}>
             How each accounting entry flows in this dashboard — where the source file comes from, what to include
             or exclude when creating it, why the entry exists, and how the finished entry gets built and imported
-            into QuickBooks. Every field below is editable — click in and type, it saves when you click away.
+            into QuickBooks. Click Edit on any card to change it.
           </p>
         </div>
 
@@ -119,20 +176,43 @@ export default function SopPage() {
                 faster.
               </p>
               <div style={styles.conceptGrid}>
-                {concepts.map((c) => (
-                  <div key={c.id} style={styles.conceptCard}>
-                    <input
-                      style={styles.conceptTermInput}
-                      defaultValue={c.term}
-                      onBlur={(e) => updateConceptField(c.id, "term", e.target.value)}
-                    />
-                    <textarea
-                      style={styles.conceptBodyInput}
-                      defaultValue={c.body}
-                      onBlur={(e) => updateConceptField(c.id, "body", e.target.value)}
-                    />
-                  </div>
-                ))}
+                {concepts.map((c) => {
+                  const isEditing = editingConceptId === c.id;
+                  return (
+                    <div key={c.id} style={styles.conceptCard}>
+                      {isEditing ? (
+                        <>
+                          <input
+                            style={styles.conceptTermInput}
+                            value={conceptDraft.term}
+                            onChange={(e) => setConceptDraft((d) => ({ ...d, term: e.target.value }))}
+                          />
+                          <textarea
+                            style={styles.conceptBodyInput}
+                            value={conceptDraft.body}
+                            onChange={(e) => setConceptDraft((d) => ({ ...d, body: e.target.value }))}
+                          />
+                          <div style={styles.editActionsRow}>
+                            <button style={styles.saveBtn} onClick={() => saveEditConcept(c.id)}>
+                              Save
+                            </button>
+                            <button style={styles.cancelBtn} onClick={cancelEditConcept}>
+                              Cancel
+                            </button>
+                          </div>
+                        </>
+                      ) : (
+                        <>
+                          <div style={styles.conceptTermRead}>{c.term}</div>
+                          <div style={styles.conceptBodyRead}>{c.body}</div>
+                          <button style={styles.editBtn} onClick={() => startEditConcept(c)}>
+                            ✎ Edit
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             </div>
 
@@ -154,50 +234,88 @@ export default function SopPage() {
               </button>
             </div>
 
-            {sections.map((s) => (
-              <div key={s.key} id={s.key} style={styles.sectionCard}>
-                <div style={styles.sectionHeader} onClick={() => toggleSection(s.key)}>
-                  <div style={{ flex: 1 }}>
-                    <input
-                      style={styles.titleInput}
-                      defaultValue={s.title}
-                      onClick={(e) => e.stopPropagation()}
-                      onBlur={(e) => updateSectionField(s.id, "title", e.target.value)}
-                    />
-                    <input
-                      style={styles.summaryInput}
-                      defaultValue={s.summary}
-                      onClick={(e) => e.stopPropagation()}
-                      onBlur={(e) => updateSectionField(s.id, "summary", e.target.value)}
-                    />
-                  </div>
-                  <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                    {s.route && (
-                      <Link href={s.route} style={styles.pageLink} onClick={(e) => e.stopPropagation()}>
-                        Open page →
-                      </Link>
-                    )}
-                    <span style={styles.chevron}>{openSections.has(s.key) ? "▾" : "▸"}</span>
-                  </div>
-                </div>
-
-                {openSections.has(s.key) && (
-                  <div style={styles.sectionBody}>
-                    {SECTION_FIELDS.map((f) => (
-                      <div key={f.key} style={styles.subSection}>
-                        <div style={styles.subSectionTitle}>{f.label}</div>
-                        <div style={styles.subSectionHint}>{f.hint}</div>
-                        <textarea
-                          style={styles.fieldTextarea}
-                          defaultValue={s[f.key] || ""}
-                          onBlur={(e) => updateSectionField(s.id, f.key, e.target.value)}
+            {sections.map((s) => {
+              const isEditing = editingSectionId === s.id;
+              const isOpen = openSections.has(s.key);
+              return (
+                <div key={s.key} id={s.key} style={styles.sectionCard}>
+                  <div style={styles.sectionHeader} onClick={() => !isEditing && toggleSection(s.key)}>
+                    <div style={{ flex: 1 }}>
+                      {isEditing ? (
+                        <input
+                          style={styles.titleInput}
+                          value={sectionDraft.title}
+                          onClick={(e) => e.stopPropagation()}
+                          onChange={(e) => setSectionDraft((d) => ({ ...d, title: e.target.value }))}
                         />
-                      </div>
-                    ))}
+                      ) : (
+                        <div style={styles.titleRead}>{s.title}</div>
+                      )}
+                      {isEditing ? (
+                        <input
+                          style={styles.summaryInput}
+                          value={sectionDraft.summary}
+                          onClick={(e) => e.stopPropagation()}
+                          onChange={(e) => setSectionDraft((d) => ({ ...d, summary: e.target.value }))}
+                        />
+                      ) : (
+                        <div style={styles.summaryRead}>{s.summary}</div>
+                      )}
+                    </div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                      {!isEditing && s.route && (
+                        <Link href={s.route} style={styles.pageLink} onClick={(e) => e.stopPropagation()}>
+                          Open page →
+                        </Link>
+                      )}
+                      {!isEditing && (
+                        <button
+                          style={styles.editBtn}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            startEditSection(s);
+                          }}
+                        >
+                          ✎ Edit
+                        </button>
+                      )}
+                      <span style={styles.chevron}>{isOpen ? "▾" : "▸"}</span>
+                    </div>
                   </div>
-                )}
-              </div>
-            ))}
+
+                  {isOpen && (
+                    <div style={styles.sectionBody}>
+                      {SECTION_FIELDS.map((f) => (
+                        <div key={f.key} style={styles.subSection}>
+                          <div style={styles.subSectionTitle}>{f.label}</div>
+                          <div style={styles.subSectionHint}>{f.hint}</div>
+                          {isEditing ? (
+                            <textarea
+                              style={styles.fieldTextarea}
+                              value={sectionDraft[f.key]}
+                              onChange={(e) => setSectionDraft((d) => ({ ...d, [f.key]: e.target.value }))}
+                            />
+                          ) : (
+                            <Bulleted text={s[f.key]} />
+                          )}
+                        </div>
+                      ))}
+
+                      {isEditing && (
+                        <div style={styles.editActionsRow}>
+                          <button style={styles.saveBtn} onClick={() => saveEditSection(s.id)}>
+                            Save
+                          </button>
+                          <button style={styles.cancelBtn} onClick={cancelEditSection}>
+                            Cancel
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </>
         )}
       </main>
@@ -222,6 +340,7 @@ const styles = {
     marginBottom: 16,
   },
   emptyState: { padding: "48px 16px", textAlign: "center", color: "var(--ink-soft)", fontSize: 13 },
+  emptyField: { fontSize: 12.5, color: "var(--ink-soft)", fontStyle: "italic" },
 
   sectionSub: { fontSize: 12.5, color: "var(--ink-soft)", marginBottom: 14, lineHeight: 1.5, maxWidth: 720 },
 
@@ -239,26 +358,29 @@ const styles = {
     flexDirection: "column",
     gap: 6,
   },
+  conceptTermRead: { fontFamily: "var(--font-display)", fontWeight: 600, fontSize: 13 },
+  conceptBodyRead: { fontSize: 12, color: "var(--ink-soft)", lineHeight: 1.55, whiteSpace: "pre-wrap" },
   conceptTermInput: {
     fontFamily: "var(--font-display)",
     fontWeight: 600,
     fontSize: 13,
-    background: "transparent",
-    border: "none",
-    borderBottom: "1px solid var(--line)",
-    padding: "2px 0 6px",
+    background: "var(--panel)",
+    border: "1px solid var(--line)",
+    borderRadius: 5,
+    padding: "6px 8px",
     color: "var(--ink)",
   },
   conceptBodyInput: {
     fontSize: 12,
     color: "var(--ink)",
     lineHeight: 1.55,
-    background: "transparent",
-    border: "none",
+    background: "var(--panel)",
+    border: "1px solid var(--line)",
+    borderRadius: 5,
     resize: "vertical",
     minHeight: 90,
     fontFamily: "var(--font-body)",
-    padding: 0,
+    padding: "6px 8px",
   },
 
   jumpRow: { display: "flex", flexWrap: "wrap", gap: 10, alignItems: "center", margin: "20px 0 14px" },
@@ -282,6 +404,35 @@ const styles = {
     fontSize: 12,
     fontWeight: 600,
   },
+  editBtn: {
+    background: "transparent",
+    color: "var(--ledger)",
+    border: "1px solid var(--ledger)",
+    borderRadius: 5,
+    padding: "5px 12px",
+    fontSize: 11.5,
+    fontWeight: 600,
+    whiteSpace: "nowrap",
+  },
+  saveBtn: {
+    background: "var(--ledger)",
+    color: "#fff",
+    border: "none",
+    borderRadius: 5,
+    padding: "7px 16px",
+    fontSize: 12.5,
+    fontWeight: 600,
+  },
+  cancelBtn: {
+    background: "transparent",
+    color: "var(--ink-soft)",
+    border: "1px solid var(--line)",
+    borderRadius: 5,
+    padding: "7px 16px",
+    fontSize: 12.5,
+    fontWeight: 600,
+  },
+  editActionsRow: { display: "flex", gap: 10, marginTop: 8 },
 
   sectionCard: {
     background: "var(--panel)",
@@ -299,23 +450,28 @@ const styles = {
     cursor: "pointer",
     gap: 12,
   },
+  titleRead: { fontFamily: "var(--font-display)", fontWeight: 600, fontSize: 15, marginBottom: 3 },
+  summaryRead: { fontSize: 12.5, color: "var(--ink-soft)" },
   titleInput: {
     fontFamily: "var(--font-display)",
     fontWeight: 600,
     fontSize: 15,
-    background: "transparent",
-    border: "none",
+    background: "var(--field)",
+    border: "1px solid var(--line)",
+    borderRadius: 5,
     color: "var(--ink)",
     width: "100%",
-    padding: "2px 0",
+    padding: "5px 8px",
+    marginBottom: 4,
   },
   summaryInput: {
     fontSize: 12.5,
-    color: "var(--ink-soft)",
-    background: "transparent",
-    border: "none",
+    color: "var(--ink)",
+    background: "var(--field)",
+    border: "1px solid var(--line)",
+    borderRadius: 5,
     width: "100%",
-    padding: "2px 0",
+    padding: "5px 8px",
   },
   chevron: { color: "var(--ink-soft)", fontSize: 12 },
   pageLink: { fontSize: 12, color: "var(--ledger)", fontWeight: 600, textDecoration: "none", whiteSpace: "nowrap" },
@@ -344,4 +500,6 @@ const styles = {
     color: "var(--ink)",
     fontFamily: "var(--font-body)",
   },
+  readList: { margin: 0, paddingLeft: 20 },
+  readListItem: { fontSize: 13, lineHeight: 1.6, marginBottom: 5 },
 };
