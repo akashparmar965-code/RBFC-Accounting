@@ -323,6 +323,8 @@ export default function BillsPage() {
       const supabase = createClient();
       const { data: storeMaster, error: smError } = await supabase.from("stores").select("*");
       if (smError) throw new Error("Could not load Store Master: " + smError.message);
+      const { data: addressMappings, error: amError } = await supabase.from("ondigo_address_mappings").select("*");
+      if (amError) throw new Error("Could not load Ondigo address mappings: " + amError.message);
 
       const buffer = await file.arrayBuffer();
       const rawRows = parseOndigoWorkbook(buffer);
@@ -333,9 +335,10 @@ export default function BillsPage() {
         );
       }
 
-      const { byCompany, unmatchedAddresses } = buildOndigoBillRows(rawRows, storeMaster);
+      const { byCompany, unmatchedAddresses } = buildOndigoBillRows(rawRows, storeMaster, addressMappings || []);
       setOndigoResult({ byCompany, unmatchedAddresses });
       setOndigoSelectedCompanies(new Set(Object.keys(byCompany)));
+      savePendingMappings({ unmatchedOndigoAddresses: unmatchedAddresses });
     } catch (e) {
       setOndigoError(e.message || String(e));
     } finally {
@@ -833,8 +836,11 @@ export default function BillsPage() {
               <div style={styles.warnBanner}>
                 {ondigoResult.unmatchedAddresses.length} invoice(s) have a Store/Location address that doesn't
                 match any store's VIP Address in Store Master (matched on the street portion only), so they were
-                skipped: <strong>{ondigoResult.unmatchedAddresses.join(" · ")}</strong>. Fix the address in Store
-                Master's VIP Address field, then re-upload.
+                skipped: <strong>{ondigoResult.unmatchedAddresses.join(" · ")}</strong>. Add them in{" "}
+                <Link href="/mappings" style={styles.inlineLink}>
+                  Ondigo Address Mapping
+                </Link>{" "}
+                or fix the address in Store Master's VIP Address field, then re-upload.
               </div>
             )}
 

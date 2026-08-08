@@ -12,6 +12,7 @@ import {
   removePendingProductsMatching,
   removePendingStoreName,
   removePendingTenderType,
+  removePendingOndigoAddress,
 } from "@/lib/pendingMappings";
 
 const emptyProductDraft = { product_prefix: "", expense_account: "", expense_memo: "", notes: "" };
@@ -19,6 +20,7 @@ const emptyDoorDraft = { door_number: "", company_name: "", qbo_class: "", notes
 const emptyAccountDraft = { account_number: "", company_name: "", qbo_class: "", notes: "" };
 const emptyStoreNameDraft = { raw_name: "", elevate_name: "", notes: "" };
 const emptyDepositAccountDraft = { tender_type: "", deposit_to_account: "", payment_method: "", notes: "" };
+const emptyOndigoAddressDraft = { street_address: "", company_name: "", qbo_class: "", notes: "" };
 
 const STOCK_TRANSFER_ACCOUNT_LABELS = {
   devices_transfer_out: "Devices Transfer Out",
@@ -50,6 +52,7 @@ export default function MappingsPage() {
   const [stockTransferAccountRows, setStockTransferAccountRows] = useState([]);
   const [depositAccountRows, setDepositAccountRows] = useState([]);
   const [depositDefaultRows, setDepositDefaultRows] = useState([]);
+  const [ondigoAddressRows, setOndigoAddressRows] = useState([]);
   const [elevateNameOptions, setElevateNameOptions] = useState([]); // [{ value, label }]
   const [companyOptions, setCompanyOptions] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -59,12 +62,14 @@ export default function MappingsPage() {
   const [accountDraft, setAccountDraft] = useState(emptyAccountDraft);
   const [storeNameDraft, setStoreNameDraft] = useState(emptyStoreNameDraft);
   const [depositAccountDraft, setDepositAccountDraft] = useState(emptyDepositAccountDraft);
+  const [ondigoAddressDraft, setOndigoAddressDraft] = useState(emptyOndigoAddressDraft);
   const [confirmDelete, setConfirmDelete] = useState(null); // { table, id }
   const [pendingDoors, setPendingDoors] = useState([]);
   const [pendingProducts, setPendingProducts] = useState([]);
   const [pendingAccounts, setPendingAccounts] = useState([]);
   const [pendingStoreNames, setPendingStoreNames] = useState([]);
   const [pendingTenderTypes, setPendingTenderTypes] = useState([]);
+  const [pendingOndigoAddresses, setPendingOndigoAddresses] = useState([]);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
@@ -85,6 +90,7 @@ export default function MappingsPage() {
     setPendingAccounts(pending.unmatchedAccounts);
     setPendingStoreNames(pending.unmatchedStoreNames);
     setPendingTenderTypes(pending.unmatchedTenderTypes);
+    setPendingOndigoAddresses(pending.unmatchedOndigoAddresses);
   }, []);
 
   const loadAll = useCallback(async () => {
@@ -100,6 +106,7 @@ export default function MappingsPage() {
       stockTransferAccountRes,
       depositAccountRes,
       depositDefaultRes,
+      ondigoAddressRes,
     ] = await Promise.all([
       supabase.from("product_mappings").select("*").order("product_prefix", { ascending: true }),
       supabase.from("door_mappings").select("*").order("door_number", { ascending: true }),
@@ -110,6 +117,7 @@ export default function MappingsPage() {
       supabase.from("stock_transfer_account_names").select("*").order("key", { ascending: true }),
       supabase.from("deposit_account_mappings").select("*").order("tender_type", { ascending: true }),
       supabase.from("deposit_defaults").select("*").order("key", { ascending: true }),
+      supabase.from("ondigo_address_mappings").select("*").order("street_address", { ascending: true }),
     ]);
     if (productRes.error) setError(productRes.error.message);
     else setProductRows(productRes.data || []);
@@ -125,6 +133,8 @@ export default function MappingsPage() {
     else setDepositAccountRows(depositAccountRes.data || []);
     if (depositDefaultRes.error) setError(depositDefaultRes.error.message);
     else setDepositDefaultRows(depositDefaultRes.data || []);
+    if (ondigoAddressRes.error) setError(ondigoAddressRes.error.message);
+    else setOndigoAddressRows(ondigoAddressRes.data || []);
     if (!checklistRes.error) {
       setCompanyOptions(Array.from(new Set((checklistRes.data || []).map((r) => r.company))).sort());
     }
@@ -322,6 +332,72 @@ export default function MappingsPage() {
     if (error) setError(error.message);
   }
 
+  async function updateOndigoAddressField(id, field, value) {
+    setOndigoAddressRows((prev) => prev.map((r) => (r.id === id ? { ...r, [field]: value } : r)));
+    const { error } = await supabase
+      .from("ondigo_address_mappings")
+      .update({ [field]: value })
+      .eq("id", id);
+    if (error) setError(error.message);
+  }
+
+  // Pending chips hold the full mailing address from the file (e.g. "228
+  // Brownsville Rd, PITTSBURGH, PA, 15210, US"); the mapping table only
+  // stores the street portion actually used for matching. Compare on that
+  // street prefix, not an exact string, when deciding which chips a newly
+  // added mapping resolves.
+  function streetPrefixOf(fullAddress) {
+    const idx = fullAddress.indexOf(",");
+    const street = idx === -1 ? fullAddress : fullAddress.slice(0, idx);
+    return street.trim().toLowerCase();
+  }
+
+  /** Same as streetPrefixOf but preserves original casing — for prefilling an editable field, not for comparison. */
+  function rawStreetPrefixOf(fullAddress) {
+    const idx = fullAddress.indexOf(",");
+    const street = idx === -1 ? fullAddress : fullAddress.slice(0, idx);
+    return street.trim();
+  }
+
+  async function addOndigoAddressRow() {
+    if (!ondigoAddressDraft.street_address.trim() || !ondigoAddressDraft.company_name.trim() || !ondigoAddressDraft.qbo_class.trim()) {
+      setError("Street Address, Company Name, and QBO Class are required.");
+      return;
+    }
+    const { data, error } = await supabase
+      .from("ondigo_address_mappings")
+      .insert([
+        {
+          street_address: ondigoAddressDraft.street_address.trim(),
+          company_name: ondigoAddressDraft.company_name.trim(),
+          qbo_class: ondigoAddressDraft.qbo_class.trim(),
+          notes: ondigoAddressDraft.notes.trim() || null,
+        },
+      ])
+      .select();
+    if (error) {
+      setError(error.message);
+      return;
+    }
+    setOndigoAddressRows((prev) => [...prev, ...(data || [])]);
+    const addedStreet = streetPrefixOf(ondigoAddressDraft.street_address.trim());
+    setOndigoAddressDraft(emptyOndigoAddressDraft);
+    const resolved = pendingOndigoAddresses.filter((full) => streetPrefixOf(full) === addedStreet);
+    for (const full of resolved) removePendingOndigoAddress(full);
+    setPendingOndigoAddresses((prev) => prev.filter((a) => streetPrefixOf(a) !== addedStreet));
+  }
+
+  function useOndigoAddressSuggestion(address) {
+    // Pending addresses are the full mailing address from the file; only the
+    // street portion (before the first comma) is what actually gets matched.
+    setOndigoAddressDraft((d) => ({ ...d, street_address: rawStreetPrefixOf(address) }));
+  }
+
+  function dismissPendingOndigoAddress(address) {
+    removePendingOndigoAddress(address);
+    setPendingOndigoAddresses((prev) => prev.filter((a) => a !== address));
+  }
+
   async function addStoreNameRow() {
     if (!storeNameDraft.raw_name.trim() || !storeNameDraft.elevate_name.trim()) {
       setError("Raw Store Name and Elevate Name are required.");
@@ -393,6 +469,7 @@ export default function MappingsPage() {
     else if (table === "door_mappings") setDoorRows((prev) => prev.filter((r) => r.id !== id));
     else if (table === "epay_account_mappings") setAccountRows((prev) => prev.filter((r) => r.id !== id));
     else if (table === "deposit_account_mappings") setDepositAccountRows((prev) => prev.filter((r) => r.id !== id));
+    else if (table === "ondigo_address_mappings") setOndigoAddressRows((prev) => prev.filter((r) => r.id !== id));
     else setStoreNameRows((prev) => prev.filter((r) => r.id !== id));
     setConfirmDelete(null);
   }
@@ -453,6 +530,12 @@ export default function MappingsPage() {
             onClick={() => setActiveTab("ardeposits")}
           >
             AR Deposits
+          </button>
+          <button
+            style={activeTab === "ondigo" ? styles.tabActive : styles.tab}
+            onClick={() => setActiveTab("ondigo")}
+          >
+            Ondigo
           </button>
         </div>
 
@@ -1068,7 +1151,7 @@ export default function MappingsPage() {
               </div>
             </div>
           </>
-        ) : (
+        ) : activeTab === "ardeposits" ? (
           <>
             <div style={styles.sectionCard}>
               <div style={styles.sectionTitle}>AR Deposits — Defaults</div>
@@ -1227,6 +1310,156 @@ export default function MappingsPage() {
                       </td>
                       <td style={styles.td}>
                         <button style={styles.addBtn} onClick={addDepositAccountRow}>
+                          + Add
+                        </button>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </>
+        ) : (
+          <>
+            <div style={styles.sectionCard}>
+              <div style={styles.sectionTitle}>Ondigo Address Mapping</div>
+              <div style={styles.sectionSub}>
+                A fallback for Ondigo Store/Location addresses that don't exactly match any store's VIP Address in
+                Store Master (spelling drift like "Rd" vs "Road", a store missing that field, etc.) — same role as
+                Door Mapping plays for VIP. Only the street portion (before the first comma) is compared; enter
+                just that here, not the full city/state/zip address from the file.
+              </div>
+
+              {pendingOndigoAddresses.length > 0 && (
+                <div style={styles.pendingRow}>
+                  <span style={styles.pendingLabel}>From your last upload:</span>
+                  {pendingOndigoAddresses.map((a) => (
+                    <span key={a} style={styles.chip}>
+                      <button style={styles.chipMain} title={a} onClick={() => useOndigoAddressSuggestion(a)}>
+                        {a}
+                      </button>
+                      <button style={styles.chipDismiss} onClick={() => dismissPendingOndigoAddress(a)}>
+                        ×
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              )}
+
+              <div style={styles.tableWrap}>
+                <table style={styles.table}>
+                  <thead>
+                    <tr>
+                      <th style={{ ...styles.th, textAlign: "left" }}>Street Address</th>
+                      <th style={{ ...styles.th, textAlign: "left" }}>Company Name</th>
+                      <th style={{ ...styles.th, textAlign: "left" }}>QBO Class</th>
+                      <th style={{ ...styles.th, textAlign: "left" }}>Notes</th>
+                      <th style={styles.th}></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {ondigoAddressRows.map((r) => (
+                      <tr key={r.id} style={styles.tr}>
+                        <td style={styles.td}>
+                          <input
+                            style={styles.cellInput}
+                            defaultValue={r.street_address}
+                            onBlur={(e) => updateOndigoAddressField(r.id, "street_address", e.target.value)}
+                          />
+                        </td>
+                        <td style={styles.td}>
+                          <select
+                            style={styles.cellInput}
+                            value={r.company_name}
+                            onChange={(e) => updateOndigoAddressField(r.id, "company_name", e.target.value)}
+                          >
+                            <option value="">— Select —</option>
+                            {companyOptions.map((c) => (
+                              <option key={c} value={c}>
+                                {c}
+                              </option>
+                            ))}
+                            {r.company_name && !companyOptions.includes(r.company_name) && (
+                              <option value={r.company_name}>{r.company_name}</option>
+                            )}
+                          </select>
+                        </td>
+                        <td style={styles.td}>
+                          <input
+                            style={styles.cellInput}
+                            defaultValue={r.qbo_class}
+                            onBlur={(e) => updateOndigoAddressField(r.id, "qbo_class", e.target.value)}
+                          />
+                        </td>
+                        <td style={styles.td}>
+                          <input
+                            style={styles.cellInput}
+                            defaultValue={r.notes || ""}
+                            onBlur={(e) => updateOndigoAddressField(r.id, "notes", e.target.value)}
+                          />
+                        </td>
+                        <td style={{ ...styles.td, whiteSpace: "nowrap" }}>
+                          {confirmDelete?.table === "ondigo_address_mappings" && confirmDelete.id === r.id ? (
+                            <>
+                              <button style={{ ...styles.linkBtn, color: "var(--danger)" }} onClick={handleDelete}>
+                                Confirm
+                              </button>
+                              <button style={styles.linkBtn} onClick={() => setConfirmDelete(null)}>
+                                Cancel
+                              </button>
+                            </>
+                          ) : (
+                            <button
+                              style={{ ...styles.linkBtn, color: "var(--danger)" }}
+                              onClick={() => setConfirmDelete({ table: "ondigo_address_mappings", id: r.id })}
+                            >
+                              Delete
+                            </button>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                    <tr>
+                      <td style={styles.td}>
+                        <input
+                          style={styles.cellInput}
+                          placeholder="e.g. 228 Brownsville Rd"
+                          value={ondigoAddressDraft.street_address}
+                          onChange={(e) => setOndigoAddressDraft((d) => ({ ...d, street_address: e.target.value }))}
+                        />
+                      </td>
+                      <td style={styles.td}>
+                        <select
+                          style={styles.cellInput}
+                          value={ondigoAddressDraft.company_name}
+                          onChange={(e) => setOndigoAddressDraft((d) => ({ ...d, company_name: e.target.value }))}
+                        >
+                          <option value="">— Select —</option>
+                          {companyOptions.map((c) => (
+                            <option key={c} value={c}>
+                              {c}
+                            </option>
+                          ))}
+                        </select>
+                      </td>
+                      <td style={styles.td}>
+                        <input
+                          style={styles.cellInput}
+                          placeholder="e.g. SP - Knoxville-6702"
+                          value={ondigoAddressDraft.qbo_class}
+                          onChange={(e) => setOndigoAddressDraft((d) => ({ ...d, qbo_class: e.target.value }))}
+                        />
+                      </td>
+                      <td style={styles.td}>
+                        <input
+                          style={styles.cellInput}
+                          placeholder="(optional)"
+                          value={ondigoAddressDraft.notes}
+                          onChange={(e) => setOndigoAddressDraft((d) => ({ ...d, notes: e.target.value }))}
+                        />
+                      </td>
+                      <td style={styles.td}>
+                        <button style={styles.addBtn} onClick={addOndigoAddressRow}>
                           + Add
                         </button>
                       </td>
