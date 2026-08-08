@@ -21,6 +21,7 @@ import {
   INCOME_COLUMNS,
   PURCHASE_COLUMNS,
 } from "@/lib/epayProcessor";
+import { parseOndigoWorkbook, buildOndigoBillRows } from "@/lib/ondigoProcessor";
 import { buildExportFileName } from "@/lib/fileNaming";
 import { savePendingMappings } from "@/lib/pendingMappings";
 import { savePageState, loadPageState } from "@/lib/pageState";
@@ -58,6 +59,16 @@ export default function BillsPage() {
   const [epaySelectedCompanies, setEpaySelectedCompanies] = useState(new Set(saved?.epaySelectedCompanies ?? []));
   const epayFileInputRef = useRef(null);
 
+  // ---- Ondigo tab state ----
+  const [ondigoFileName, setOndigoFileName] = useState(saved?.ondigoFileName ?? null);
+  const [ondigoDragOver, setOndigoDragOver] = useState(false);
+  const [ondigoProcessing, setOndigoProcessing] = useState(false);
+  const [ondigoError, setOndigoError] = useState("");
+  const [ondigoResult, setOndigoResult] = useState(saved?.ondigoResult ?? null); // { byCompany, unmatchedAddresses }
+  const [ondigoPreviewOpen, setOndigoPreviewOpen] = useState(saved?.ondigoPreviewOpen ?? false);
+  const [ondigoSelectedCompanies, setOndigoSelectedCompanies] = useState(new Set(saved?.ondigoSelectedCompanies ?? []));
+  const ondigoFileInputRef = useRef(null);
+
   useEffect(() => {
     const supabase = createClient();
     supabase.auth.getSession().then(({ data }) => {
@@ -77,8 +88,26 @@ export default function BillsPage() {
       epayResult,
       epayPreviewOpen,
       epaySelectedCompanies: Array.from(epaySelectedCompanies),
+      ondigoFileName,
+      ondigoResult,
+      ondigoPreviewOpen,
+      ondigoSelectedCompanies: Array.from(ondigoSelectedCompanies),
     });
-  }, [activeTab, fileName, result, previewOpen, selectedCompanies, epayFileName, epayResult, epayPreviewOpen, epaySelectedCompanies]);
+  }, [
+    activeTab,
+    fileName,
+    result,
+    previewOpen,
+    selectedCompanies,
+    epayFileName,
+    epayResult,
+    epayPreviewOpen,
+    epaySelectedCompanies,
+    ondigoFileName,
+    ondigoResult,
+    ondigoPreviewOpen,
+    ondigoSelectedCompanies,
+  ]);
 
   // ===================== VIP =====================
 
@@ -283,6 +312,92 @@ export default function BillsPage() {
     setEpaySelectedCompanies(checked ? new Set(allCompanyNames) : new Set());
   }
 
+  // ===================== Ondigo =====================
+
+  const processOndigoFile = useCallback(async (file) => {
+    setOndigoProcessing(true);
+    setOndigoError("");
+    setOndigoResult(null);
+    setOndigoPreviewOpen(false);
+    try {
+      const supabase = createClient();
+      const { data: storeMaster, error: smError } = await supabase.from("stores").select("*");
+      if (smError) throw new Error("Could not load Store Master: " + smError.message);
+
+      const buffer = await file.arrayBuffer();
+      const rawRows = parseOndigoWorkbook(buffer);
+      if (!rawRows.length) throw new Error("No rows found in this file.");
+      if (!("Invoice #" in rawRows[0]) || !("Store/Location" in rawRows[0])) {
+        throw new Error(
+          "This file doesn't look like an Ondigo export — no 'Invoice #'/'Store/Location' column found."
+        );
+      }
+
+      const { byCompany, unmatchedAddresses } = buildOndigoBillRows(rawRows, storeMaster);
+      setOndigoResult({ byCompany, unmatchedAddresses });
+      setOndigoSelectedCompanies(new Set(Object.keys(byCompany)));
+    } catch (e) {
+      setOndigoError(e.message || String(e));
+    } finally {
+      setOndigoProcessing(false);
+    }
+  }, []);
+
+  function handleOndigoFile(file) {
+    if (!file) return;
+    setOndigoFileName(file.name);
+    processOndigoFile(file);
+  }
+
+  function handleOndigoFileChange(e) {
+    handleOndigoFile(e.target.files?.[0]);
+  }
+
+  function handleOndigoDrop(e) {
+    e.preventDefault();
+    setOndigoDragOver(false);
+    handleOndigoFile(e.dataTransfer.files?.[0]);
+  }
+
+  async function downloadOndigoCompanyXlsx(company, rows) {
+    const buf = rowsToXlsxBuffer(rows, company);
+    triggerDownload(new Blob([buf], { type: XLSX_MIME }), buildExportFileName(company, "Exp", rows, "Date", "xlsx"));
+  }
+
+  function downloadOndigoCompanyCsv(company, rows) {
+    triggerDownload(
+      new Blob([rowsToCsv(rows)], { type: CSV_MIME }),
+      buildExportFileName(company, "Exp", rows, "Date", "csv")
+    );
+  }
+
+  async function downloadAllOndigoZip(format) {
+    const JSZip = (await import("jszip")).default;
+    const zip = new JSZip();
+    for (const [company, rows] of Object.entries(ondigoResult.byCompany)) {
+      if (format === "xlsx") {
+        zip.file(buildExportFileName(company, "Exp", rows, "Date", "xlsx"), rowsToXlsxBuffer(rows, company));
+      } else {
+        zip.file(buildExportFileName(company, "Exp", rows, "Date", "csv"), rowsToCsv(rows));
+      }
+    }
+    const blob = await zip.generateAsync({ type: "blob" });
+    triggerDownload(blob, `Bills-Ondigo-AllCompanies-${format}.zip`);
+  }
+
+  function toggleOndigoCompany(company) {
+    setOndigoSelectedCompanies((prev) => {
+      const next = new Set(prev);
+      if (next.has(company)) next.delete(company);
+      else next.add(company);
+      return next;
+    });
+  }
+
+  function toggleOndigoSelectAll(allCompanyNames, checked) {
+    setOndigoSelectedCompanies(checked ? new Set(allCompanyNames) : new Set());
+  }
+
   if (session === undefined) {
     return <div style={styles.loadingScreen}>Loading…</div>;
   }
@@ -300,6 +415,9 @@ export default function BillsPage() {
     0
   );
 
+  const ondigoCompanyEntries = ondigoResult ? Object.entries(ondigoResult.byCompany) : [];
+  const ondigoTotalRows = ondigoCompanyEntries.reduce((sum, [, rows]) => sum + rows.length, 0);
+
   return (
     <div style={styles.shell}>
       <Sidebar userEmail={session.user.email} />
@@ -311,7 +429,9 @@ export default function BillsPage() {
             <p style={styles.pageSub}>
               {activeTab === "vip"
                 ? "Upload the VIP export — device and service lines come back together, one file per company"
-                : "Upload the Epay invoices export — get income and purchase uploads, one pair per company"}
+                : activeTab === "epay"
+                ? "Upload the Epay invoices export — get income and purchase uploads, one pair per company"
+                : "Upload the Ondigo invoices export — matched by store address, one file per company"}
             </p>
           </div>
         </div>
@@ -328,6 +448,12 @@ export default function BillsPage() {
             onClick={() => setActiveTab("epay")}
           >
             Epay
+          </button>
+          <button
+            style={activeTab === "ondigo" ? styles.tabActive : styles.tab}
+            onClick={() => setActiveTab("ondigo")}
+          >
+            Ondigo
           </button>
         </div>
 
@@ -669,6 +795,137 @@ export default function BillsPage() {
                       </table>
                     </div>
                   </>
+                )}
+              </>
+            )}
+          </>
+        )}
+
+        {activeTab === "ondigo" && (
+          <>
+            <div style={styles.card}>
+              <input
+                ref={ondigoFileInputRef}
+                type="file"
+                accept=".xlsx,.xls,.csv"
+                onChange={handleOndigoFileChange}
+                style={{ display: "none" }}
+              />
+              <div
+                style={{ ...styles.dropzone, ...(ondigoDragOver ? styles.dropzoneActive : {}) }}
+                onClick={() => ondigoFileInputRef.current?.click()}
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  setOndigoDragOver(true);
+                }}
+                onDragLeave={() => setOndigoDragOver(false)}
+                onDrop={handleOndigoDrop}
+              >
+                <div style={styles.dropzoneIcon}>📄</div>
+                <div style={styles.dropzoneText}>{ondigoFileName || "Choose or drop Ondigo invoices export"}</div>
+              </div>
+            </div>
+
+            {ondigoProcessing && <div style={styles.info}>Processing…</div>}
+            {ondigoError && <div style={styles.errorBanner}>{ondigoError}</div>}
+
+            {ondigoResult && ondigoResult.unmatchedAddresses.length > 0 && (
+              <div style={styles.warnBanner}>
+                {ondigoResult.unmatchedAddresses.length} invoice(s) have a Store/Location address that doesn't
+                match any store's VIP Address in Store Master (matched on the street portion only), so they were
+                skipped: <strong>{ondigoResult.unmatchedAddresses.join(" · ")}</strong>. Fix the address in Store
+                Master's VIP Address field, then re-upload.
+              </div>
+            )}
+
+            {ondigoResult && ondigoTotalRows > 0 && (
+              <>
+                <div style={styles.actionsRow}>
+                  <button style={styles.previewBtn} onClick={() => setOndigoPreviewOpen((v) => !v)}>
+                    👁 {ondigoPreviewOpen ? "Hide preview" : "Preview selected"}
+                  </button>
+                  <button style={styles.xlsxBtn} onClick={() => downloadAllOndigoZip("xlsx")}>
+                    📘 Download all (XLSX)
+                  </button>
+                  <button style={styles.csvBtnMuted} onClick={() => downloadAllOndigoZip("csv")}>
+                    Download all (CSV)
+                  </button>
+                </div>
+
+                <div style={styles.resultsHeader}>
+                  <h2 style={styles.h2}>
+                    {ondigoCompanyEntries.length} compan{ondigoCompanyEntries.length === 1 ? "y" : "ies"} ·{" "}
+                    {ondigoTotalRows} bill line{ondigoTotalRows === 1 ? "" : "s"}
+                  </h2>
+                  <label style={styles.selectAllLabel}>
+                    <input
+                      type="checkbox"
+                      checked={ondigoSelectedCompanies.size === ondigoCompanyEntries.length && ondigoCompanyEntries.length > 0}
+                      onChange={(e) =>
+                        toggleOndigoSelectAll(
+                          ondigoCompanyEntries.map(([company]) => company),
+                          e.target.checked
+                        )
+                      }
+                    />
+                    Select all
+                  </label>
+                </div>
+
+                <div style={styles.companyGrid}>
+                  {ondigoCompanyEntries.map(([company, rows]) => (
+                    <div key={company} style={styles.companyCard}>
+                      <label style={styles.companyCheckLabel}>
+                        <input
+                          type="checkbox"
+                          checked={ondigoSelectedCompanies.has(company)}
+                          onChange={() => toggleOndigoCompany(company)}
+                        />
+                        <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
+                          <span style={styles.companyName}>{company}</span>
+                          <span style={styles.companyMeta}>{rows.length} bill line(s)</span>
+                        </div>
+                      </label>
+                      <div style={{ display: "flex", gap: 6 }}>
+                        <button style={styles.secondaryBtn} onClick={() => downloadOndigoCompanyXlsx(company, rows)}>
+                          XLSX
+                        </button>
+                        <button style={styles.secondaryBtn} onClick={() => downloadOndigoCompanyCsv(company, rows)}>
+                          CSV
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                {ondigoPreviewOpen && (
+                  <div style={styles.previewWrap}>
+                    <table style={styles.table}>
+                      <thead>
+                        <tr>
+                          {CSV_COLUMNS.map((c) => (
+                            <th key={c} style={styles.th}>
+                              {c}
+                            </th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {ondigoCompanyEntries
+                          .filter(([company]) => ondigoSelectedCompanies.has(company))
+                          .flatMap(([, rows]) => rows)
+                          .map((r, i) => (
+                            <tr key={i} style={styles.tr}>
+                              {CSV_COLUMNS.map((c) => (
+                                <td key={c} style={styles.td}>
+                                  {r[c]}
+                                </td>
+                              ))}
+                            </tr>
+                          ))}
+                      </tbody>
+                    </table>
+                  </div>
                 )}
               </>
             )}
