@@ -22,7 +22,7 @@ import {
   PURCHASE_COLUMNS,
 } from "@/lib/epayProcessor";
 import { parseOndigoWorkbook, buildOndigoBillRows } from "@/lib/ondigoProcessor";
-import { buildExportFileName, parseDateRangeFromFileName, isFileRangeWithinMonth, currentMonthIso } from "@/lib/fileNaming";
+import { buildExportFileName, dateRangeFromRows, isFileRangeWithinMonth, currentMonthIso } from "@/lib/fileNaming";
 import { savePendingMappings } from "@/lib/pendingMappings";
 import { savePageState, loadPageState } from "@/lib/pageState";
 import { triggerDownload } from "@/lib/download";
@@ -145,7 +145,7 @@ export default function BillsPage() {
           "This file doesn't look like a VIP export — no 'Door Number' column found in the Bill sheet."
         );
       }
-      const { start, end } = parseDateRangeFromFileName(file.name);
+      const { start, end } = dateRangeFromRows(rawRows, "Tran Date");
       if (start && end && !isFileRangeWithinMonth(start, end, monthStr)) {
         throw new Error(
           `This file's dates (${start}–${end}) don't fall within the selected Month (${monthStr}) — not loaded. Pick the correct Month or upload the correct file.`
@@ -256,7 +256,7 @@ export default function BillsPage() {
       if (!("Account Number" in rawRows[0])) {
         throw new Error("This file doesn't look like an Epay export — no 'Account Number' column found.");
       }
-      const { start, end } = parseDateRangeFromFileName(file.name);
+      const { start, end } = dateRangeFromRows(rawRows, "Invoice Date");
       if (start && end && !isFileRangeWithinMonth(start, end, monthStr)) {
         throw new Error(
           `This file's dates (${start}–${end}) don't fall within the selected Month (${monthStr}) — not loaded. Pick the correct Month or upload the correct file.`
@@ -376,7 +376,7 @@ export default function BillsPage() {
           "This file doesn't look like an Ondigo export — no 'Invoice #'/'Store/Location' column found."
         );
       }
-      const { start, end } = parseDateRangeFromFileName(file.name);
+      const { start, end } = dateRangeFromRows(rawRows, "Invoice Date");
       if (start && end && !isFileRangeWithinMonth(start, end, monthStr)) {
         throw new Error(
           `This file's dates (${start}–${end}) don't fall within the selected Month (${monthStr}) — not loaded. Pick the correct Month or upload the correct file.`
