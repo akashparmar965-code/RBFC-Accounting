@@ -325,6 +325,10 @@ export default function BillsPage() {
       if (smError) throw new Error("Could not load Store Master: " + smError.message);
       const { data: addressMappings, error: amError } = await supabase.from("ondigo_address_mappings").select("*");
       if (amError) throw new Error("Could not load Ondigo address mappings: " + amError.message);
+      const { data: ondigoDefaultRows, error: odError } = await supabase.from("ondigo_defaults").select("*");
+      if (odError) throw new Error("Could not load Ondigo defaults: " + odError.message);
+      const defaultsByKey = {};
+      for (const r of ondigoDefaultRows || []) defaultsByKey[r.key] = r.value;
 
       const buffer = await file.arrayBuffer();
       const rawRows = parseOndigoWorkbook(buffer);
@@ -335,7 +339,10 @@ export default function BillsPage() {
         );
       }
 
-      const { byCompany, unmatchedAddresses } = buildOndigoBillRows(rawRows, storeMaster, addressMappings || []);
+      const { byCompany, unmatchedAddresses } = buildOndigoBillRows(rawRows, storeMaster, addressMappings || [], {
+        vendor: defaultsByKey.vendor,
+        expenseAccount: defaultsByKey.expense_account,
+      });
       setOndigoResult({ byCompany, unmatchedAddresses });
       setOndigoSelectedCompanies(new Set(Object.keys(byCompany)));
       savePendingMappings({ unmatchedOndigoAddresses: unmatchedAddresses });

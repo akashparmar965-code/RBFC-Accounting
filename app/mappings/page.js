@@ -39,6 +39,11 @@ const DEPOSIT_DEFAULT_LABELS = {
   memo: "Memo",
 };
 
+const ONDIGO_DEFAULT_LABELS = {
+  vendor: "Vendor",
+  expense_account: "Expense Account",
+};
+
 export default function MappingsPage() {
   const router = useRouter();
   const supabase = useMemo(() => createClient(), []);
@@ -53,6 +58,7 @@ export default function MappingsPage() {
   const [depositAccountRows, setDepositAccountRows] = useState([]);
   const [depositDefaultRows, setDepositDefaultRows] = useState([]);
   const [ondigoAddressRows, setOndigoAddressRows] = useState([]);
+  const [ondigoDefaultRows, setOndigoDefaultRows] = useState([]);
   const [elevateNameOptions, setElevateNameOptions] = useState([]); // [{ value, label }]
   const [companyOptions, setCompanyOptions] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -107,6 +113,7 @@ export default function MappingsPage() {
       depositAccountRes,
       depositDefaultRes,
       ondigoAddressRes,
+      ondigoDefaultRes,
     ] = await Promise.all([
       supabase.from("product_mappings").select("*").order("product_prefix", { ascending: true }),
       supabase.from("door_mappings").select("*").order("door_number", { ascending: true }),
@@ -118,6 +125,7 @@ export default function MappingsPage() {
       supabase.from("deposit_account_mappings").select("*").order("tender_type", { ascending: true }),
       supabase.from("deposit_defaults").select("*").order("key", { ascending: true }),
       supabase.from("ondigo_address_mappings").select("*").order("street_address", { ascending: true }),
+      supabase.from("ondigo_defaults").select("*").order("key", { ascending: true }),
     ]);
     if (productRes.error) setError(productRes.error.message);
     else setProductRows(productRes.data || []);
@@ -135,6 +143,8 @@ export default function MappingsPage() {
     else setDepositDefaultRows(depositDefaultRes.data || []);
     if (ondigoAddressRes.error) setError(ondigoAddressRes.error.message);
     else setOndigoAddressRows(ondigoAddressRes.data || []);
+    if (ondigoDefaultRes.error) setError(ondigoDefaultRes.error.message);
+    else setOndigoDefaultRows(ondigoDefaultRes.data || []);
     if (!checklistRes.error) {
       setCompanyOptions(Array.from(new Set((checklistRes.data || []).map((r) => r.company))).sort());
     }
@@ -396,6 +406,12 @@ export default function MappingsPage() {
   function dismissPendingOndigoAddress(address) {
     removePendingOndigoAddress(address);
     setPendingOndigoAddresses((prev) => prev.filter((a) => a !== address));
+  }
+
+  async function updateOndigoDefaultField(id, value) {
+    setOndigoDefaultRows((prev) => prev.map((r) => (r.id === id ? { ...r, value } : r)));
+    const { error } = await supabase.from("ondigo_defaults").update({ value }).eq("id", id);
+    if (error) setError(error.message);
   }
 
   async function addStoreNameRow() {
@@ -1321,6 +1337,42 @@ export default function MappingsPage() {
           </>
         ) : (
           <>
+            <div style={styles.sectionCard}>
+              <div style={styles.sectionTitle}>Ondigo — Defaults</div>
+              <div style={styles.sectionSub}>
+                Every Ondigo bill line posts to this Vendor and Expense Account — there's no per-invoice
+                classification like VIP's Product Mapping, since the Ondigo export has no line-item detail to
+                classify.
+              </div>
+
+              <div style={styles.tableWrap}>
+                <table style={styles.table}>
+                  <thead>
+                    <tr>
+                      <th style={{ ...styles.th, textAlign: "left" }}>Field</th>
+                      <th style={{ ...styles.th, textAlign: "left" }}>Value</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {ondigoDefaultRows.map((r) => (
+                      <tr key={r.id} style={styles.tr}>
+                        <td style={styles.td}>
+                          <div style={{ fontWeight: 600 }}>{ONDIGO_DEFAULT_LABELS[r.key] || r.key}</div>
+                        </td>
+                        <td style={styles.td}>
+                          <input
+                            style={styles.cellInput}
+                            defaultValue={r.value}
+                            onBlur={(e) => updateOndigoDefaultField(r.id, e.target.value)}
+                          />
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
             <div style={styles.sectionCard}>
               <div style={styles.sectionTitle}>Ondigo Address Mapping</div>
               <div style={styles.sectionSub}>
