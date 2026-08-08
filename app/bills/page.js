@@ -22,7 +22,7 @@ import {
   PURCHASE_COLUMNS,
 } from "@/lib/epayProcessor";
 import { parseOndigoWorkbook, buildOndigoBillRows } from "@/lib/ondigoProcessor";
-import { buildExportFileName } from "@/lib/fileNaming";
+import { buildExportFileName, parseDateRangeFromFileName, isFileRangeWithinMonth, currentMonthIso } from "@/lib/fileNaming";
 import { savePendingMappings } from "@/lib/pendingMappings";
 import { savePageState, loadPageState } from "@/lib/pageState";
 import { triggerDownload } from "@/lib/download";
@@ -47,7 +47,9 @@ export default function BillsPage() {
   const [result, setResult] = useState(saved?.result ?? null); // { byCompany, unmatched, unmappedProducts }
   const [previewOpen, setPreviewOpen] = useState(saved?.previewOpen ?? false);
   const [selectedCompanies, setSelectedCompanies] = useState(new Set(saved?.selectedCompanies ?? []));
+  const [vipPeriodMonth, setVipPeriodMonth] = useState(saved?.vipPeriodMonth ?? currentMonthIso());
   const fileInputRef = useRef(null);
+  const lastFileRef = useRef(null);
 
   // ---- Epay tab state ----
   const [epayFileName, setEpayFileName] = useState(saved?.epayFileName ?? null);
@@ -57,7 +59,9 @@ export default function BillsPage() {
   const [epayResult, setEpayResult] = useState(saved?.epayResult ?? null); // { incomeByCompany, purchaseByCompany, unmatchedAccounts }
   const [epayPreviewOpen, setEpayPreviewOpen] = useState(saved?.epayPreviewOpen ?? false);
   const [epaySelectedCompanies, setEpaySelectedCompanies] = useState(new Set(saved?.epaySelectedCompanies ?? []));
+  const [epayPeriodMonth, setEpayPeriodMonth] = useState(saved?.epayPeriodMonth ?? currentMonthIso());
   const epayFileInputRef = useRef(null);
+  const lastEpayFileRef = useRef(null);
 
   // ---- Ondigo tab state ----
   const [ondigoFileName, setOndigoFileName] = useState(saved?.ondigoFileName ?? null);
@@ -67,7 +71,9 @@ export default function BillsPage() {
   const [ondigoResult, setOndigoResult] = useState(saved?.ondigoResult ?? null); // { byCompany, unmatchedAddresses }
   const [ondigoPreviewOpen, setOndigoPreviewOpen] = useState(saved?.ondigoPreviewOpen ?? false);
   const [ondigoSelectedCompanies, setOndigoSelectedCompanies] = useState(new Set(saved?.ondigoSelectedCompanies ?? []));
+  const [ondigoPeriodMonth, setOndigoPeriodMonth] = useState(saved?.ondigoPeriodMonth ?? currentMonthIso());
   const ondigoFileInputRef = useRef(null);
+  const lastOndigoFileRef = useRef(null);
 
   useEffect(() => {
     const supabase = createClient();
@@ -84,14 +90,17 @@ export default function BillsPage() {
       result,
       previewOpen,
       selectedCompanies: Array.from(selectedCompanies),
+      vipPeriodMonth,
       epayFileName,
       epayResult,
       epayPreviewOpen,
       epaySelectedCompanies: Array.from(epaySelectedCompanies),
+      epayPeriodMonth,
       ondigoFileName,
       ondigoResult,
       ondigoPreviewOpen,
       ondigoSelectedCompanies: Array.from(ondigoSelectedCompanies),
+      ondigoPeriodMonth,
     });
   }, [
     activeTab,
@@ -99,19 +108,22 @@ export default function BillsPage() {
     result,
     previewOpen,
     selectedCompanies,
+    vipPeriodMonth,
     epayFileName,
     epayResult,
     epayPreviewOpen,
     epaySelectedCompanies,
+    epayPeriodMonth,
     ondigoFileName,
     ondigoResult,
     ondigoPreviewOpen,
     ondigoSelectedCompanies,
+    ondigoPeriodMonth,
   ]);
 
   // ===================== VIP =====================
 
-  const processFile = useCallback(async (file) => {
+  const processFile = useCallback(async (file, monthStr) => {
     setProcessing(true);
     setError("");
     setResult(null);
@@ -131,6 +143,12 @@ export default function BillsPage() {
       if (!("Door Number" in rawRows[0])) {
         throw new Error(
           "This file doesn't look like a VIP export — no 'Door Number' column found in the Bill sheet."
+        );
+      }
+      const { start, end } = parseDateRangeFromFileName(file.name);
+      if (start && end && !isFileRangeWithinMonth(start, end, monthStr)) {
+        throw new Error(
+          `This file's dates (${start}–${end}) don't fall within the selected Month (${monthStr}) — not loaded. Pick the correct Month or upload the correct file.`
         );
       }
 
@@ -154,7 +172,8 @@ export default function BillsPage() {
   function handleFile(file) {
     if (!file) return;
     setFileName(file.name);
-    processFile(file);
+    lastFileRef.current = file;
+    processFile(file, vipPeriodMonth);
   }
 
   function handleFileChange(e) {
@@ -165,6 +184,12 @@ export default function BillsPage() {
     e.preventDefault();
     setDragOver(false);
     handleFile(e.dataTransfer.files?.[0]);
+  }
+
+  function handleVipMonthChange(e) {
+    const next = e.target.value;
+    setVipPeriodMonth(next);
+    if (lastFileRef.current) processFile(lastFileRef.current, next);
   }
 
   async function downloadCompanyXlsx(company, rows) {
@@ -211,7 +236,7 @@ export default function BillsPage() {
 
   // ===================== Epay =====================
 
-  const processEpayFile = useCallback(async (file) => {
+  const processEpayFile = useCallback(async (file, monthStr) => {
     setEpayProcessing(true);
     setEpayError("");
     setEpayResult(null);
@@ -230,6 +255,12 @@ export default function BillsPage() {
       if (!rawRows.length) throw new Error("No rows found in this file.");
       if (!("Account Number" in rawRows[0])) {
         throw new Error("This file doesn't look like an Epay export — no 'Account Number' column found.");
+      }
+      const { start, end } = parseDateRangeFromFileName(file.name);
+      if (start && end && !isFileRangeWithinMonth(start, end, monthStr)) {
+        throw new Error(
+          `This file's dates (${start}–${end}) don't fall within the selected Month (${monthStr}) — not loaded. Pick the correct Month or upload the correct file.`
+        );
       }
 
       const { incomeByCompany, purchaseByCompany, unmatchedAccounts } = buildEpayRows(
@@ -252,7 +283,8 @@ export default function BillsPage() {
   function handleEpayFile(file) {
     if (!file) return;
     setEpayFileName(file.name);
-    processEpayFile(file);
+    lastEpayFileRef.current = file;
+    processEpayFile(file, epayPeriodMonth);
   }
 
   function handleEpayFileChange(e) {
@@ -263,6 +295,12 @@ export default function BillsPage() {
     e.preventDefault();
     setEpayDragOver(false);
     handleEpayFile(e.dataTransfer.files?.[0]);
+  }
+
+  function handleEpayMonthChange(e) {
+    const next = e.target.value;
+    setEpayPeriodMonth(next);
+    if (lastEpayFileRef.current) processEpayFile(lastEpayFileRef.current, next);
   }
 
   function downloadEpayCompanyXlsx(kind, company, rows) {
@@ -314,7 +352,7 @@ export default function BillsPage() {
 
   // ===================== Ondigo =====================
 
-  const processOndigoFile = useCallback(async (file) => {
+  const processOndigoFile = useCallback(async (file, monthStr) => {
     setOndigoProcessing(true);
     setOndigoError("");
     setOndigoResult(null);
@@ -338,6 +376,12 @@ export default function BillsPage() {
           "This file doesn't look like an Ondigo export — no 'Invoice #'/'Store/Location' column found."
         );
       }
+      const { start, end } = parseDateRangeFromFileName(file.name);
+      if (start && end && !isFileRangeWithinMonth(start, end, monthStr)) {
+        throw new Error(
+          `This file's dates (${start}–${end}) don't fall within the selected Month (${monthStr}) — not loaded. Pick the correct Month or upload the correct file.`
+        );
+      }
 
       const { byCompany, unmatchedAddresses } = buildOndigoBillRows(rawRows, storeMaster, addressMappings || [], {
         vendor: defaultsByKey.vendor,
@@ -356,7 +400,8 @@ export default function BillsPage() {
   function handleOndigoFile(file) {
     if (!file) return;
     setOndigoFileName(file.name);
-    processOndigoFile(file);
+    lastOndigoFileRef.current = file;
+    processOndigoFile(file, ondigoPeriodMonth);
   }
 
   function handleOndigoFileChange(e) {
@@ -367,6 +412,12 @@ export default function BillsPage() {
     e.preventDefault();
     setOndigoDragOver(false);
     handleOndigoFile(e.dataTransfer.files?.[0]);
+  }
+
+  function handleOndigoMonthChange(e) {
+    const next = e.target.value;
+    setOndigoPeriodMonth(next);
+    if (lastOndigoFileRef.current) processOndigoFile(lastOndigoFileRef.current, next);
   }
 
   async function downloadOndigoCompanyXlsx(company, rows) {
@@ -470,6 +521,12 @@ export default function BillsPage() {
         {activeTab === "vip" && (
           <>
             <div style={styles.card}>
+              <div style={styles.fieldRow}>
+                <label style={styles.fieldBlock}>
+                  <span style={styles.fieldLabel}>Month</span>
+                  <input type="month" style={styles.dateInput} value={vipPeriodMonth} onChange={handleVipMonthChange} />
+                </label>
+              </div>
               <input
                 ref={fileInputRef}
                 type="file"
@@ -621,6 +678,12 @@ export default function BillsPage() {
         {activeTab === "epay" && (
           <>
             <div style={styles.card}>
+              <div style={styles.fieldRow}>
+                <label style={styles.fieldBlock}>
+                  <span style={styles.fieldLabel}>Month</span>
+                  <input type="month" style={styles.dateInput} value={epayPeriodMonth} onChange={handleEpayMonthChange} />
+                </label>
+              </div>
               <input
                 ref={epayFileInputRef}
                 type="file"
@@ -814,6 +877,12 @@ export default function BillsPage() {
         {activeTab === "ondigo" && (
           <>
             <div style={styles.card}>
+              <div style={styles.fieldRow}>
+                <label style={styles.fieldBlock}>
+                  <span style={styles.fieldLabel}>Month</span>
+                  <input type="month" style={styles.dateInput} value={ondigoPeriodMonth} onChange={handleOndigoMonthChange} />
+                </label>
+              </div>
               <input
                 ref={ondigoFileInputRef}
                 type="file"
@@ -974,6 +1043,25 @@ const styles = {
     padding: "8px 18px",
     fontSize: 13,
     fontWeight: 600,
+  },
+
+  fieldRow: { display: "flex", gap: 20, flexWrap: "wrap", marginBottom: 16 },
+  fieldBlock: { display: "flex", flexDirection: "column", gap: 8, flex: 1, minWidth: 180 },
+  fieldLabel: {
+    fontSize: 11,
+    fontWeight: 700,
+    letterSpacing: "0.05em",
+    textTransform: "uppercase",
+    color: "var(--ink-soft)",
+  },
+  dateInput: {
+    padding: "11px 12px",
+    borderRadius: 8,
+    border: "1px solid var(--line)",
+    fontSize: 14,
+    background: "var(--field)",
+    color: "var(--ink)",
+    maxWidth: 220,
   },
 
   dropzone: {
