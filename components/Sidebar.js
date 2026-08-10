@@ -13,6 +13,7 @@ const NAV = [
   { href: "/inventory", label: "Change in Inventory", ready: true },
   { href: "/store-transfer", label: "Stock Transfer", ready: true },
   { href: "/inventory-flow", label: "Inventory Flow", ready: true },
+  { href: "/inventory-ordering", label: "Inventory Ordering", ready: true },
   { href: "/manual-jv", label: "Manual JV", ready: true },
   { href: "#", label: "Expenses Upload — soon", ready: false },
 ];
