@@ -8,12 +8,15 @@ import {
   TARGET_CATEGORIES,
   parseInventoryReorderWorkbook,
   normalizeRows,
+  attachStoreAttributes,
   buildCatalog,
   filterRows,
   aggregateByUpc,
   summaryStats,
   topByMetric,
 } from "@/lib/inventoryOrderingProcessor";
+import { buildStoreNameMap } from "@/lib/storeNameMapping";
+import { savePendingMappings } from "@/lib/pendingMappings";
 import { sharedPageStyles } from "@/lib/pageStyles";
 
 const TARGET_CATEGORIES_LOWER = new Set(TARGET_CATEGORIES.map((c) => c.toLowerCase()));
@@ -68,12 +71,19 @@ export default function InventoryOrderingPage() {
   const [fileName, setFileName] = useState(null);
   const [dragOver, setDragOver] = useState(false);
   const [error, setError] = useState("");
-  const [rows, setRows] = useState(null); // normalized rows
+  const [normalizedRows, setNormalizedRows] = useState(null); // parsed rows, no ASM attached yet
+  const [rows, setRows] = useState(null); // normalized rows + asm attached
   const [catalog, setCatalog] = useState(null);
+  const [unmatchedStores, setUnmatchedStores] = useState([]);
+
+  const [storeMaster, setStoreMaster] = useState(null);
+  const [storeMasterError, setStoreMasterError] = useState("");
+  const [storeNameMap, setStoreNameMap] = useState({});
 
   const [selectedCategories, setSelectedCategories] = useState(TARGET_CATEGORIES_LOWER);
   const [storeSearch, setStoreSearch] = useState("");
   const [selectedStores, setSelectedStores] = useState(null); // null = all stores
+  const [selectedAsms, setSelectedAsms] = useState(null); // null = all ASMs
   const [productSearch, setProductSearch] = useState("");
   const [upcText, setUpcText] = useState("");
   const [sort, setSort] = useState({ key: "sales30", dir: "desc" });
@@ -89,21 +99,61 @@ export default function InventoryOrderingPage() {
     });
   }, [router]);
 
+  useEffect(() => {
+    if (!session) return;
+    const supabase = createClient();
+    supabase
+      .from("stores")
+      .select("*")
+      .then(({ data, error }) => {
+        if (error) setStoreMasterError("Could not load Store Master: " + error.message);
+        else setStoreMaster(data || []);
+      });
+  }, [session]);
+
+  useEffect(() => {
+    if (!session) return;
+    const supabase = createClient();
+    supabase
+      .from("store_name_mappings")
+      .select("*")
+      .then(({ data, error }) => {
+        if (error) return;
+        setStoreNameMap(buildStoreNameMap(data || []));
+      });
+  }, [session]);
+
+  // Attach each row's ASM once both the file and Store Master are loaded —
+  // whichever arrives second triggers this (order isn't guaranteed).
+  useEffect(() => {
+    if (!normalizedRows || !storeMaster) return;
+    const { rows: annotated, unmatchedStores: unmatched } = attachStoreAttributes(
+      normalizedRows,
+      storeMaster,
+      storeNameMap
+    );
+    setRows(annotated);
+    setCatalog(buildCatalog(annotated));
+    setUnmatchedStores(unmatched);
+    if (unmatched.length) savePendingMappings({ unmatchedStoreNames: unmatched });
+  }, [normalizedRows, storeMaster, storeNameMap]);
+
   const processFile = useCallback(async (file) => {
     setError("");
+    setNormalizedRows(null);
     setRows(null);
     setCatalog(null);
+    setUnmatchedStores([]);
     try {
       const buffer = await file.arrayBuffer();
       const raw = parseInventoryReorderWorkbook(buffer);
       if (!raw.length) throw new Error("No rows found in this file.");
       const normalized = normalizeRows(raw);
       if (!normalized.length) throw new Error("No rows with a UPC were found in this file.");
-      const cat = buildCatalog(normalized);
-      setRows(normalized);
-      setCatalog(cat);
+      setNormalizedRows(normalized);
       setSelectedCategories(TARGET_CATEGORIES_LOWER);
       setSelectedStores(null);
+      setSelectedAsms(null);
       setProductSearch("");
       setUpcText("");
     } catch (e) {
@@ -142,10 +192,11 @@ export default function InventoryOrderingPage() {
     return filterRows(rows, {
       categories: selectedCategories,
       stores: selectedStores,
+      asms: selectedAsms,
       upcs: upcSet,
       search: productSearch,
     });
-  }, [rows, selectedCategories, selectedStores, upcSet, productSearch]);
+  }, [rows, selectedCategories, selectedStores, selectedAsms, upcSet, productSearch]);
 
   const aggRows = useMemo(() => aggregateByUpc(filteredRows), [filteredRows]);
   const stats = useMemo(() => summaryStats(aggRows, filteredRows), [aggRows, filteredRows]);
@@ -196,9 +247,18 @@ export default function InventoryOrderingPage() {
       return base;
     });
   }
+  function toggleAsm(asm) {
+    setSelectedAsms((prev) => {
+      const base = prev ? new Set(prev) : new Set(catalog.asms);
+      if (base.has(asm)) base.delete(asm);
+      else base.add(asm);
+      return base;
+    });
+  }
   function resetFilters() {
     setSelectedCategories(TARGET_CATEGORIES_LOWER);
     setSelectedStores(null);
+    setSelectedAsms(null);
     setProductSearch("");
     setUpcText("");
     setStoreSearch("");
@@ -213,6 +273,7 @@ export default function InventoryOrderingPage() {
   if (!session) return null;
 
   const storesActiveCount = selectedStores ? selectedStores.size : catalog?.stores.length ?? 0;
+  const asmsActiveCount = selectedAsms ? selectedAsms.size : catalog?.asms.length ?? 0;
 
   return (
     <div style={styles.shell}>
@@ -250,6 +311,7 @@ export default function InventoryOrderingPage() {
             <div style={styles.dropzoneIcon}>📦</div>
             <div style={styles.dropzoneText}>{fileName || "Choose or drop Inventory Reorder by Store export"}</div>
           </div>
+          {storeMasterError && <div style={styles.errorBanner}>{storeMasterError}</div>}
           {rows && !error && (
             <div style={styles.info}>
               {rows.length.toLocaleString()} SKU/store row(s) loaded · {catalog.stores.length} stores ·{" "}
@@ -257,6 +319,14 @@ export default function InventoryOrderingPage() {
             </div>
           )}
           {error && <div style={styles.errorBanner}>{error}</div>}
+          {unmatchedStores.length > 0 && (
+            <div style={styles.warnBanner}>
+              {unmatchedStores.length} store name(s) in the file don't match any store's Elevate Name in Store
+              Master, so they show up under "Unmatched store" in the ASM filter instead of a real ASM:{" "}
+              <strong>{unmatchedStores.join(", ")}</strong>. Add a mapping on Mapping Master's Store Mapping tab if
+              one of these is a rename.
+            </div>
+          )}
         </div>
 
         {rows && catalog && (
@@ -314,6 +384,29 @@ export default function InventoryOrderingPage() {
                   {selectedStores && (
                     <button style={styles.linkBtn} onClick={() => setSelectedStores(null)}>
                       Clear store filter (show all)
+                    </button>
+                  )}
+                </div>
+
+                <div style={styles.filterBlock}>
+                  <span style={styles.fieldLabel}>
+                    ASM ({asmsActiveCount} of {catalog.asms.length} selected)
+                  </span>
+                  <div style={styles.checkListScroll}>
+                    {catalog.asms.map((a) => (
+                      <label key={a} style={styles.checkRow}>
+                        <input
+                          type="checkbox"
+                          checked={selectedAsms ? selectedAsms.has(a) : true}
+                          onChange={() => toggleAsm(a)}
+                        />
+                        <span>{a}</span>
+                      </label>
+                    ))}
+                  </div>
+                  {selectedAsms && (
+                    <button style={styles.linkBtn} onClick={() => setSelectedAsms(null)}>
+                      Clear ASM filter (show all)
                     </button>
                   )}
                 </div>
@@ -510,9 +603,18 @@ const styles = {
     marginTop: 12,
     lineHeight: 1.5,
   },
+  warnBanner: {
+    background: "var(--warn-bg)",
+    color: "var(--warn-text)",
+    padding: "12px 14px",
+    borderRadius: 6,
+    fontSize: 13,
+    marginTop: 12,
+    lineHeight: 1.5,
+  },
 
   filtersHeader: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 },
-  filtersGrid: { display: "grid", gridTemplateColumns: "1fr 1fr 1.2fr", gap: 24 },
+  filtersGrid: { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 24 },
   filterBlock: { display: "flex", flexDirection: "column", gap: 8 },
   fieldLabel: {
     fontSize: 11,
