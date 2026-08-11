@@ -224,11 +224,38 @@ export default function InventoryOrderingPage() {
     [top15]
   );
 
-  const visibleStores = useMemo(() => {
+  // Store -> ASM is a fixed 1:1 relationship (from Store Master), so each
+  // filter can scope the other's *options*, not just the resulting rows —
+  // picking an ASM narrows which stores show up in the Store list, and
+  // picking specific stores narrows which ASMs show up in the ASM list.
+  const storeAsmMap = useMemo(() => {
+    const map = new Map();
+    if (!rows) return map;
+    for (const r of rows) if (r.store && !map.has(r.store)) map.set(r.store, r.asm);
+    return map;
+  }, [rows]);
+
+  const storesInAsmScope = useMemo(() => {
     if (!catalog) return [];
+    if (!selectedAsms) return catalog.stores;
+    return catalog.stores.filter((s) => selectedAsms.has(storeAsmMap.get(s)));
+  }, [catalog, selectedAsms, storeAsmMap]);
+
+  const asmsInStoreScope = useMemo(() => {
+    if (!catalog) return [];
+    if (!selectedStores) return catalog.asms;
+    const present = new Set();
+    for (const s of selectedStores) {
+      const a = storeAsmMap.get(s);
+      if (a) present.add(a);
+    }
+    return catalog.asms.filter((a) => present.has(a));
+  }, [catalog, selectedStores, storeAsmMap]);
+
+  const visibleStores = useMemo(() => {
     const q = storeSearch.trim().toLowerCase();
-    return q ? catalog.stores.filter((s) => s.toLowerCase().includes(q)) : catalog.stores;
-  }, [catalog, storeSearch]);
+    return q ? storesInAsmScope.filter((s) => s.toLowerCase().includes(q)) : storesInAsmScope;
+  }, [storesInAsmScope, storeSearch]);
 
   function toggleCategory(cat) {
     setSelectedCategories((prev) => {
@@ -239,6 +266,13 @@ export default function InventoryOrderingPage() {
       return next;
     });
   }
+  function selectAllCategories() {
+    setSelectedCategories(new Set(catalog.categories.map((c) => c.toLowerCase())));
+  }
+  function clearAllCategories() {
+    setSelectedCategories(new Set());
+  }
+
   function toggleStore(store) {
     setSelectedStores((prev) => {
       const base = prev ? new Set(prev) : new Set(catalog.stores);
@@ -247,6 +281,13 @@ export default function InventoryOrderingPage() {
       return base;
     });
   }
+  function selectAllStores() {
+    setSelectedStores(new Set(storesInAsmScope));
+  }
+  function clearAllStores() {
+    setSelectedStores(new Set());
+  }
+
   function toggleAsm(asm) {
     setSelectedAsms((prev) => {
       const base = prev ? new Set(prev) : new Set(catalog.asms);
@@ -255,6 +296,13 @@ export default function InventoryOrderingPage() {
       return base;
     });
   }
+  function selectAllAsms() {
+    setSelectedAsms(new Set(asmsInStoreScope));
+  }
+  function clearAllAsms() {
+    setSelectedAsms(new Set());
+  }
+
   function resetFilters() {
     setSelectedCategories(TARGET_CATEGORIES_LOWER);
     setSelectedStores(null);
@@ -272,8 +320,8 @@ export default function InventoryOrderingPage() {
   }
   if (!session) return null;
 
-  const storesActiveCount = selectedStores ? selectedStores.size : catalog?.stores.length ?? 0;
-  const asmsActiveCount = selectedAsms ? selectedAsms.size : catalog?.asms.length ?? 0;
+  const storesActiveCount = storesInAsmScope.filter((s) => !selectedStores || selectedStores.has(s)).length;
+  const asmsActiveCount = asmsInStoreScope.filter((a) => !selectedAsms || selectedAsms.has(a)).length;
 
   return (
     <div style={styles.shell}>
@@ -341,7 +389,17 @@ export default function InventoryOrderingPage() {
 
               <div style={styles.filtersGrid}>
                 <div style={styles.filterBlock}>
-                  <span style={styles.fieldLabel}>Categories</span>
+                  <div style={styles.filterBlockHeader}>
+                    <span style={styles.fieldLabel}>Categories</span>
+                    <span>
+                      <button style={styles.linkBtn} onClick={selectAllCategories}>
+                        Select all
+                      </button>{" "}
+                      <button style={styles.linkBtn} onClick={clearAllCategories}>
+                        Clear all
+                      </button>
+                    </span>
+                  </div>
                   <div style={styles.checkList}>
                     {catalog.categories.map((c) => (
                       <label key={c} style={styles.checkRow}>
@@ -360,9 +418,20 @@ export default function InventoryOrderingPage() {
                 </div>
 
                 <div style={styles.filterBlock}>
-                  <span style={styles.fieldLabel}>
-                    Stores ({storesActiveCount} of {catalog.stores.length} selected)
-                  </span>
+                  <div style={styles.filterBlockHeader}>
+                    <span style={styles.fieldLabel}>
+                      Stores ({storesActiveCount} of {storesInAsmScope.length}
+                      {selectedAsms ? ` — scoped to ${asmsActiveCount} ASM(s)` : ""} selected)
+                    </span>
+                    <span>
+                      <button style={styles.linkBtn} onClick={selectAllStores}>
+                        Select all
+                      </button>{" "}
+                      <button style={styles.linkBtn} onClick={clearAllStores}>
+                        Clear all
+                      </button>
+                    </span>
+                  </div>
                   <input
                     style={styles.textInput}
                     placeholder="Search stores…"
@@ -380,20 +449,27 @@ export default function InventoryOrderingPage() {
                         <span>{s}</span>
                       </label>
                     ))}
+                    {visibleStores.length === 0 && <span style={styles.checkCount}>No stores in the current ASM selection.</span>}
                   </div>
-                  {selectedStores && (
-                    <button style={styles.linkBtn} onClick={() => setSelectedStores(null)}>
-                      Clear store filter (show all)
-                    </button>
-                  )}
                 </div>
 
                 <div style={styles.filterBlock}>
-                  <span style={styles.fieldLabel}>
-                    ASM ({asmsActiveCount} of {catalog.asms.length} selected)
-                  </span>
+                  <div style={styles.filterBlockHeader}>
+                    <span style={styles.fieldLabel}>
+                      ASM ({asmsActiveCount} of {asmsInStoreScope.length}
+                      {selectedStores ? ` — scoped to selected stores` : ""} selected)
+                    </span>
+                    <span>
+                      <button style={styles.linkBtn} onClick={selectAllAsms}>
+                        Select all
+                      </button>{" "}
+                      <button style={styles.linkBtn} onClick={clearAllAsms}>
+                        Clear all
+                      </button>
+                    </span>
+                  </div>
                   <div style={styles.checkListScroll}>
-                    {catalog.asms.map((a) => (
+                    {asmsInStoreScope.map((a) => (
                       <label key={a} style={styles.checkRow}>
                         <input
                           type="checkbox"
@@ -403,6 +479,7 @@ export default function InventoryOrderingPage() {
                         <span>{a}</span>
                       </label>
                     ))}
+                    {asmsInStoreScope.length === 0 && <span style={styles.checkCount}>No ASMs among the currently selected stores.</span>}
                   </div>
                   {selectedAsms && (
                     <button style={styles.linkBtn} onClick={() => setSelectedAsms(null)}>
@@ -616,6 +693,7 @@ const styles = {
   filtersHeader: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 },
   filtersGrid: { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 24 },
   filterBlock: { display: "flex", flexDirection: "column", gap: 8 },
+  filterBlockHeader: { display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 8, flexWrap: "wrap" },
   fieldLabel: {
     fontSize: 11,
     fontWeight: 700,
