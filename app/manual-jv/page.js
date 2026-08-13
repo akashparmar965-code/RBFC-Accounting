@@ -831,7 +831,8 @@ export default function ManualJvPage() {
                         {roundingNote && (
                           <div style={styles.roundingNote}>
                             Rounding adjustment: {roundingNote.total >= 0 ? "+" : ""}
-                            {roundingNote.total.toFixed(2)} placed in {roundingNote.store} to keep each line exact.
+                            {roundingNote.total.toFixed(2)} placed in {roundingNote.store} to keep each line's
+                            system-wide total exact — every other company keeps its own small rounding drift.
                           </div>
                         )}
                         <div style={styles.previewWrap}>
