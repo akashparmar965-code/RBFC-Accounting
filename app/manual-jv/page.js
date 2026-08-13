@@ -469,8 +469,8 @@ export default function ManualJvPage() {
       }
       const cleanLines = jvLines.filter((l) => l.account_name.trim() && (Number(l.debit) > 0 || Number(l.credit) > 0));
       if (cleanLines.length === 0) throw new Error("Add at least one JV line with an Account Name and a Debit or Credit amount.");
-      const byCompany = buildManualJvJournalEntryRows(cleanLines, activeInfo, formatMMDDYYYYFromIso(jeDate));
-      setResult({ byCompany });
+      const { byCompany, roundingAdjustments } = buildManualJvJournalEntryRows(cleanLines, activeInfo, formatMMDDYYYYFromIso(jeDate));
+      setResult({ byCompany, roundingAdjustments });
       setSelectedCompanies(new Set(Object.keys(byCompany)));
     } catch (e) {
       setGenerateError(e.message || String(e));
@@ -815,6 +815,7 @@ export default function ManualJvPage() {
                     const balanced = Math.abs(totalDebit - totalCredit) < 0.01;
 
                     const storeCount = activeInfo?.byCompany?.[company]?.length ?? 0;
+                    const roundingNote = result.roundingAdjustments?.[company];
 
                     return (
                       <div key={company} style={styles.previewGroup}>
@@ -827,6 +828,12 @@ export default function ManualJvPage() {
                             {balanced ? " ✓ Balanced" : ` ⚠ Out of balance by ${(totalDebit - totalCredit).toFixed(2)}`}
                           </span>
                         </div>
+                        {roundingNote && (
+                          <div style={styles.roundingNote}>
+                            Rounding adjustment: {roundingNote.total >= 0 ? "+" : ""}
+                            {roundingNote.total.toFixed(2)} placed in {roundingNote.store} to keep each line exact.
+                          </div>
+                        )}
                         <div style={styles.previewWrap}>
                           <table style={styles.table}>
                             <thead>
