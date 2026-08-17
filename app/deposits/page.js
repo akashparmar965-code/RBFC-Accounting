@@ -239,6 +239,8 @@ export default function DepositsPage() {
 
   const companyEntries = result ? Object.entries(result.byCompany) : [];
   const totalRows = companyEntries.reduce((sum, [, rows]) => sum + rows.length, 0);
+  const rowsTotal = (rows) => rows.reduce((sum, r) => sum + (Number(r["Deposit Amount"]) || 0), 0);
+  const grandTotal = companyEntries.reduce((sum, [, rows]) => sum + rowsTotal(rows), 0);
 
   return (
     <div style={styles.shell}>
@@ -331,7 +333,7 @@ export default function DepositsPage() {
             <div style={styles.resultsHeader}>
               <h2 style={styles.h2}>
                 {companyEntries.length} compan{companyEntries.length === 1 ? "y" : "ies"} · {totalRows} deposit
-                line{totalRows === 1 ? "" : "s"}
+                line{totalRows === 1 ? "" : "s"} · Total ${grandTotal.toFixed(2)}
               </h2>
               <label style={styles.selectAllLabel}>
                 <input
@@ -355,7 +357,9 @@ export default function DepositsPage() {
                     <input type="checkbox" checked={selectedCompanies.has(company)} onChange={() => toggleCompany(company)} />
                     <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
                       <span style={styles.companyName}>{company}</span>
-                      <span style={styles.companyMeta}>{rows.length} deposit line(s)</span>
+                      <span style={styles.companyMeta}>
+                        {rows.length} deposit line(s) · ${rowsTotal(rows).toFixed(2)}
+                      </span>
                     </div>
                   </label>
                   <div style={{ display: "flex", gap: 6 }}>

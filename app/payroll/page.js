@@ -661,12 +661,16 @@ export default function PayrollPage() {
   }
   if (!session) return null;
 
+  const debitTotal = (rows) => rows.reduce((sum, r) => sum + (Number(r.Debit) || 0), 0);
+
   const companyEntries = result ? Object.entries(result.byCompany) : [];
   const totalRows = companyEntries.reduce((sum, [, rows]) => sum + rows.length, 0);
+  const grandTotal = companyEntries.reduce((sum, [, rows]) => sum + debitTotal(rows), 0);
   const canGenerate = !!payPeriodDate && !!storeHours && companies.length > 0 && !generating;
 
   const arcadeCompanyEntries = arcadeResult ? Object.entries(arcadeResult.byCompany) : [];
   const arcadeTotalRows = arcadeCompanyEntries.reduce((sum, [, rows]) => sum + rows.length, 0);
+  const arcadeGrandTotal = arcadeCompanyEntries.reduce((sum, [, rows]) => sum + debitTotal(rows), 0);
   const arcadeCanGenerate = !!arcadePayPeriodDate && !!arcadeStoreHours && companies.length > 0 && !arcadeGenerating;
 
   return (
@@ -936,7 +940,7 @@ export default function PayrollPage() {
                 <div style={styles.resultsHeader}>
                   <h2 style={styles.h2}>
                     {companyEntries.length} compan{companyEntries.length === 1 ? "y" : "ies"} · {totalRows} JE line
-                    {totalRows === 1 ? "" : "s"}
+                    {totalRows === 1 ? "" : "s"} · Total ${grandTotal.toFixed(2)}
                   </h2>
                   <label style={styles.selectAllLabel}>
                     <input
@@ -960,7 +964,9 @@ export default function PayrollPage() {
                         <input type="checkbox" checked={selectedCompanies.has(company)} onChange={() => toggleCompany(company)} />
                         <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
                           <span style={styles.companyName}>{company}</span>
-                          <span style={styles.companyMeta}>{rows.length} JE line(s)</span>
+                          <span style={styles.companyMeta}>
+                            {rows.length} JE line(s) · ${debitTotal(rows).toFixed(2)}
+                          </span>
                         </div>
                       </label>
                       <div style={{ display: "flex", gap: 6 }}>
@@ -1218,7 +1224,7 @@ export default function PayrollPage() {
                 <div style={styles.resultsHeader}>
                   <h2 style={styles.h2}>
                     {arcadeCompanyEntries.length} compan{arcadeCompanyEntries.length === 1 ? "y" : "ies"} ·{" "}
-                    {arcadeTotalRows} JE line{arcadeTotalRows === 1 ? "" : "s"}
+                    {arcadeTotalRows} JE line{arcadeTotalRows === 1 ? "" : "s"} · Total ${arcadeGrandTotal.toFixed(2)}
                   </h2>
                   <label style={styles.selectAllLabel}>
                     <input
@@ -1246,7 +1252,9 @@ export default function PayrollPage() {
                         />
                         <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
                           <span style={styles.companyName}>{company}</span>
-                          <span style={styles.companyMeta}>{rows.length} JE line(s)</span>
+                          <span style={styles.companyMeta}>
+                            {rows.length} JE line(s) · ${debitTotal(rows).toFixed(2)}
+                          </span>
                         </div>
                       </label>
                       <div style={{ display: "flex", gap: 6 }}>

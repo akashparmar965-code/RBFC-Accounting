@@ -466,6 +466,8 @@ export default function BillsPage() {
 
   const companyEntries = result ? Object.entries(result.byCompany) : [];
   const totalRows = companyEntries.reduce((sum, [, rows]) => sum + rows.length, 0);
+  const rowsTotal = (rows) => rows.reduce((sum, r) => sum + (Number(r["Expense Amount"]) || 0), 0);
+  const grandTotal = companyEntries.reduce((sum, [, rows]) => sum + rowsTotal(rows), 0);
 
   const epayCompanyNames = epayResult
     ? Array.from(new Set([...Object.keys(epayResult.incomeByCompany), ...Object.keys(epayResult.purchaseByCompany)])).sort()
@@ -475,9 +477,23 @@ export default function BillsPage() {
       sum + (epayResult.incomeByCompany[c]?.length || 0) + (epayResult.purchaseByCompany[c]?.length || 0),
     0
   );
+  // Epay amounts are formatted with thousands commas ("1,234.56"), and each
+  // row only ever populates one of the two amount columns — strip commas
+  // before parsing back to a number.
+  const epayRowsTotal = (rows, field) =>
+    rows.reduce((sum, r) => sum + (Number(String(r[field] || "0").replace(/,/g, "")) || 0), 0);
+  const epayIncomeGrandTotal = epayCompanyNames.reduce(
+    (sum, c) => sum + epayRowsTotal(epayResult.incomeByCompany[c] || [], "Product/Service Amount"),
+    0
+  );
+  const epayPurchaseGrandTotal = epayCompanyNames.reduce(
+    (sum, c) => sum + epayRowsTotal(epayResult.purchaseByCompany[c] || [], "Expense Amount"),
+    0
+  );
 
   const ondigoCompanyEntries = ondigoResult ? Object.entries(ondigoResult.byCompany) : [];
   const ondigoTotalRows = ondigoCompanyEntries.reduce((sum, [, rows]) => sum + rows.length, 0);
+  const ondigoGrandTotal = ondigoCompanyEntries.reduce((sum, [, rows]) => sum + rowsTotal(rows), 0);
 
   return (
     <div style={styles.shell}>
@@ -598,7 +614,7 @@ export default function BillsPage() {
                 <div style={styles.resultsHeader}>
                   <h2 style={styles.h2}>
                     {companyEntries.length} compan{companyEntries.length === 1 ? "y" : "ies"} · {totalRows}{" "}
-                    bill line{totalRows === 1 ? "" : "s"}
+                    bill line{totalRows === 1 ? "" : "s"} · Total ${grandTotal.toFixed(2)}
                   </h2>
                   <label style={styles.selectAllLabel}>
                     <input
@@ -626,7 +642,9 @@ export default function BillsPage() {
                         />
                         <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
                           <span style={styles.companyName}>{company}</span>
-                          <span style={styles.companyMeta}>{rows.length} bill line(s)</span>
+                          <span style={styles.companyMeta}>
+                            {rows.length} bill line(s) · ${rowsTotal(rows).toFixed(2)}
+                          </span>
                         </div>
                       </label>
                       <div style={{ display: "flex", gap: 6 }}>
@@ -738,7 +756,8 @@ export default function BillsPage() {
                 <div style={styles.resultsHeader}>
                   <h2 style={styles.h2}>
                     {epayCompanyNames.length} compan{epayCompanyNames.length === 1 ? "y" : "ies"} ·{" "}
-                    {epayTotalRows} line{epayTotalRows === 1 ? "" : "s"}
+                    {epayTotalRows} line{epayTotalRows === 1 ? "" : "s"} · Income ${epayIncomeGrandTotal.toFixed(2)} ·
+                    Purchase ${epayPurchaseGrandTotal.toFixed(2)}
                   </h2>
                   <label style={styles.selectAllLabel}>
                     <input
@@ -765,7 +784,8 @@ export default function BillsPage() {
                           <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
                             <span style={styles.companyName}>{company}</span>
                             <span style={styles.companyMeta}>
-                              {incomeRows.length} income · {purchaseRows.length} purchase
+                              {incomeRows.length} income (${epayRowsTotal(incomeRows, "Product/Service Amount").toFixed(2)}) ·{" "}
+                              {purchaseRows.length} purchase (${epayRowsTotal(purchaseRows, "Expense Amount").toFixed(2)})
                             </span>
                           </div>
                         </label>
@@ -937,7 +957,7 @@ export default function BillsPage() {
                 <div style={styles.resultsHeader}>
                   <h2 style={styles.h2}>
                     {ondigoCompanyEntries.length} compan{ondigoCompanyEntries.length === 1 ? "y" : "ies"} ·{" "}
-                    {ondigoTotalRows} bill line{ondigoTotalRows === 1 ? "" : "s"}
+                    {ondigoTotalRows} bill line{ondigoTotalRows === 1 ? "" : "s"} · Total ${ondigoGrandTotal.toFixed(2)}
                   </h2>
                   <label style={styles.selectAllLabel}>
                     <input
@@ -965,7 +985,9 @@ export default function BillsPage() {
                         />
                         <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
                           <span style={styles.companyName}>{company}</span>
-                          <span style={styles.companyMeta}>{rows.length} bill line(s)</span>
+                          <span style={styles.companyMeta}>
+                            {rows.length} bill line(s) · ${rowsTotal(rows).toFixed(2)}
+                          </span>
                         </div>
                       </label>
                       <div style={{ display: "flex", gap: 6 }}>

@@ -520,8 +520,11 @@ export default function ManualJvPage() {
   }
   if (!session) return null;
 
+  const debitTotal = (rows) => rows.reduce((sum, r) => sum + (Number(r.Debit) || 0), 0);
+
   const companyEntries = result ? Object.entries(result.byCompany) : [];
   const totalRows = companyEntries.reduce((sum, [, rows]) => sum + rows.length, 0);
+  const grandTotal = companyEntries.reduce((sum, [, rows]) => sum + debitTotal(rows), 0);
   const enteredDebit = jvLines.reduce((sum, l) => sum + (Number(l.debit) || 0), 0);
   const enteredCredit = jvLines.reduce((sum, l) => sum + (Number(l.credit) || 0), 0);
   const enteredBalanced = Math.abs(enteredDebit - enteredCredit) < 0.01;
@@ -530,6 +533,7 @@ export default function ManualJvPage() {
 
   const splitCompanyEntries = splitResult ? Object.entries(splitResult.byCompany) : [];
   const splitTotalRows = splitCompanyEntries.reduce((sum, [, rows]) => sum + rows.length, 0);
+  const splitGrandTotal = splitCompanyEntries.reduce((sum, [, rows]) => sum + debitTotal(rows), 0);
   const splitEnteredDebit = splitLines.reduce((sum, l) => sum + (Number(l.debit) || 0), 0);
   const splitEnteredCredit = splitLines.reduce((sum, l) => sum + (Number(l.credit) || 0), 0);
   const splitEnteredBalanced = Math.abs(splitEnteredDebit - splitEnteredCredit) < 0.01;
@@ -766,7 +770,7 @@ export default function ManualJvPage() {
             <div style={styles.resultsHeader}>
               <h2 style={styles.h2}>
                 {companyEntries.length} compan{companyEntries.length === 1 ? "y" : "ies"} · {totalRows} JE line
-                {totalRows === 1 ? "" : "s"}
+                {totalRows === 1 ? "" : "s"} · Total ${grandTotal.toFixed(2)}
               </h2>
               <label style={styles.selectAllLabel}>
                 <input
@@ -790,7 +794,9 @@ export default function ManualJvPage() {
                     <input type="checkbox" checked={selectedCompanies.has(company)} onChange={() => toggleCompany(company)} />
                     <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
                       <span style={styles.companyName}>{company}</span>
-                      <span style={styles.companyMeta}>{rows.length} JE line(s)</span>
+                      <span style={styles.companyMeta}>
+                        {rows.length} JE line(s) · ${debitTotal(rows).toFixed(2)}
+                      </span>
                     </div>
                   </label>
                   <div style={{ display: "flex", gap: 6 }}>
@@ -1025,7 +1031,7 @@ export default function ManualJvPage() {
             <div style={styles.resultsHeader}>
               <h2 style={styles.h2}>
                 {splitCompanyEntries.length} compan{splitCompanyEntries.length === 1 ? "y" : "ies"} · {splitTotalRows} JE line
-                {splitTotalRows === 1 ? "" : "s"}
+                {splitTotalRows === 1 ? "" : "s"} · Total ${splitGrandTotal.toFixed(2)}
               </h2>
               <label style={styles.selectAllLabel}>
                 <input
@@ -1053,7 +1059,9 @@ export default function ManualJvPage() {
                     />
                     <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
                       <span style={styles.companyName}>{company}</span>
-                      <span style={styles.companyMeta}>{rows.length} JE line(s)</span>
+                      <span style={styles.companyMeta}>
+                        {rows.length} JE line(s) · ${debitTotal(rows).toFixed(2)}
+                      </span>
                     </div>
                   </label>
                   <div style={{ display: "flex", gap: 6 }}>
