@@ -61,6 +61,7 @@ export default function MappingsPage() {
   const [ondigoDefaultRows, setOndigoDefaultRows] = useState([]);
   const [elevateNameOptions, setElevateNameOptions] = useState([]); // [{ value, label }]
   const [companyOptions, setCompanyOptions] = useState([]);
+  const [qboClassOptions, setQboClassOptions] = useState([]); // Store Master's elevate_name_new_qbo_class, distinct + sorted
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [productDraft, setProductDraft] = useState(emptyProductDraft);
@@ -120,7 +121,10 @@ export default function MappingsPage() {
       supabase.from("epay_account_mappings").select("*").order("account_number", { ascending: true }),
       supabase.from("checklist_items").select("company"),
       supabase.from("store_name_mappings").select("*").order("raw_name", { ascending: true }),
-      supabase.from("stores").select("elevate_name, company_name").order("elevate_name", { ascending: true }),
+      supabase
+        .from("stores")
+        .select("elevate_name, company_name, elevate_name_new_qbo_class")
+        .order("elevate_name", { ascending: true }),
       supabase.from("stock_transfer_account_names").select("*").order("key", { ascending: true }),
       supabase.from("deposit_account_mappings").select("*").order("tender_type", { ascending: true }),
       supabase.from("deposit_defaults").select("*").order("key", { ascending: true }),
@@ -157,6 +161,11 @@ export default function MappingsPage() {
         options.push({ value: s.elevate_name, label: `${s.elevate_name} (${s.company_name || "—"})` });
       }
       setElevateNameOptions(options);
+      setQboClassOptions(
+        Array.from(
+          new Set((storesRes.data || []).map((s) => s.elevate_name_new_qbo_class).filter(Boolean))
+        ).sort()
+      );
     }
     setLoading(false);
   }, [supabase]);
@@ -761,11 +770,21 @@ export default function MappingsPage() {
                           </select>
                         </td>
                         <td style={styles.td}>
-                          <input
+                          <select
                             style={styles.cellInput}
-                            defaultValue={r.qbo_class}
-                            onBlur={(e) => updateDoorField(r.id, "qbo_class", e.target.value)}
-                          />
+                            value={r.qbo_class}
+                            onChange={(e) => updateDoorField(r.id, "qbo_class", e.target.value)}
+                          >
+                            <option value="">— Select —</option>
+                            {qboClassOptions.map((c) => (
+                              <option key={c} value={c}>
+                                {c}
+                              </option>
+                            ))}
+                            {r.qbo_class && !qboClassOptions.includes(r.qbo_class) && (
+                              <option value={r.qbo_class}>{r.qbo_class}</option>
+                            )}
+                          </select>
                         </td>
                         <td style={styles.td}>
                           <input
@@ -819,12 +838,18 @@ export default function MappingsPage() {
                         </select>
                       </td>
                       <td style={styles.td}>
-                        <input
+                        <select
                           style={styles.cellInput}
-                          placeholder="e.g. EP - Monroeville-9097"
                           value={doorDraft.qbo_class}
                           onChange={(e) => setDoorDraft((d) => ({ ...d, qbo_class: e.target.value }))}
-                        />
+                        >
+                          <option value="">— Select —</option>
+                          {qboClassOptions.map((c) => (
+                            <option key={c} value={c}>
+                              {c}
+                            </option>
+                          ))}
+                        </select>
                       </td>
                       <td style={styles.td}>
                         <input
@@ -909,11 +934,21 @@ export default function MappingsPage() {
                           </select>
                         </td>
                         <td style={styles.td}>
-                          <input
+                          <select
                             style={styles.cellInput}
-                            defaultValue={r.qbo_class}
-                            onBlur={(e) => updateAccountField(r.id, "qbo_class", e.target.value)}
-                          />
+                            value={r.qbo_class}
+                            onChange={(e) => updateAccountField(r.id, "qbo_class", e.target.value)}
+                          >
+                            <option value="">— Select —</option>
+                            {qboClassOptions.map((c) => (
+                              <option key={c} value={c}>
+                                {c}
+                              </option>
+                            ))}
+                            {r.qbo_class && !qboClassOptions.includes(r.qbo_class) && (
+                              <option value={r.qbo_class}>{r.qbo_class}</option>
+                            )}
+                          </select>
                         </td>
                         <td style={styles.td}>
                           <input
@@ -967,12 +1002,18 @@ export default function MappingsPage() {
                         </select>
                       </td>
                       <td style={styles.td}>
-                        <input
+                        <select
                           style={styles.cellInput}
-                          placeholder="e.g. SP - Bridgeville-2307"
                           value={accountDraft.qbo_class}
                           onChange={(e) => setAccountDraft((d) => ({ ...d, qbo_class: e.target.value }))}
-                        />
+                        >
+                          <option value="">— Select —</option>
+                          {qboClassOptions.map((c) => (
+                            <option key={c} value={c}>
+                              {c}
+                            </option>
+                          ))}
+                        </select>
                       </td>
                       <td style={styles.td}>
                         <input
@@ -1437,11 +1478,21 @@ export default function MappingsPage() {
                           </select>
                         </td>
                         <td style={styles.td}>
-                          <input
+                          <select
                             style={styles.cellInput}
-                            defaultValue={r.qbo_class}
-                            onBlur={(e) => updateOndigoAddressField(r.id, "qbo_class", e.target.value)}
-                          />
+                            value={r.qbo_class}
+                            onChange={(e) => updateOndigoAddressField(r.id, "qbo_class", e.target.value)}
+                          >
+                            <option value="">— Select —</option>
+                            {qboClassOptions.map((c) => (
+                              <option key={c} value={c}>
+                                {c}
+                              </option>
+                            ))}
+                            {r.qbo_class && !qboClassOptions.includes(r.qbo_class) && (
+                              <option value={r.qbo_class}>{r.qbo_class}</option>
+                            )}
+                          </select>
                         </td>
                         <td style={styles.td}>
                           <input
@@ -1495,12 +1546,18 @@ export default function MappingsPage() {
                         </select>
                       </td>
                       <td style={styles.td}>
-                        <input
+                        <select
                           style={styles.cellInput}
-                          placeholder="e.g. SP - Knoxville-6702"
                           value={ondigoAddressDraft.qbo_class}
                           onChange={(e) => setOndigoAddressDraft((d) => ({ ...d, qbo_class: e.target.value }))}
-                        />
+                        >
+                          <option value="">— Select —</option>
+                          {qboClassOptions.map((c) => (
+                            <option key={c} value={c}>
+                              {c}
+                            </option>
+                          ))}
+                        </select>
                       </td>
                       <td style={styles.td}>
                         <input
