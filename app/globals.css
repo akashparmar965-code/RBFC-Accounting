@@ -67,3 +67,23 @@ input[type="number"]::-webkit-outer-spin-button {
 input[type="number"] {
   -moz-appearance: textfield;
 }
+
+/* The native calendar/picker icon defaults to a dark glyph that's nearly
+   invisible on this app's dark inputs — invert it to white and give it a
+   bit of room so it reads clearly on every date/month field app-wide. */
+input[type="date"]::-webkit-calendar-picker-indicator,
+input[type="month"]::-webkit-calendar-picker-indicator,
+input[type="datetime-local"]::-webkit-calendar-picker-indicator {
+  filter: invert(0.9) brightness(1.3);
+  cursor: pointer;
+  padding: 3px;
+  margin-right: -2px;
+  border-radius: 4px;
+  transition: background 0.15s;
+}
+
+input[type="date"]::-webkit-calendar-picker-indicator:hover,
+input[type="month"]::-webkit-calendar-picker-indicator:hover,
+input[type="datetime-local"]::-webkit-calendar-picker-indicator:hover {
+  background: var(--line);
+}
