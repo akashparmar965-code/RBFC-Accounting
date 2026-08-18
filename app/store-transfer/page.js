@@ -34,6 +34,7 @@ export default function StoreTransferPage() {
 
   const [jeDate, setJeDate] = useState(saved?.jeDate ?? todayIso());
   const [periodMonth, setPeriodMonth] = useState(saved?.periodMonth ?? currentMonthIso());
+  const [periodMode, setPeriodMode] = useState(saved?.periodMode ?? "accounting"); // "accounting" | "reconciliation"
 
   const [fileName, setFileName] = useState(saved?.fileName ?? null);
   const [dragOver, setDragOver] = useState(false);
@@ -78,6 +79,7 @@ export default function StoreTransferPage() {
     savePageState(STATE_KEY, {
       jeDate,
       periodMonth,
+      periodMode,
       fileName,
       transferData,
       verifyTab,
@@ -85,7 +87,7 @@ export default function StoreTransferPage() {
       previewOpen,
       selectedCompanies: Array.from(selectedCompanies),
     });
-  }, [jeDate, periodMonth, fileName, transferData, verifyTab, result, previewOpen, selectedCompanies]);
+  }, [jeDate, periodMonth, periodMode, fileName, transferData, verifyTab, result, previewOpen, selectedCompanies]);
 
   const processFile = useCallback(async (file) => {
     setProcessing(true);
@@ -107,11 +109,16 @@ export default function StoreTransferPage() {
       if (!rawRows.length || !("From" in rawRows[0]) || !("To" in rawRows[0]) || !("Ext Cost" in rawRows[0])) {
         throw new Error('This file is missing expected "From"/"To"/"Ext Cost" columns.');
       }
-      const { start, end } = parseDateRangeFromFileName(file.name);
-      if (start && end && !isFileRangeWithinMonth(start, end, periodMonth)) {
-        throw new Error(
-          `This file's dates (${start}–${end}) don't fall within the selected Month (${periodMonth}) — not loaded. Pick the correct Month or upload the correct file.`
-        );
+      // Reconciliation mode skips the Month-range gate so a year-to-date
+      // or any-date-range file can load for cross-checking — Accounting
+      // mode keeps the normal single-month guard for actual JE booking.
+      if (periodMode !== "reconciliation") {
+        const { start, end } = parseDateRangeFromFileName(file.name);
+        if (start && end && !isFileRangeWithinMonth(start, end, periodMonth)) {
+          throw new Error(
+            `This file's dates (${start}–${end}) don't fall within the selected Month (${periodMonth}) — not loaded. Pick the correct Month, upload the correct file, or switch to Reconciliation mode.`
+          );
+        }
       }
 
       const storeNameMap = buildStoreNameMap(storeNameMappings || []);
@@ -126,7 +133,7 @@ export default function StoreTransferPage() {
     } finally {
       setProcessing(false);
     }
-  }, [periodMonth]);
+  }, [periodMonth, periodMode]);
 
   function handleFile(file) {
     if (!file) return;
@@ -232,8 +239,31 @@ export default function StoreTransferPage() {
             </label>
             <label style={styles.fieldBlock}>
               <span style={styles.fieldLabel}>Month</span>
-              <input type="month" style={styles.dateInput} value={periodMonth} onChange={(e) => setPeriodMonth(e.target.value)} />
+              <input
+                type="month"
+                style={styles.dateInput}
+                value={periodMonth}
+                onChange={(e) => setPeriodMonth(e.target.value)}
+                disabled={periodMode === "reconciliation"}
+              />
             </label>
+            <div style={styles.fieldBlock}>
+              <span style={styles.fieldLabel}>Mode</span>
+              <div style={styles.modeToggleRow}>
+                <button
+                  style={{ ...styles.modeBtn, ...(periodMode === "accounting" ? styles.modeBtnActive : {}) }}
+                  onClick={() => setPeriodMode("accounting")}
+                >
+                  Accounting
+                </button>
+                <button
+                  style={{ ...styles.modeBtn, ...(periodMode === "reconciliation" ? styles.modeBtnActive : {}) }}
+                  onClick={() => setPeriodMode("reconciliation")}
+                >
+                  Reconciliation
+                </button>
+              </div>
+            </div>
           </div>
 
           <input ref={fileInputRef} type="file" accept=".xlsx,.xls,.csv" onChange={handleFileChange} style={{ display: "none" }} />
@@ -250,9 +280,16 @@ export default function StoreTransferPage() {
             <div style={styles.dropzoneIcon}>📄</div>
             <div style={styles.dropzoneText}>{fileName || "Choose or drop Store Transfer Receiving Details export"}</div>
           </div>
-          <div style={styles.info}>
-            If the file name's own dates don't fall within the selected Month, it won't be loaded.
-          </div>
+          {periodMode === "reconciliation" ? (
+            <div style={styles.reconciliationNote}>
+              Reconciliation mode — the Month check is skipped, so a year-to-date or any-date-range file will
+              load. JE Date still stamps every generated line, so set it deliberately before downloading.
+            </div>
+          ) : (
+            <div style={styles.info}>
+              If the file name's own dates don't fall within the selected Month, it won't be loaded.
+            </div>
+          )}
 
           {processing && <div style={styles.info}>Processing…</div>}
           {error && <div style={styles.errorBanner}>{error}</div>}

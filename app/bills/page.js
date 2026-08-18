@@ -48,6 +48,7 @@ export default function BillsPage() {
   const [previewOpen, setPreviewOpen] = useState(saved?.previewOpen ?? false);
   const [selectedCompanies, setSelectedCompanies] = useState(new Set(saved?.selectedCompanies ?? []));
   const [vipPeriodMonth, setVipPeriodMonth] = useState(saved?.vipPeriodMonth ?? currentMonthIso());
+  const [vipPeriodMode, setVipPeriodMode] = useState(saved?.vipPeriodMode ?? "accounting"); // "accounting" | "reconciliation"
   const fileInputRef = useRef(null);
   const lastFileRef = useRef(null);
 
@@ -60,6 +61,7 @@ export default function BillsPage() {
   const [epayPreviewOpen, setEpayPreviewOpen] = useState(saved?.epayPreviewOpen ?? false);
   const [epaySelectedCompanies, setEpaySelectedCompanies] = useState(new Set(saved?.epaySelectedCompanies ?? []));
   const [epayPeriodMonth, setEpayPeriodMonth] = useState(saved?.epayPeriodMonth ?? currentMonthIso());
+  const [epayPeriodMode, setEpayPeriodMode] = useState(saved?.epayPeriodMode ?? "accounting");
   const epayFileInputRef = useRef(null);
   const lastEpayFileRef = useRef(null);
 
@@ -72,6 +74,7 @@ export default function BillsPage() {
   const [ondigoPreviewOpen, setOndigoPreviewOpen] = useState(saved?.ondigoPreviewOpen ?? false);
   const [ondigoSelectedCompanies, setOndigoSelectedCompanies] = useState(new Set(saved?.ondigoSelectedCompanies ?? []));
   const [ondigoPeriodMonth, setOndigoPeriodMonth] = useState(saved?.ondigoPeriodMonth ?? currentMonthIso());
+  const [ondigoPeriodMode, setOndigoPeriodMode] = useState(saved?.ondigoPeriodMode ?? "accounting");
   const ondigoFileInputRef = useRef(null);
   const lastOndigoFileRef = useRef(null);
 
@@ -91,16 +94,19 @@ export default function BillsPage() {
       previewOpen,
       selectedCompanies: Array.from(selectedCompanies),
       vipPeriodMonth,
+      vipPeriodMode,
       epayFileName,
       epayResult,
       epayPreviewOpen,
       epaySelectedCompanies: Array.from(epaySelectedCompanies),
       epayPeriodMonth,
+      epayPeriodMode,
       ondigoFileName,
       ondigoResult,
       ondigoPreviewOpen,
       ondigoSelectedCompanies: Array.from(ondigoSelectedCompanies),
       ondigoPeriodMonth,
+      ondigoPeriodMode,
     });
   }, [
     activeTab,
@@ -109,21 +115,24 @@ export default function BillsPage() {
     previewOpen,
     selectedCompanies,
     vipPeriodMonth,
+    vipPeriodMode,
     epayFileName,
     epayResult,
     epayPreviewOpen,
     epaySelectedCompanies,
     epayPeriodMonth,
+    epayPeriodMode,
     ondigoFileName,
     ondigoResult,
     ondigoPreviewOpen,
     ondigoSelectedCompanies,
     ondigoPeriodMonth,
+    ondigoPeriodMode,
   ]);
 
   // ===================== VIP =====================
 
-  const processFile = useCallback(async (file, monthStr) => {
+  const processFile = useCallback(async (file, monthStr, mode) => {
     setProcessing(true);
     setError("");
     setResult(null);
@@ -145,11 +154,16 @@ export default function BillsPage() {
           "This file doesn't look like a VIP export — no 'Door Number' column found in the Bill sheet."
         );
       }
-      const { start, end } = dateRangeFromRows(rawRows, "Tran Date");
-      if (start && end && !isFileRangeWithinMonth(start, end, monthStr)) {
-        throw new Error(
-          `This file's dates (${start}–${end}) don't fall within the selected Month (${monthStr}) — not loaded. Pick the correct Month or upload the correct file.`
-        );
+      // Reconciliation mode skips the Month-range gate so a year-to-date
+      // or any-date-range file can load for cross-checking — Accounting
+      // mode keeps the normal single-month guard for actual JE booking.
+      if (mode !== "reconciliation") {
+        const { start, end } = dateRangeFromRows(rawRows, "Tran Date");
+        if (start && end && !isFileRangeWithinMonth(start, end, monthStr)) {
+          throw new Error(
+            `This file's dates (${start}–${end}) don't fall within the selected Month (${monthStr}) — not loaded. Pick the correct Month, upload the correct file, or switch to Reconciliation mode.`
+          );
+        }
       }
 
       const groupedLines = aggregateBillLines(rawRows, productMappings || []);
@@ -173,7 +187,7 @@ export default function BillsPage() {
     if (!file) return;
     setFileName(file.name);
     lastFileRef.current = file;
-    processFile(file, vipPeriodMonth);
+    processFile(file, vipPeriodMonth, vipPeriodMode);
   }
 
   function handleFileChange(e) {
@@ -189,7 +203,12 @@ export default function BillsPage() {
   function handleVipMonthChange(e) {
     const next = e.target.value;
     setVipPeriodMonth(next);
-    if (lastFileRef.current) processFile(lastFileRef.current, next);
+    if (lastFileRef.current) processFile(lastFileRef.current, next, vipPeriodMode);
+  }
+
+  function handleVipModeChange(next) {
+    setVipPeriodMode(next);
+    if (lastFileRef.current) processFile(lastFileRef.current, vipPeriodMonth, next);
   }
 
   async function downloadCompanyXlsx(company, rows) {
@@ -236,7 +255,7 @@ export default function BillsPage() {
 
   // ===================== Epay =====================
 
-  const processEpayFile = useCallback(async (file, monthStr) => {
+  const processEpayFile = useCallback(async (file, monthStr, mode) => {
     setEpayProcessing(true);
     setEpayError("");
     setEpayResult(null);
@@ -256,11 +275,13 @@ export default function BillsPage() {
       if (!("Account Number" in rawRows[0])) {
         throw new Error("This file doesn't look like an Epay export — no 'Account Number' column found.");
       }
-      const { start, end } = dateRangeFromRows(rawRows, "Invoice Date");
-      if (start && end && !isFileRangeWithinMonth(start, end, monthStr)) {
-        throw new Error(
-          `This file's dates (${start}–${end}) don't fall within the selected Month (${monthStr}) — not loaded. Pick the correct Month or upload the correct file.`
-        );
+      if (mode !== "reconciliation") {
+        const { start, end } = dateRangeFromRows(rawRows, "Invoice Date");
+        if (start && end && !isFileRangeWithinMonth(start, end, monthStr)) {
+          throw new Error(
+            `This file's dates (${start}–${end}) don't fall within the selected Month (${monthStr}) — not loaded. Pick the correct Month, upload the correct file, or switch to Reconciliation mode.`
+          );
+        }
       }
 
       const { incomeByCompany, purchaseByCompany, unmatchedAccounts } = buildEpayRows(
@@ -284,7 +305,7 @@ export default function BillsPage() {
     if (!file) return;
     setEpayFileName(file.name);
     lastEpayFileRef.current = file;
-    processEpayFile(file, epayPeriodMonth);
+    processEpayFile(file, epayPeriodMonth, epayPeriodMode);
   }
 
   function handleEpayFileChange(e) {
@@ -300,7 +321,12 @@ export default function BillsPage() {
   function handleEpayMonthChange(e) {
     const next = e.target.value;
     setEpayPeriodMonth(next);
-    if (lastEpayFileRef.current) processEpayFile(lastEpayFileRef.current, next);
+    if (lastEpayFileRef.current) processEpayFile(lastEpayFileRef.current, next, epayPeriodMode);
+  }
+
+  function handleEpayModeChange(next) {
+    setEpayPeriodMode(next);
+    if (lastEpayFileRef.current) processEpayFile(lastEpayFileRef.current, epayPeriodMonth, next);
   }
 
   function downloadEpayCompanyXlsx(kind, company, rows) {
@@ -352,7 +378,7 @@ export default function BillsPage() {
 
   // ===================== Ondigo =====================
 
-  const processOndigoFile = useCallback(async (file, monthStr) => {
+  const processOndigoFile = useCallback(async (file, monthStr, mode) => {
     setOndigoProcessing(true);
     setOndigoError("");
     setOndigoResult(null);
@@ -376,11 +402,13 @@ export default function BillsPage() {
           "This file doesn't look like an Ondigo export — no 'Invoice #'/'Store/Location' column found."
         );
       }
-      const { start, end } = dateRangeFromRows(rawRows, "Invoice Date");
-      if (start && end && !isFileRangeWithinMonth(start, end, monthStr)) {
-        throw new Error(
-          `This file's dates (${start}–${end}) don't fall within the selected Month (${monthStr}) — not loaded. Pick the correct Month or upload the correct file.`
-        );
+      if (mode !== "reconciliation") {
+        const { start, end } = dateRangeFromRows(rawRows, "Invoice Date");
+        if (start && end && !isFileRangeWithinMonth(start, end, monthStr)) {
+          throw new Error(
+            `This file's dates (${start}–${end}) don't fall within the selected Month (${monthStr}) — not loaded. Pick the correct Month, upload the correct file, or switch to Reconciliation mode.`
+          );
+        }
       }
 
       const { byCompany, unmatchedAddresses } = buildOndigoBillRows(rawRows, storeMaster, addressMappings || [], {
@@ -401,7 +429,7 @@ export default function BillsPage() {
     if (!file) return;
     setOndigoFileName(file.name);
     lastOndigoFileRef.current = file;
-    processOndigoFile(file, ondigoPeriodMonth);
+    processOndigoFile(file, ondigoPeriodMonth, ondigoPeriodMode);
   }
 
   function handleOndigoFileChange(e) {
@@ -417,7 +445,12 @@ export default function BillsPage() {
   function handleOndigoMonthChange(e) {
     const next = e.target.value;
     setOndigoPeriodMonth(next);
-    if (lastOndigoFileRef.current) processOndigoFile(lastOndigoFileRef.current, next);
+    if (lastOndigoFileRef.current) processOndigoFile(lastOndigoFileRef.current, next, ondigoPeriodMode);
+  }
+
+  function handleOndigoModeChange(next) {
+    setOndigoPeriodMode(next);
+    if (lastOndigoFileRef.current) processOndigoFile(lastOndigoFileRef.current, ondigoPeriodMonth, next);
   }
 
   async function downloadOndigoCompanyXlsx(company, rows) {
@@ -540,8 +573,31 @@ export default function BillsPage() {
               <div style={styles.fieldRow}>
                 <label style={styles.fieldBlock}>
                   <span style={styles.fieldLabel}>Month</span>
-                  <input type="month" style={styles.dateInput} value={vipPeriodMonth} onChange={handleVipMonthChange} />
+                  <input
+                    type="month"
+                    style={styles.dateInput}
+                    value={vipPeriodMonth}
+                    onChange={handleVipMonthChange}
+                    disabled={vipPeriodMode === "reconciliation"}
+                  />
                 </label>
+                <div style={styles.fieldBlock}>
+                  <span style={styles.fieldLabel}>Mode</span>
+                  <div style={styles.modeToggleRow}>
+                    <button
+                      style={{ ...styles.modeBtn, ...(vipPeriodMode === "accounting" ? styles.modeBtnActive : {}) }}
+                      onClick={() => handleVipModeChange("accounting")}
+                    >
+                      Accounting
+                    </button>
+                    <button
+                      style={{ ...styles.modeBtn, ...(vipPeriodMode === "reconciliation" ? styles.modeBtnActive : {}) }}
+                      onClick={() => handleVipModeChange("reconciliation")}
+                    >
+                      Reconciliation
+                    </button>
+                  </div>
+                </div>
               </div>
               <input
                 ref={fileInputRef}
@@ -563,6 +619,12 @@ export default function BillsPage() {
                 <div style={styles.dropzoneIcon}>📄</div>
                 <div style={styles.dropzoneText}>{fileName || "Choose or drop VIP export (.xlsx)"}</div>
               </div>
+              {vipPeriodMode === "reconciliation" && (
+                <div style={styles.reconciliationNote}>
+                  Reconciliation mode — the Month check is skipped, so a year-to-date or any-date-range file
+                  will load.
+                </div>
+              )}
             </div>
 
             {processing && <div style={styles.info}>Processing…</div>}
@@ -699,8 +761,31 @@ export default function BillsPage() {
               <div style={styles.fieldRow}>
                 <label style={styles.fieldBlock}>
                   <span style={styles.fieldLabel}>Month</span>
-                  <input type="month" style={styles.dateInput} value={epayPeriodMonth} onChange={handleEpayMonthChange} />
+                  <input
+                    type="month"
+                    style={styles.dateInput}
+                    value={epayPeriodMonth}
+                    onChange={handleEpayMonthChange}
+                    disabled={epayPeriodMode === "reconciliation"}
+                  />
                 </label>
+                <div style={styles.fieldBlock}>
+                  <span style={styles.fieldLabel}>Mode</span>
+                  <div style={styles.modeToggleRow}>
+                    <button
+                      style={{ ...styles.modeBtn, ...(epayPeriodMode === "accounting" ? styles.modeBtnActive : {}) }}
+                      onClick={() => handleEpayModeChange("accounting")}
+                    >
+                      Accounting
+                    </button>
+                    <button
+                      style={{ ...styles.modeBtn, ...(epayPeriodMode === "reconciliation" ? styles.modeBtnActive : {}) }}
+                      onClick={() => handleEpayModeChange("reconciliation")}
+                    >
+                      Reconciliation
+                    </button>
+                  </div>
+                </div>
               </div>
               <input
                 ref={epayFileInputRef}
@@ -722,6 +807,12 @@ export default function BillsPage() {
                 <div style={styles.dropzoneIcon}>📄</div>
                 <div style={styles.dropzoneText}>{epayFileName || "Choose or drop Epay invoices export (.csv/.xlsx)"}</div>
               </div>
+              {epayPeriodMode === "reconciliation" && (
+                <div style={styles.reconciliationNote}>
+                  Reconciliation mode — the Month check is skipped, so a year-to-date or any-date-range file
+                  will load.
+                </div>
+              )}
             </div>
 
             {epayProcessing && <div style={styles.info}>Processing…</div>}
@@ -900,8 +991,31 @@ export default function BillsPage() {
               <div style={styles.fieldRow}>
                 <label style={styles.fieldBlock}>
                   <span style={styles.fieldLabel}>Month</span>
-                  <input type="month" style={styles.dateInput} value={ondigoPeriodMonth} onChange={handleOndigoMonthChange} />
+                  <input
+                    type="month"
+                    style={styles.dateInput}
+                    value={ondigoPeriodMonth}
+                    onChange={handleOndigoMonthChange}
+                    disabled={ondigoPeriodMode === "reconciliation"}
+                  />
                 </label>
+                <div style={styles.fieldBlock}>
+                  <span style={styles.fieldLabel}>Mode</span>
+                  <div style={styles.modeToggleRow}>
+                    <button
+                      style={{ ...styles.modeBtn, ...(ondigoPeriodMode === "accounting" ? styles.modeBtnActive : {}) }}
+                      onClick={() => handleOndigoModeChange("accounting")}
+                    >
+                      Accounting
+                    </button>
+                    <button
+                      style={{ ...styles.modeBtn, ...(ondigoPeriodMode === "reconciliation" ? styles.modeBtnActive : {}) }}
+                      onClick={() => handleOndigoModeChange("reconciliation")}
+                    >
+                      Reconciliation
+                    </button>
+                  </div>
+                </div>
               </div>
               <input
                 ref={ondigoFileInputRef}
@@ -923,6 +1037,12 @@ export default function BillsPage() {
                 <div style={styles.dropzoneIcon}>📄</div>
                 <div style={styles.dropzoneText}>{ondigoFileName || "Choose or drop Ondigo invoices export"}</div>
               </div>
+              {ondigoPeriodMode === "reconciliation" && (
+                <div style={styles.reconciliationNote}>
+                  Reconciliation mode — the Month check is skipped, so a year-to-date or any-date-range file
+                  will load.
+                </div>
+              )}
             </div>
 
             {ondigoProcessing && <div style={styles.info}>Processing…</div>}

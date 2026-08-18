@@ -31,6 +31,7 @@ export default function SalesPage() {
   const saved = useRef(loadPageState(STATE_KEY)).current;
   const [jvDate, setJvDate] = useState(saved?.jvDate ?? todayIso());
   const [periodMonth, setPeriodMonth] = useState(saved?.periodMonth ?? currentMonthIso());
+  const [periodMode, setPeriodMode] = useState(saved?.periodMode ?? "accounting"); // "accounting" | "reconciliation"
   const [fileName, setFileName] = useState(saved?.fileName ?? null);
   const [dragOver, setDragOver] = useState(false);
   const [processing, setProcessing] = useState(false);
@@ -45,12 +46,13 @@ export default function SalesPage() {
     savePageState(STATE_KEY, {
       jvDate,
       periodMonth,
+      periodMode,
       fileName,
       result,
       previewOpen,
       selectedCompanies: Array.from(selectedCompanies),
     });
-  }, [jvDate, periodMonth, fileName, result, previewOpen, selectedCompanies]);
+  }, [jvDate, periodMonth, periodMode, fileName, result, previewOpen, selectedCompanies]);
 
   useEffect(() => {
     const supabase = createClient();
@@ -60,7 +62,7 @@ export default function SalesPage() {
     });
   }, [router]);
 
-  const processFile = useCallback(async (file, dateStr, monthStr) => {
+  const processFile = useCallback(async (file, dateStr, monthStr, mode) => {
     setProcessing(true);
     setError("");
     setResult(null);
@@ -83,11 +85,17 @@ export default function SalesPage() {
       if (!("Store" in rawRows[0])) {
         throw new Error("This file doesn't look like a sales export — no 'Store' column found.");
       }
-      const { start, end } = parseDateRangeFromFileName(file.name);
-      if (start && end && !isFileRangeWithinMonth(start, end, monthStr)) {
-        throw new Error(
-          `This file's dates (${start}–${end}) don't fall within the selected Month (${monthStr}) — not loaded. Pick the correct Month or upload the correct file.`
-        );
+      // Reconciliation mode deliberately skips the Month-range gate, so a
+      // year-to-date or any-date-range file can load for cross-checking
+      // instead of being rejected — Accounting mode keeps the normal
+      // single-month guard for actual JE booking.
+      if (mode !== "reconciliation") {
+        const { start, end } = parseDateRangeFromFileName(file.name);
+        if (start && end && !isFileRangeWithinMonth(start, end, monthStr)) {
+          throw new Error(
+            `This file's dates (${start}–${end}) don't fall within the selected Month (${monthStr}) — not loaded. Pick the correct Month, upload the correct file, or switch to Reconciliation mode.`
+          );
+        }
       }
       const mappedRows = remapStoreNamesInRows(rawRows, "Store", storeNameMap);
 
@@ -108,7 +116,7 @@ export default function SalesPage() {
     if (!file) return;
     setFileName(file.name);
     lastFileRef.current = file;
-    processFile(file, jvDate, periodMonth);
+    processFile(file, jvDate, periodMonth, periodMode);
   }
 
   function handleFileChange(e) {
@@ -118,13 +126,18 @@ export default function SalesPage() {
   function handleDateChange(e) {
     const next = e.target.value;
     setJvDate(next);
-    if (lastFileRef.current) processFile(lastFileRef.current, next, periodMonth);
+    if (lastFileRef.current) processFile(lastFileRef.current, next, periodMonth, periodMode);
   }
 
   function handleMonthChange(e) {
     const next = e.target.value;
     setPeriodMonth(next);
-    if (lastFileRef.current) processFile(lastFileRef.current, jvDate, next);
+    if (lastFileRef.current) processFile(lastFileRef.current, jvDate, next, periodMode);
+  }
+
+  function handlePeriodModeChange(next) {
+    setPeriodMode(next);
+    if (lastFileRef.current) processFile(lastFileRef.current, jvDate, periodMonth, next);
   }
 
   function handleDrop(e) {
@@ -208,8 +221,32 @@ export default function SalesPage() {
 
             <label style={styles.fieldBlock}>
               <span style={styles.fieldLabel}>Month</span>
-              <input type="month" style={styles.dateInput} value={periodMonth} onChange={handleMonthChange} />
+              <input
+                type="month"
+                style={styles.dateInput}
+                value={periodMonth}
+                onChange={handleMonthChange}
+                disabled={periodMode === "reconciliation"}
+              />
             </label>
+
+            <div style={styles.fieldBlock}>
+              <span style={styles.fieldLabel}>Mode</span>
+              <div style={styles.modeToggleRow}>
+                <button
+                  style={{ ...styles.modeBtn, ...(periodMode === "accounting" ? styles.modeBtnActive : {}) }}
+                  onClick={() => handlePeriodModeChange("accounting")}
+                >
+                  Accounting
+                </button>
+                <button
+                  style={{ ...styles.modeBtn, ...(periodMode === "reconciliation" ? styles.modeBtnActive : {}) }}
+                  onClick={() => handlePeriodModeChange("reconciliation")}
+                >
+                  Reconciliation
+                </button>
+              </div>
+            </div>
 
             <div style={{ ...styles.fieldBlock, flex: 1.6 }}>
               <span style={styles.fieldLabel}>Upload File</span>
@@ -235,9 +272,16 @@ export default function SalesPage() {
               </div>
             </div>
           </div>
-          <div style={styles.info}>
-            If the file name's own dates don't fall within the selected Month, it won't be loaded.
-          </div>
+          {periodMode === "reconciliation" ? (
+            <div style={styles.reconciliationNote}>
+              Reconciliation mode — the Month check is skipped, so a year-to-date or any-date-range file will
+              load. JV Date still stamps every generated line, so set it deliberately before downloading.
+            </div>
+          ) : (
+            <div style={styles.info}>
+              If the file name's own dates don't fall within the selected Month, it won't be loaded.
+            </div>
+          )}
         </div>
 
         {processing && <div style={styles.info}>Processing…</div>}
