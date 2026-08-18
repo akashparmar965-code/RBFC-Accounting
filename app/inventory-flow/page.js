@@ -7,10 +7,13 @@ import Sidebar from "@/components/Sidebar";
 import {
   parseInventorySnapshotWorkbook,
   parseTransferWorkbook,
+  matchSnapshotRowsToStores,
   buildInventoryFlowReport,
   rowsToCsvGeneric,
 } from "@/lib/inventoryFlowProcessor";
 import { parseSalesWorkbook } from "@/lib/salesProcessor";
+import { buildStoreNameMap } from "@/lib/storeNameMapping";
+import { savePendingMappings } from "@/lib/pendingMappings";
 import { triggerDownload, todayIso } from "@/lib/download";
 import { savePageState, loadPageState } from "@/lib/pageState";
 import { sharedPageStyles } from "@/lib/pageStyles";
@@ -220,7 +223,12 @@ export default function InventoryFlowPage() {
   const [processing, setProcessing] = useState(false);
   const [error, setError] = useState("");
   const [result, setResult] = useState(saved?.result ?? null);
+  const [unmatchedSnapshotStores, setUnmatchedSnapshotStores] = useState(saved?.unmatchedSnapshotStores ?? []);
   const [openSections, setOpenSections] = useState(new Set(saved?.openSections ?? ["missing", "storeMismatch", "soldAnomalies"]));
+
+  const [storeMaster, setStoreMaster] = useState(null);
+  const [storeMasterError, setStoreMasterError] = useState("");
+  const [storeNameMap, setStoreNameMap] = useState({});
 
   const rowsRef = useRef({});
   const fileInputRefs = useRef({});
@@ -234,8 +242,37 @@ export default function InventoryFlowPage() {
   }, [router]);
 
   useEffect(() => {
-    savePageState(STATE_KEY, { fileMeta, result, openSections: Array.from(openSections) });
-  }, [fileMeta, result, openSections]);
+    if (!session) return;
+    const supabase = createClient();
+    supabase
+      .from("stores")
+      .select("*")
+      .then(({ data, error }) => {
+        if (error) setStoreMasterError("Could not load Store Master: " + error.message);
+        else setStoreMaster(data || []);
+      });
+  }, [session]);
+
+  useEffect(() => {
+    if (!session) return;
+    const supabase = createClient();
+    supabase
+      .from("store_name_mappings")
+      .select("*")
+      .then(({ data, error }) => {
+        if (error) return;
+        setStoreNameMap(buildStoreNameMap(data || []));
+      });
+  }, [session]);
+
+  useEffect(() => {
+    savePageState(STATE_KEY, {
+      fileMeta,
+      result,
+      unmatchedSnapshotStores,
+      openSections: Array.from(openSections),
+    });
+  }, [fileMeta, result, unmatchedSnapshotStores, openSections]);
 
   const handleSlotFile = useCallback(async (slot, file) => {
     if (!file) return;
@@ -273,16 +310,33 @@ export default function InventoryFlowPage() {
   function runAnalysis() {
     setError("");
     setResult(null);
+    setUnmatchedSnapshotStores([]);
     const missingRequired = SLOTS.filter((s) => s.required && !rowsRef.current[s.key]);
     if (missingRequired.length) {
       setError(`Upload required file(s) first: ${missingRequired.map((s) => s.label).join(", ")}.`);
       return;
     }
+    if (!storeMaster) {
+      setError("Store Master hasn't finished loading yet — wait a moment and try again.");
+      return;
+    }
     setProcessing(true);
     try {
+      // Opening/Closing rows only count toward the report once their Store
+      // is matched to Store Master (falling back to store_name_mappings) —
+      // a blank or unrecognized Store previously inflated Opening/Closing
+      // Value and could corrupt Missing/Store Mismatch, since those trust
+      // Opening/Closing's own Store field. Unmatched rows are excluded,
+      // never guessed, and flagged below.
+      const openingMatch = matchSnapshotRowsToStores(rowsRef.current.opening || [], storeMaster, storeNameMap);
+      const closingMatch = matchSnapshotRowsToStores(rowsRef.current.closing || [], storeMaster, storeNameMap);
+      const unmatched = Array.from(new Set([...openingMatch.unmatchedStores, ...closingMatch.unmatchedStores]));
+      setUnmatchedSnapshotStores(unmatched);
+      if (unmatched.length) savePendingMappings({ unmatchedStoreNames: unmatched.filter((s) => s !== "(blank)") });
+
       const report = buildInventoryFlowReport({
-        openingRows: rowsRef.current.opening || [],
-        closingRows: rowsRef.current.closing || [],
+        openingRows: openingMatch.rows,
+        closingRows: closingMatch.rows,
         poReceivingRows: rowsRef.current.poReceiving || [],
         shipmentRows: rowsRef.current.shipment || [],
         receivingRows: rowsRef.current.receiving || [],
@@ -301,6 +355,7 @@ export default function InventoryFlowPage() {
     rowsRef.current = {};
     setFileMeta({});
     setResult(null);
+    setUnmatchedSnapshotStores([]);
     setError("");
   }
 
@@ -355,6 +410,8 @@ export default function InventoryFlowPage() {
           </p>
         </div>
 
+        {storeMasterError && <div style={styles.errorBanner}>{storeMasterError}</div>}
+
         <div style={styles.slotGrid}>
           {SLOTS.map((slot) => {
             const meta = fileMeta[slot.key];
@@ -406,6 +463,17 @@ export default function InventoryFlowPage() {
         </div>
 
         {error && <div style={styles.errorBanner}>{error}</div>}
+
+        {result && unmatchedSnapshotStores.length > 0 && (
+          <div style={styles.warnBanner}>
+            {unmatchedSnapshotStores.length} store name(s) in Opening/Closing Inventory don't match any store's
+            Elevate Name in Store Master, so those rows were excluded from Opening/Closing Value and serial
+            tracking rather than being silently included: <strong>{unmatchedSnapshotStores.join(", ")}</strong>.
+            {unmatchedSnapshotStores.includes("(blank)") ? " \"(blank)\" means the Store column was empty on those rows." : ""}{" "}
+            Add a mapping on Mapping Master's Store Mapping tab if one of these is a rename.
+          </div>
+        )}
+
 
         {result && (
           <>
@@ -632,6 +700,15 @@ const styles = {
     background: "var(--danger-bg)",
     color: "var(--danger)",
     padding: "10px 14px",
+    borderRadius: 6,
+    fontSize: 13,
+    marginBottom: 16,
+    lineHeight: 1.5,
+  },
+  warnBanner: {
+    background: "var(--warn-bg)",
+    color: "var(--warn-text)",
+    padding: "12px 14px",
     borderRadius: 6,
     fontSize: 13,
     marginBottom: 16,
