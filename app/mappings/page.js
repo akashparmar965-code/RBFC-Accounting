@@ -15,7 +15,12 @@ import {
   removePendingOndigoAddress,
 } from "@/lib/pendingMappings";
 
-const emptyProductDraft = { product_prefix: "", expense_account: "", expense_memo: "", notes: "" };
+const emptyProductDraft = { product_prefix: "", match_type: "starts_with", expense_account: "", expense_memo: "", notes: "" };
+const MATCH_TYPE_OPTIONS = [
+  { value: "starts_with", label: "Starts with" },
+  { value: "contains", label: "Contains" },
+  { value: "exact", label: "Fully matching" },
+];
 const emptyDoorDraft = { door_number: "", company_name: "", qbo_class: "", notes: "" };
 const emptyAccountDraft = { account_number: "", company_name: "", qbo_class: "", notes: "" };
 const emptyStoreNameDraft = { raw_name: "", elevate_name: "", notes: "" };
@@ -202,6 +207,7 @@ export default function MappingsPage() {
       .insert([
         {
           product_prefix: productDraft.product_prefix.trim(),
+          match_type: productDraft.match_type || "starts_with",
           expense_account: productDraft.expense_account.trim(),
           expense_memo: productDraft.expense_memo.trim() || null,
           notes: productDraft.notes.trim() || null,
@@ -214,9 +220,18 @@ export default function MappingsPage() {
     }
     setProductRows((prev) => [...prev, ...(data || [])]);
     const addedPrefix = productDraft.product_prefix.trim();
+    const addedMatchType = productDraft.match_type || "starts_with";
     setProductDraft(emptyProductDraft);
-    removePendingProductsMatching(addedPrefix);
-    setPendingProducts((prev) => prev.filter((p) => !p.product.toLowerCase().startsWith(addedPrefix.toLowerCase())));
+    removePendingProductsMatching(addedPrefix, addedMatchType);
+    setPendingProducts((prev) =>
+      prev.filter((p) => {
+        const productLower = p.product.toLowerCase();
+        const prefixLower = addedPrefix.toLowerCase();
+        if (addedMatchType === "exact") return productLower !== prefixLower;
+        if (addedMatchType === "contains") return !productLower.includes(prefixLower);
+        return !productLower.startsWith(prefixLower);
+      })
+    );
   }
 
   async function addDoorRow() {
@@ -576,8 +591,9 @@ export default function MappingsPage() {
               <div style={styles.sectionTitle}>Product Mapping</div>
               <div style={styles.sectionSub}>
                 A VIP Bill line is classified by its <strong>Products</strong> text (not Memo, which is
-                often generic or inconsistent) — whichever prefix it starts with (case-insensitive)
-                determines the Expense Account. A line matching no prefix is skipped and flagged.
+                often generic or inconsistent) — the first rule it matches (case-insensitive, per each
+                rule&apos;s own Match Type: Starts with / Contains / Fully matching) determines the Expense
+                Account. A line matching no rule is skipped and flagged.
               </div>
 
               {pendingProducts.length > 0 && (
@@ -605,6 +621,7 @@ export default function MappingsPage() {
                   <thead>
                     <tr>
                       <th style={{ ...styles.th, textAlign: "left" }}>Product Prefix</th>
+                      <th style={{ ...styles.th, textAlign: "left" }}>Match Type</th>
                       <th style={{ ...styles.th, textAlign: "left" }}>Expense Account</th>
                       <th style={{ ...styles.th, textAlign: "left" }}>Expense Memo (override)</th>
                       <th style={{ ...styles.th, textAlign: "left" }}>Notes</th>
@@ -620,6 +637,19 @@ export default function MappingsPage() {
                             defaultValue={r.product_prefix}
                             onBlur={(e) => updateProductField(r.id, "product_prefix", e.target.value)}
                           />
+                        </td>
+                        <td style={styles.td}>
+                          <select
+                            style={styles.cellInput}
+                            value={r.match_type || "starts_with"}
+                            onChange={(e) => updateProductField(r.id, "match_type", e.target.value)}
+                          >
+                            {MATCH_TYPE_OPTIONS.map((o) => (
+                              <option key={o.value} value={o.value}>
+                                {o.label}
+                              </option>
+                            ))}
+                          </select>
                         </td>
                         <td style={styles.td}>
                           <input
@@ -672,6 +702,19 @@ export default function MappingsPage() {
                           value={productDraft.product_prefix}
                           onChange={(e) => setProductDraft((d) => ({ ...d, product_prefix: e.target.value }))}
                         />
+                      </td>
+                      <td style={styles.td}>
+                        <select
+                          style={styles.cellInput}
+                          value={productDraft.match_type}
+                          onChange={(e) => setProductDraft((d) => ({ ...d, match_type: e.target.value }))}
+                        >
+                          {MATCH_TYPE_OPTIONS.map((o) => (
+                            <option key={o.value} value={o.value}>
+                              {o.label}
+                            </option>
+                          ))}
+                        </select>
                       </td>
                       <td style={styles.td}>
                         <input
