@@ -21,6 +21,7 @@ import { savePendingMappings } from "@/lib/pendingMappings";
 import { savePageState, loadPageState } from "@/lib/pageState";
 import { triggerDownload, todayIso } from "@/lib/download";
 import { sharedPageStyles } from "@/lib/pageStyles";
+import { checkRawRowsUsable } from "@/lib/validation";
 
 const STATE_KEY = "store-transfer";
 
@@ -109,6 +110,8 @@ export default function StoreTransferPage() {
       if (!rawRows.length || !("From" in rawRows[0]) || !("To" in rawRows[0]) || !("Ext Cost" in rawRows[0])) {
         throw new Error('This file is missing expected "From"/"To"/"Ext Cost" columns.');
       }
+      const usableIssue = checkRawRowsUsable(rawRows, ["From", "To"], "Store Transfer export");
+      if (usableIssue) throw new Error(usableIssue);
       // Reconciliation mode skips the Month-range gate so a year-to-date
       // or any-date-range file can load for cross-checking — Accounting
       // mode keeps the normal single-month guard for actual JE booking.

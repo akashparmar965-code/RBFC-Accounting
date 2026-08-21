@@ -26,6 +26,7 @@ import { buildExportFileName, dateRangeFromRows, isFileRangeWithinMonth, current
 import { savePendingMappings } from "@/lib/pendingMappings";
 import { savePageState, loadPageState } from "@/lib/pageState";
 import { triggerDownload } from "@/lib/download";
+import { checkRawRowsUsable } from "@/lib/validation";
 import { sharedPageStyles } from "@/lib/pageStyles";
 
 const STATE_KEY = "bills";
@@ -154,6 +155,8 @@ export default function BillsPage() {
           "This file doesn't look like a VIP export — no 'Door Number' column found in the Bill sheet."
         );
       }
+      const usableIssue = checkRawRowsUsable(rawRows, ["Door Number", "Invoice Number"], "VIP Bill sheet");
+      if (usableIssue) throw new Error(usableIssue);
       // Reconciliation mode skips the Month-range gate so a year-to-date
       // or any-date-range file can load for cross-checking — Accounting
       // mode keeps the normal single-month guard for actual JE booking.
@@ -275,6 +278,8 @@ export default function BillsPage() {
       if (!("Account Number" in rawRows[0])) {
         throw new Error("This file doesn't look like an Epay export — no 'Account Number' column found.");
       }
+      const usableIssue = checkRawRowsUsable(rawRows, ["Account Number", "Invoice Number"], "Epay export");
+      if (usableIssue) throw new Error(usableIssue);
       if (mode !== "reconciliation") {
         const { start, end } = dateRangeFromRows(rawRows, "Invoice Date");
         if (start && end && !isFileRangeWithinMonth(start, end, monthStr)) {
@@ -402,6 +407,8 @@ export default function BillsPage() {
           "This file doesn't look like an Ondigo export — no 'Invoice #'/'Store/Location' column found."
         );
       }
+      const usableIssue = checkRawRowsUsable(rawRows, ["Invoice #", "Store/Location"], "Ondigo export");
+      if (usableIssue) throw new Error(usableIssue);
       if (mode !== "reconciliation") {
         const { start, end } = dateRangeFromRows(rawRows, "Invoice Date");
         if (start && end && !isFileRangeWithinMonth(start, end, monthStr)) {

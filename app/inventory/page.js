@@ -26,6 +26,7 @@ import { savePendingMappings } from "@/lib/pendingMappings";
 import { savePageState, loadPageState } from "@/lib/pageState";
 import { triggerDownload, todayIso } from "@/lib/download";
 import { sharedPageStyles } from "@/lib/pageStyles";
+import { checkRawRowsUsable } from "@/lib/validation";
 
 const STATE_KEY = "inventory";
 
@@ -167,6 +168,8 @@ export default function InventoryPage() {
       if (!rows.length || !("Store" in rows[0]) || !("Total Cost" in rows[0])) {
         throw new Error('This file is missing expected "Store"/"Total Cost" columns.');
       }
+      const usableIssue = checkRawRowsUsable(rows, ["Store"], "Opening Inventory file");
+      if (usableIssue) throw new Error(usableIssue);
       setOpeningRows(rows);
     } catch (e) {
       setOpeningError(e.message || String(e));
@@ -182,6 +185,8 @@ export default function InventoryPage() {
       if (!rows.length || !("Store" in rows[0]) || !("Total Cost" in rows[0])) {
         throw new Error('This file is missing expected "Store"/"Total Cost" columns.');
       }
+      const usableIssue = checkRawRowsUsable(rows, ["Store"], "Closing Inventory file");
+      if (usableIssue) throw new Error(usableIssue);
       setClosingRows(rows);
     } catch (e) {
       setClosingError(e.message || String(e));
@@ -242,6 +247,8 @@ export default function InventoryPage() {
       if (!rows.length || !("Store" in rows[0]) || !("Age in Store" in rows[0]) || !("Cost" in rows[0])) {
         throw new Error('This file is missing expected "Store"/"Age in Store"/"Cost" columns.');
       }
+      const usableIssue = checkRawRowsUsable(rows, ["Store", "Cost"], "Inventory Aging file");
+      if (usableIssue) throw new Error(usableIssue);
       setAgingRows(rows);
       const parsedDate = parseSingleDateFromFileName(file.name);
       if (parsedDate) setAgingReportDate(parsedDate);

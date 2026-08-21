@@ -27,7 +27,7 @@ import { savePendingMappings } from "@/lib/pendingMappings";
 import { savePageState, loadPageState } from "@/lib/pageState";
 import { triggerDownload, todayIso, firstOfMonthIso } from "@/lib/download";
 import { sharedPageStyles } from "@/lib/pageStyles";
-import { findNegativeGridEntries } from "@/lib/validation";
+import { findNegativeGridEntries, checkRawRowsUsable } from "@/lib/validation";
 
 const STATE_KEY = "payroll";
 
@@ -345,6 +345,8 @@ export default function PayrollPage() {
           "This file doesn't look like an Employee Timesheet export — expected 'Store' and 'Total Working Time Decimal' columns."
         );
       }
+      const usableIssue = checkRawRowsUsable(rawRows, ["Store"], "Employee Timesheet file");
+      if (usableIssue) throw new Error(usableIssue);
       const { start, end } = parseDateRangeFromFileName(file.name);
       if (start && end) {
         const expectedStart = formatMMDDYYYYFromIso(payPeriodStart);
@@ -553,6 +555,8 @@ export default function PayrollPage() {
           "This file doesn't look like an Employee Timesheet export — expected 'Store' and 'Total Working Time Decimal' columns."
         );
       }
+      const usableIssue = checkRawRowsUsable(rawRows, ["Store"], "Employee Timesheet file");
+      if (usableIssue) throw new Error(usableIssue);
       const mappedRows = remapStoreNamesInRows(rawRows, "Store", storeNameMap);
       setArcadeStoreHours(buildStoreHours(mappedRows));
     } catch (e) {

@@ -17,6 +17,7 @@ import { savePendingMappings } from "@/lib/pendingMappings";
 import { triggerDownload, todayIso } from "@/lib/download";
 import { savePageState, loadPageState } from "@/lib/pageState";
 import { sharedPageStyles } from "@/lib/pageStyles";
+import { checkRawRowsUsable } from "@/lib/validation";
 
 const STATE_KEY = "inventory-flow";
 const CSV_MIME = "text/csv;charset=utf-8;";
@@ -289,6 +290,8 @@ export default function InventoryFlowPage() {
       if (!(slot.requiredCol in rows[0])) {
         throw new Error(`This file doesn't look right — no "${slot.requiredCol}" column found.`);
       }
+      const usableIssue = checkRawRowsUsable(rows, [slot.requiredCol], slot.label || "This file");
+      if (usableIssue) throw new Error(usableIssue);
 
       rowsRef.current[slot.key] = rows;
       setFileMeta((prev) => ({ ...prev, [slot.key]: { fileName: file.name, error: "", rowCount: rows.length } }));

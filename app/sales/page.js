@@ -15,6 +15,7 @@ import {
 } from "@/lib/salesProcessor";
 import { buildExportFileName, parseDateRangeFromFileName, isFileRangeWithinMonth, currentMonthIso } from "@/lib/fileNaming";
 import { buildStoreNameMap, remapStoreNamesInRows } from "@/lib/storeNameMapping";
+import { checkRawRowsUsable } from "@/lib/validation";
 import { savePendingMappings } from "@/lib/pendingMappings";
 import { savePageState, loadPageState } from "@/lib/pageState";
 import { triggerDownload, todayIso } from "@/lib/download";
@@ -85,6 +86,8 @@ export default function SalesPage() {
       if (!("Store" in rawRows[0])) {
         throw new Error("This file doesn't look like a sales export — no 'Store' column found.");
       }
+      const usableIssue = checkRawRowsUsable(rawRows, ["Store"], "Sales export");
+      if (usableIssue) throw new Error(usableIssue);
       // Reconciliation mode deliberately skips the Month-range gate, so a
       // year-to-date or any-date-range file can load for cross-checking
       // instead of being rejected — Accounting mode keeps the normal

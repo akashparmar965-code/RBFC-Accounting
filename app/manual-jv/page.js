@@ -20,7 +20,7 @@ import { savePendingMappings } from "@/lib/pendingMappings";
 import { savePageState, loadPageState } from "@/lib/pageState";
 import { triggerDownload, todayIso } from "@/lib/download";
 import { sharedPageStyles } from "@/lib/pageStyles";
-import { validateManualJvLines } from "@/lib/validation";
+import { validateManualJvLines, checkRawRowsUsable } from "@/lib/validation";
 
 const STATE_KEY = "manual-jv";
 const XLSX_MIME = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
@@ -425,6 +425,8 @@ export default function ManualJvPage() {
             "This file doesn't look like an Employee Timesheet export — expected 'Store' and 'Total Working Time Decimal' columns."
           );
         }
+        const usableIssue = checkRawRowsUsable(rawRows, ["Store"], "Employee Timesheet file");
+        if (usableIssue) throw new Error(usableIssue);
         const mappedRows = remapStoreNamesInRows(rawRows, "Store", storeNameMap);
         setStoreHours(buildStoreHours(mappedRows));
       } catch (e) {
