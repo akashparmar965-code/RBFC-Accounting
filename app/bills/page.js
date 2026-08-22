@@ -1414,8 +1414,8 @@ export default function BillsPage() {
 
             {creditNoteResult && creditNoteResult.unmappedProducts.length > 0 && (
               <div style={styles.errorBanner}>
-                {creditNoteResult.unmappedProducts.length} line(s) have a Product that doesn't match a known
-                mapping, so they were skipped. Add the product text below to{" "}
+                {creditNoteResult.unmappedProducts.length} credit memo(s) have a Memo that doesn't match a
+                known mapping, so they were skipped. Add the memo text below to{" "}
                 <Link href="/mappings" style={styles.inlineLink}>
                   Credit Note Mapping
                 </Link>{" "}

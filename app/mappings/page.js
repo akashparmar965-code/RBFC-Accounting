@@ -1698,13 +1698,15 @@ export default function MappingsPage() {
             <div style={styles.sectionCard}>
               <div style={styles.sectionTitle}>Credit Note Mapping</div>
               <div style={styles.sectionSub}>
-                A VIP Credit Note line is classified by its <strong>Products</strong> text, the same way
-                Product Mapping classifies Bill lines — but against this separate table, since Credit
-                Note's own Products vocabulary (ROI Account, Dealer Weekly Incentive Credit, RMA Shipping
-                Fee, Dealer Chargeback, ad-hoc &quot;Loans and Exchange...&quot; text, etc.) has nothing to
-                do with Bills' device/accessory SKUs. The first rule it matches (case-insensitive, per each
-                rule&apos;s own Match Type: Starts with / Contains / Fully matching) determines the Expense
-                Account. A line matching no rule is skipped and flagged.
+                A VIP Credit Note line is classified by its <strong>Memo</strong> text (not Products —
+                Memo is the same for every line of a given credit memo, so the whole credit memo posts as
+                one line; e.g. &quot;Weekly Incentive Credit - February 1st 2026&quot;, &quot;Xfinity
+                Activation Bounty $25 3/01/2026 - 3/31/2026&quot;, &quot;transfer commission withhold
+                earned on 4/16/26 due to OC New Age 4/1/26&quot;). Matched against this separate table
+                (not Product Mapping — Credit Note's Memo vocabulary has nothing to do with Bills'
+                device/accessory SKUs). The first rule it matches (case-insensitive, per each rule&apos;s
+                own Match Type: Starts with / Contains / Fully matching) determines the Expense Account. A
+                line matching no rule is skipped and flagged.
               </div>
 
               {pendingCreditNoteProducts.length > 0 && (
@@ -1731,7 +1733,7 @@ export default function MappingsPage() {
                 <table style={styles.table}>
                   <thead>
                     <tr>
-                      <th style={{ ...styles.th, textAlign: "left" }}>Product Prefix</th>
+                      <th style={{ ...styles.th, textAlign: "left" }}>Memo Prefix</th>
                       <th style={{ ...styles.th, textAlign: "left" }}>Match Type</th>
                       <th style={{ ...styles.th, textAlign: "left" }}>Expense Account</th>
                       <th style={{ ...styles.th, textAlign: "left" }}>Expense Memo (override)</th>
@@ -1809,7 +1811,7 @@ export default function MappingsPage() {
                       <td style={styles.td}>
                         <input
                           style={styles.cellInput}
-                          placeholder="e.g. ROI Account"
+                          placeholder="e.g. Weekly Incentive Credit"
                           value={creditNoteDraft.product_prefix}
                           onChange={(e) => setCreditNoteDraft((d) => ({ ...d, product_prefix: e.target.value }))}
                         />
