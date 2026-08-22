@@ -22,6 +22,7 @@ import {
   PURCHASE_COLUMNS,
 } from "@/lib/epayProcessor";
 import { parseOndigoWorkbook, buildOndigoBillRows } from "@/lib/ondigoProcessor";
+import { parseVipCreditNoteWorkbook, aggregateCreditNoteLines, buildCreditNoteRows } from "@/lib/creditNoteProcessor";
 import { buildExportFileName, dateRangeFromRows, isFileRangeWithinMonth, currentMonthIso } from "@/lib/fileNaming";
 import { savePendingMappings } from "@/lib/pendingMappings";
 import { savePageState, loadPageState } from "@/lib/pageState";
@@ -79,6 +80,21 @@ export default function BillsPage() {
   const ondigoFileInputRef = useRef(null);
   const lastOndigoFileRef = useRef(null);
 
+  // ---- Credit Note tab state ----
+  const [creditNoteFileName, setCreditNoteFileName] = useState(saved?.creditNoteFileName ?? null);
+  const [creditNoteDragOver, setCreditNoteDragOver] = useState(false);
+  const [creditNoteProcessing, setCreditNoteProcessing] = useState(false);
+  const [creditNoteError, setCreditNoteError] = useState("");
+  const [creditNoteResult, setCreditNoteResult] = useState(saved?.creditNoteResult ?? null); // { byCompany, unmatched, unmappedProducts }
+  const [creditNotePreviewOpen, setCreditNotePreviewOpen] = useState(saved?.creditNotePreviewOpen ?? false);
+  const [creditNoteSelectedCompanies, setCreditNoteSelectedCompanies] = useState(
+    new Set(saved?.creditNoteSelectedCompanies ?? [])
+  );
+  const [creditNotePeriodMonth, setCreditNotePeriodMonth] = useState(saved?.creditNotePeriodMonth ?? currentMonthIso());
+  const [creditNotePeriodMode, setCreditNotePeriodMode] = useState(saved?.creditNotePeriodMode ?? "accounting");
+  const creditNoteFileInputRef = useRef(null);
+  const lastCreditNoteFileRef = useRef(null);
+
   useEffect(() => {
     const supabase = createClient();
     supabase.auth.getSession().then(({ data }) => {
@@ -108,6 +124,12 @@ export default function BillsPage() {
       ondigoSelectedCompanies: Array.from(ondigoSelectedCompanies),
       ondigoPeriodMonth,
       ondigoPeriodMode,
+      creditNoteFileName,
+      creditNoteResult,
+      creditNotePreviewOpen,
+      creditNoteSelectedCompanies: Array.from(creditNoteSelectedCompanies),
+      creditNotePeriodMonth,
+      creditNotePeriodMode,
     });
   }, [
     activeTab,
@@ -129,6 +151,12 @@ export default function BillsPage() {
     ondigoSelectedCompanies,
     ondigoPeriodMonth,
     ondigoPeriodMode,
+    creditNoteFileName,
+    creditNoteResult,
+    creditNotePreviewOpen,
+    creditNoteSelectedCompanies,
+    creditNotePeriodMonth,
+    creditNotePeriodMode,
   ]);
 
   // ===================== VIP =====================
@@ -499,6 +527,132 @@ export default function BillsPage() {
     setOndigoSelectedCompanies(checked ? new Set(allCompanyNames) : new Set());
   }
 
+  // ===================== Credit Note =====================
+
+  const processCreditNoteFile = useCallback(async (file, monthStr, mode) => {
+    setCreditNoteProcessing(true);
+    setCreditNoteError("");
+    setCreditNoteResult(null);
+    setCreditNotePreviewOpen(false);
+    try {
+      const supabase = createClient();
+      const { data: storeMaster, error: smError } = await supabase.from("stores").select("*");
+      if (smError) throw new Error("Could not load Store Master: " + smError.message);
+      const { data: creditNoteMappings, error: cmError } = await supabase
+        .from("credit_note_mappings")
+        .select("*");
+      if (cmError) throw new Error("Could not load Credit Note mappings: " + cmError.message);
+      const { data: doorMappings, error: dmError } = await supabase.from("door_mappings").select("*");
+      if (dmError) throw new Error("Could not load door mappings: " + dmError.message);
+
+      const buffer = await file.arrayBuffer();
+      const rawRows = parseVipCreditNoteWorkbook(buffer);
+      if (!rawRows.length) throw new Error("No rows found in the Credit Note sheet of this file.");
+      if (!("Door Number" in rawRows[0])) {
+        throw new Error(
+          "This file doesn't look like a VIP export — no 'Door Number' column found in the Credit Note sheet."
+        );
+      }
+      const usableIssue = checkRawRowsUsable(rawRows, ["Door Number", "Invoice Number"], "VIP Credit Note sheet");
+      if (usableIssue) throw new Error(usableIssue);
+      // Reconciliation mode skips the Month-range gate so a year-to-date
+      // or any-date-range file can load for cross-checking — Accounting
+      // mode keeps the normal single-month guard for actual JE booking.
+      if (mode !== "reconciliation") {
+        const { start, end } = dateRangeFromRows(rawRows, "Tran Date");
+        if (start && end && !isFileRangeWithinMonth(start, end, monthStr)) {
+          throw new Error(
+            `This file's dates (${start}–${end}) don't fall within the selected Month (${monthStr}) — not loaded. Pick the correct Month, upload the correct file, or switch to Reconciliation mode.`
+          );
+        }
+      }
+
+      const groupedLines = aggregateCreditNoteLines(rawRows, creditNoteMappings || []);
+      const { byCompany, unmatchedDoors, unmappedProducts } = buildCreditNoteRows(
+        groupedLines,
+        storeMaster,
+        doorMappings || []
+      );
+      setCreditNoteResult({ byCompany, unmatched: unmatchedDoors, unmappedProducts });
+      setCreditNoteSelectedCompanies(new Set(Object.keys(byCompany)));
+      savePendingMappings({ unmatchedDoors, unmappedCreditNoteProducts: unmappedProducts });
+    } catch (e) {
+      setCreditNoteError(e.message || String(e));
+    } finally {
+      setCreditNoteProcessing(false);
+    }
+  }, []);
+
+  function handleCreditNoteFile(file) {
+    if (!file) return;
+    setCreditNoteFileName(file.name);
+    lastCreditNoteFileRef.current = file;
+    processCreditNoteFile(file, creditNotePeriodMonth, creditNotePeriodMode);
+  }
+
+  function handleCreditNoteFileChange(e) {
+    handleCreditNoteFile(e.target.files?.[0]);
+  }
+
+  function handleCreditNoteDrop(e) {
+    e.preventDefault();
+    setCreditNoteDragOver(false);
+    handleCreditNoteFile(e.dataTransfer.files?.[0]);
+  }
+
+  function handleCreditNoteMonthChange(e) {
+    const next = e.target.value;
+    setCreditNotePeriodMonth(next);
+    if (lastCreditNoteFileRef.current) processCreditNoteFile(lastCreditNoteFileRef.current, next, creditNotePeriodMode);
+  }
+
+  function handleCreditNoteModeChange(next) {
+    setCreditNotePeriodMode(next);
+    if (lastCreditNoteFileRef.current) processCreditNoteFile(lastCreditNoteFileRef.current, creditNotePeriodMonth, next);
+  }
+
+  async function downloadCreditNoteCompanyXlsx(company, rows) {
+    const buf = rowsToXlsxBuffer(rows, company);
+    triggerDownload(
+      new Blob([buf], { type: XLSX_MIME }),
+      buildExportFileName(company, "CreditNote", rows, "Date", "xlsx")
+    );
+  }
+
+  function downloadCreditNoteCompanyCsv(company, rows) {
+    triggerDownload(
+      new Blob([rowsToCsv(rows)], { type: CSV_MIME }),
+      buildExportFileName(company, "CreditNote", rows, "Date", "csv")
+    );
+  }
+
+  async function downloadAllCreditNoteZip(format) {
+    const JSZip = (await import("jszip")).default;
+    const zip = new JSZip();
+    for (const [company, rows] of Object.entries(creditNoteResult.byCompany)) {
+      if (format === "xlsx") {
+        zip.file(buildExportFileName(company, "CreditNote", rows, "Date", "xlsx"), rowsToXlsxBuffer(rows, company));
+      } else {
+        zip.file(buildExportFileName(company, "CreditNote", rows, "Date", "csv"), rowsToCsv(rows));
+      }
+    }
+    const blob = await zip.generateAsync({ type: "blob" });
+    triggerDownload(blob, `Bills-CreditNote-AllCompanies-${format}.zip`);
+  }
+
+  function toggleCreditNoteCompany(company) {
+    setCreditNoteSelectedCompanies((prev) => {
+      const next = new Set(prev);
+      if (next.has(company)) next.delete(company);
+      else next.add(company);
+      return next;
+    });
+  }
+
+  function toggleCreditNoteSelectAll(allCompanyNames, checked) {
+    setCreditNoteSelectedCompanies(checked ? new Set(allCompanyNames) : new Set());
+  }
+
   if (session === undefined) {
     return <div style={styles.loadingScreen}>Loading…</div>;
   }
@@ -535,6 +689,10 @@ export default function BillsPage() {
   const ondigoTotalRows = ondigoCompanyEntries.reduce((sum, [, rows]) => sum + rows.length, 0);
   const ondigoGrandTotal = ondigoCompanyEntries.reduce((sum, [, rows]) => sum + rowsTotal(rows), 0);
 
+  const creditNoteCompanyEntries = creditNoteResult ? Object.entries(creditNoteResult.byCompany) : [];
+  const creditNoteTotalRows = creditNoteCompanyEntries.reduce((sum, [, rows]) => sum + rows.length, 0);
+  const creditNoteGrandTotal = creditNoteCompanyEntries.reduce((sum, [, rows]) => sum + rowsTotal(rows), 0);
+
   return (
     <div style={styles.shell}>
       <Sidebar userEmail={session.user.email} />
@@ -548,7 +706,9 @@ export default function BillsPage() {
                 ? "Upload the VIP export — device and service lines come back together, one file per company"
                 : activeTab === "epay"
                 ? "Upload the Epay invoices export — get income and purchase uploads, one pair per company"
-                : "Upload the Ondigo invoices export — matched by store address, one file per company"}
+                : activeTab === "ondigo"
+                ? "Upload the Ondigo invoices export — matched by store address, one file per company"
+                : "Upload the VIP export's Credit Note sheet — classified by Credit Note Mapping, one file per company"}
             </p>
           </div>
         </div>
@@ -571,6 +731,12 @@ export default function BillsPage() {
             onClick={() => setActiveTab("ondigo")}
           >
             Ondigo
+          </button>
+          <button
+            style={activeTab === "creditnote" ? styles.tabActive : styles.tab}
+            onClick={() => setActiveTab("creditnote")}
+          >
+            Credit Note
           </button>
         </div>
 
@@ -1144,6 +1310,213 @@ export default function BillsPage() {
                       <tbody>
                         {ondigoCompanyEntries
                           .filter(([company]) => ondigoSelectedCompanies.has(company))
+                          .flatMap(([, rows]) => rows)
+                          .map((r, i) => (
+                            <tr key={i} style={styles.tr}>
+                              {CSV_COLUMNS.map((c) => (
+                                <td key={c} style={styles.td}>
+                                  {r[c]}
+                                </td>
+                              ))}
+                            </tr>
+                          ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </>
+            )}
+          </>
+        )}
+
+        {activeTab === "creditnote" && (
+          <>
+            <div style={styles.card}>
+              <div style={styles.fieldRow}>
+                <label style={styles.fieldBlock}>
+                  <span style={styles.fieldLabel}>Month</span>
+                  <input
+                    type="month"
+                    style={styles.dateInput}
+                    value={creditNotePeriodMonth}
+                    onChange={handleCreditNoteMonthChange}
+                    disabled={creditNotePeriodMode === "reconciliation"}
+                  />
+                </label>
+                <div style={styles.fieldBlock}>
+                  <span style={styles.fieldLabel}>Mode</span>
+                  <div style={styles.modeToggleRow}>
+                    <button
+                      style={{
+                        ...styles.modeBtn,
+                        ...(creditNotePeriodMode === "accounting" ? styles.modeBtnActive : {}),
+                      }}
+                      onClick={() => handleCreditNoteModeChange("accounting")}
+                    >
+                      Accounting
+                    </button>
+                    <button
+                      style={{
+                        ...styles.modeBtn,
+                        ...(creditNotePeriodMode === "reconciliation" ? styles.modeBtnActive : {}),
+                      }}
+                      onClick={() => handleCreditNoteModeChange("reconciliation")}
+                    >
+                      Reconciliation
+                    </button>
+                  </div>
+                </div>
+              </div>
+              <input
+                ref={creditNoteFileInputRef}
+                type="file"
+                accept=".xlsx,.xls,.csv"
+                onChange={handleCreditNoteFileChange}
+                style={{ display: "none" }}
+              />
+              <div
+                style={{ ...styles.dropzone, ...(creditNoteDragOver ? styles.dropzoneActive : {}) }}
+                onClick={() => creditNoteFileInputRef.current?.click()}
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  setCreditNoteDragOver(true);
+                }}
+                onDragLeave={() => setCreditNoteDragOver(false)}
+                onDrop={handleCreditNoteDrop}
+              >
+                <div style={styles.dropzoneIcon}>📄</div>
+                <div style={styles.dropzoneText}>
+                  {creditNoteFileName || "Choose or drop VIP export (reads the Credit Note sheet)"}
+                </div>
+              </div>
+              {creditNotePeriodMode === "reconciliation" && (
+                <div style={styles.reconciliationNote}>
+                  Reconciliation mode — the Month check is skipped, so a year-to-date or any-date-range file
+                  will load.
+                </div>
+              )}
+            </div>
+
+            {creditNoteProcessing && <div style={styles.info}>Processing…</div>}
+            {creditNoteError && <div style={styles.errorBanner}>{creditNoteError}</div>}
+
+            {creditNoteResult && creditNoteResult.unmatched.length > 0 && (
+              <div style={styles.warnBanner}>
+                {creditNoteResult.unmatched.length} door number(s) in the file don't match any store in your
+                Store Master, so they were skipped: <strong>{creditNoteResult.unmatched.join(", ")}</strong>.
+                Add them in{" "}
+                <Link href="/mappings" style={styles.inlineLink}>
+                  Door Mapping
+                </Link>{" "}
+                or add the store in Store Master, then re-upload.
+              </div>
+            )}
+
+            {creditNoteResult && creditNoteResult.unmappedProducts.length > 0 && (
+              <div style={styles.errorBanner}>
+                {creditNoteResult.unmappedProducts.length} line(s) have a Product that doesn't match a known
+                mapping, so they were skipped. Add the product text below to{" "}
+                <Link href="/mappings" style={styles.inlineLink}>
+                  Credit Note Mapping
+                </Link>{" "}
+                and re-upload:
+                <ul style={styles.unmappedList}>
+                  {creditNoteResult.unmappedProducts.map((m, i) => (
+                    <li key={i}>
+                      Door {m.doorNumber} · {m.invoiceNo} · "{m.product}"
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {creditNoteResult && creditNoteTotalRows > 0 && (
+              <>
+                <div style={styles.actionsRow}>
+                  <button style={styles.previewBtn} onClick={() => setCreditNotePreviewOpen((v) => !v)}>
+                    👁 {creditNotePreviewOpen ? "Hide preview" : "Preview selected"}
+                  </button>
+                  <button style={styles.xlsxBtn} onClick={() => downloadAllCreditNoteZip("xlsx")}>
+                    📘 Download all (XLSX)
+                  </button>
+                  <button style={styles.csvBtnMuted} onClick={() => downloadAllCreditNoteZip("csv")}>
+                    Download all (CSV)
+                  </button>
+                </div>
+
+                <div style={styles.resultsHeader}>
+                  <h2 style={styles.h2}>
+                    {creditNoteCompanyEntries.length} compan{creditNoteCompanyEntries.length === 1 ? "y" : "ies"}{" "}
+                    · {creditNoteTotalRows} line{creditNoteTotalRows === 1 ? "" : "s"} · Total $
+                    {creditNoteGrandTotal.toFixed(2)}
+                  </h2>
+                  <label style={styles.selectAllLabel}>
+                    <input
+                      type="checkbox"
+                      checked={
+                        creditNoteSelectedCompanies.size === creditNoteCompanyEntries.length &&
+                        creditNoteCompanyEntries.length > 0
+                      }
+                      onChange={(e) =>
+                        toggleCreditNoteSelectAll(
+                          creditNoteCompanyEntries.map(([company]) => company),
+                          e.target.checked
+                        )
+                      }
+                    />
+                    Select all
+                  </label>
+                </div>
+
+                <div style={styles.companyGrid}>
+                  {creditNoteCompanyEntries.map(([company, rows]) => (
+                    <div key={company} style={styles.companyCard}>
+                      <label style={styles.companyCheckLabel}>
+                        <input
+                          type="checkbox"
+                          checked={creditNoteSelectedCompanies.has(company)}
+                          onChange={() => toggleCreditNoteCompany(company)}
+                        />
+                        <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
+                          <span style={styles.companyName}>{company}</span>
+                          <span style={styles.companyMeta}>
+                            {rows.length} line(s) · ${rowsTotal(rows).toFixed(2)}
+                          </span>
+                        </div>
+                      </label>
+                      <div style={{ display: "flex", gap: 6 }}>
+                        <button
+                          style={styles.secondaryBtn}
+                          onClick={() => downloadCreditNoteCompanyXlsx(company, rows)}
+                        >
+                          XLSX
+                        </button>
+                        <button
+                          style={styles.secondaryBtn}
+                          onClick={() => downloadCreditNoteCompanyCsv(company, rows)}
+                        >
+                          CSV
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                {creditNotePreviewOpen && (
+                  <div style={styles.previewWrap}>
+                    <table style={styles.table}>
+                      <thead>
+                        <tr>
+                          {CSV_COLUMNS.map((c) => (
+                            <th key={c} style={styles.th}>
+                              {c}
+                            </th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {creditNoteCompanyEntries
+                          .filter(([company]) => creditNoteSelectedCompanies.has(company))
                           .flatMap(([, rows]) => rows)
                           .map((r, i) => (
                             <tr key={i} style={styles.tr}>

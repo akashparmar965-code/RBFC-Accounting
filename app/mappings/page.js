@@ -13,6 +13,7 @@ import {
   removePendingStoreName,
   removePendingTenderType,
   removePendingOndigoAddress,
+  removePendingCreditNoteProductsMatching,
 } from "@/lib/pendingMappings";
 
 const emptyProductDraft = { product_prefix: "", match_type: "starts_with", expense_account: "", expense_memo: "", notes: "" };
@@ -26,6 +27,7 @@ const emptyAccountDraft = { account_number: "", company_name: "", qbo_class: "",
 const emptyStoreNameDraft = { raw_name: "", elevate_name: "", notes: "" };
 const emptyDepositAccountDraft = { tender_type: "", deposit_to_account: "", payment_method: "", notes: "" };
 const emptyOndigoAddressDraft = { street_address: "", company_name: "", qbo_class: "", notes: "" };
+const emptyCreditNoteDraft = { product_prefix: "", match_type: "starts_with", expense_account: "", expense_memo: "", notes: "" };
 
 const STOCK_TRANSFER_ACCOUNT_LABELS = {
   devices_transfer_out: "Devices Transfer Out",
@@ -64,6 +66,7 @@ export default function MappingsPage() {
   const [depositDefaultRows, setDepositDefaultRows] = useState([]);
   const [ondigoAddressRows, setOndigoAddressRows] = useState([]);
   const [ondigoDefaultRows, setOndigoDefaultRows] = useState([]);
+  const [creditNoteRows, setCreditNoteRows] = useState([]);
   const [elevateNameOptions, setElevateNameOptions] = useState([]); // [{ value, label }]
   const [companyOptions, setCompanyOptions] = useState([]);
   const [qboClassOptions, setQboClassOptions] = useState([]); // Store Master's elevate_name_new_qbo_class, distinct + sorted
@@ -75,6 +78,7 @@ export default function MappingsPage() {
   const [storeNameDraft, setStoreNameDraft] = useState(emptyStoreNameDraft);
   const [depositAccountDraft, setDepositAccountDraft] = useState(emptyDepositAccountDraft);
   const [ondigoAddressDraft, setOndigoAddressDraft] = useState(emptyOndigoAddressDraft);
+  const [creditNoteDraft, setCreditNoteDraft] = useState(emptyCreditNoteDraft);
   const [confirmDelete, setConfirmDelete] = useState(null); // { table, id }
   const [pendingDoors, setPendingDoors] = useState([]);
   const [pendingProducts, setPendingProducts] = useState([]);
@@ -82,6 +86,7 @@ export default function MappingsPage() {
   const [pendingStoreNames, setPendingStoreNames] = useState([]);
   const [pendingTenderTypes, setPendingTenderTypes] = useState([]);
   const [pendingOndigoAddresses, setPendingOndigoAddresses] = useState([]);
+  const [pendingCreditNoteProducts, setPendingCreditNoteProducts] = useState([]);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
@@ -103,6 +108,7 @@ export default function MappingsPage() {
     setPendingStoreNames(pending.unmatchedStoreNames);
     setPendingTenderTypes(pending.unmatchedTenderTypes);
     setPendingOndigoAddresses(pending.unmatchedOndigoAddresses);
+    setPendingCreditNoteProducts(pending.unmappedCreditNoteProducts);
   }, []);
 
   const loadAll = useCallback(async () => {
@@ -120,6 +126,7 @@ export default function MappingsPage() {
       depositDefaultRes,
       ondigoAddressRes,
       ondigoDefaultRes,
+      creditNoteRes,
     ] = await Promise.all([
       supabase.from("product_mappings").select("*").order("product_prefix", { ascending: true }),
       supabase.from("door_mappings").select("*").order("door_number", { ascending: true }),
@@ -135,6 +142,7 @@ export default function MappingsPage() {
       supabase.from("deposit_defaults").select("*").order("key", { ascending: true }),
       supabase.from("ondigo_address_mappings").select("*").order("street_address", { ascending: true }),
       supabase.from("ondigo_defaults").select("*").order("key", { ascending: true }),
+      supabase.from("credit_note_mappings").select("*").order("product_prefix", { ascending: true }),
     ]);
     if (productRes.error) setError(productRes.error.message);
     else setProductRows(productRes.data || []);
@@ -154,6 +162,8 @@ export default function MappingsPage() {
     else setOndigoAddressRows(ondigoAddressRes.data || []);
     if (ondigoDefaultRes.error) setError(ondigoDefaultRes.error.message);
     else setOndigoDefaultRows(ondigoDefaultRes.data || []);
+    if (creditNoteRes.error) setError(creditNoteRes.error.message);
+    else setCreditNoteRows(creditNoteRes.data || []);
     if (!checklistRes.error) {
       setCompanyOptions(Array.from(new Set((checklistRes.data || []).map((r) => r.company))).sort());
     }
@@ -197,6 +207,15 @@ export default function MappingsPage() {
     if (error) setError(error.message);
   }
 
+  async function updateCreditNoteField(id, field, value) {
+    setCreditNoteRows((prev) => prev.map((r) => (r.id === id ? { ...r, [field]: value } : r)));
+    const { error } = await supabase
+      .from("credit_note_mappings")
+      .update({ [field]: value || null })
+      .eq("id", id);
+    if (error) setError(error.message);
+  }
+
   async function addProductRow() {
     if (!productDraft.product_prefix.trim() || !productDraft.expense_account.trim()) {
       setError("Product Prefix and Expense Account are required.");
@@ -224,6 +243,43 @@ export default function MappingsPage() {
     setProductDraft(emptyProductDraft);
     removePendingProductsMatching(addedPrefix, addedMatchType);
     setPendingProducts((prev) =>
+      prev.filter((p) => {
+        const productLower = p.product.toLowerCase();
+        const prefixLower = addedPrefix.toLowerCase();
+        if (addedMatchType === "exact") return productLower !== prefixLower;
+        if (addedMatchType === "contains") return !productLower.includes(prefixLower);
+        return !productLower.startsWith(prefixLower);
+      })
+    );
+  }
+
+  async function addCreditNoteRow() {
+    if (!creditNoteDraft.product_prefix.trim() || !creditNoteDraft.expense_account.trim()) {
+      setError("Product Prefix and Expense Account are required.");
+      return;
+    }
+    const { data, error } = await supabase
+      .from("credit_note_mappings")
+      .insert([
+        {
+          product_prefix: creditNoteDraft.product_prefix.trim(),
+          match_type: creditNoteDraft.match_type || "starts_with",
+          expense_account: creditNoteDraft.expense_account.trim(),
+          expense_memo: creditNoteDraft.expense_memo.trim() || null,
+          notes: creditNoteDraft.notes.trim() || null,
+        },
+      ])
+      .select();
+    if (error) {
+      setError(error.message);
+      return;
+    }
+    setCreditNoteRows((prev) => [...prev, ...(data || [])]);
+    const addedPrefix = creditNoteDraft.product_prefix.trim();
+    const addedMatchType = creditNoteDraft.match_type || "starts_with";
+    setCreditNoteDraft(emptyCreditNoteDraft);
+    removePendingCreditNoteProductsMatching(addedPrefix, addedMatchType);
+    setPendingCreditNoteProducts((prev) =>
       prev.filter((p) => {
         const productLower = p.product.toLowerCase();
         const prefixLower = addedPrefix.toLowerCase();
@@ -500,6 +556,15 @@ export default function MappingsPage() {
     setPendingProducts((prev) => prev.filter((p) => p !== item));
   }
 
+  function useCreditNoteSuggestion(product) {
+    setCreditNoteDraft((d) => ({ ...d, product_prefix: product }));
+  }
+
+  function dismissPendingCreditNoteProduct(item) {
+    removePendingCreditNoteProductsMatching(item.product);
+    setPendingCreditNoteProducts((prev) => prev.filter((p) => p !== item));
+  }
+
   async function handleDelete() {
     if (!confirmDelete) return;
     const { table, id } = confirmDelete;
@@ -510,6 +575,7 @@ export default function MappingsPage() {
     else if (table === "epay_account_mappings") setAccountRows((prev) => prev.filter((r) => r.id !== id));
     else if (table === "deposit_account_mappings") setDepositAccountRows((prev) => prev.filter((r) => r.id !== id));
     else if (table === "ondigo_address_mappings") setOndigoAddressRows((prev) => prev.filter((r) => r.id !== id));
+    else if (table === "credit_note_mappings") setCreditNoteRows((prev) => prev.filter((r) => r.id !== id));
     else setStoreNameRows((prev) => prev.filter((r) => r.id !== id));
     setConfirmDelete(null);
   }
@@ -576,6 +642,12 @@ export default function MappingsPage() {
             onClick={() => setActiveTab("ondigo")}
           >
             Ondigo
+          </button>
+          <button
+            style={activeTab === "creditnote" ? styles.tabActive : styles.tab}
+            onClick={() => setActiveTab("creditnote")}
+          >
+            Credit Note
           </button>
         </div>
 
@@ -1419,7 +1491,7 @@ export default function MappingsPage() {
               </div>
             </div>
           </>
-        ) : (
+        ) : activeTab === "ondigo" ? (
           <>
             <div style={styles.sectionCard}>
               <div style={styles.sectionTitle}>Ondigo — Defaults</div>
@@ -1612,6 +1684,175 @@ export default function MappingsPage() {
                       </td>
                       <td style={styles.td}>
                         <button style={styles.addBtn} onClick={addOndigoAddressRow}>
+                          + Add
+                        </button>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </>
+        ) : (
+          <>
+            <div style={styles.sectionCard}>
+              <div style={styles.sectionTitle}>Credit Note Mapping</div>
+              <div style={styles.sectionSub}>
+                A VIP Credit Note line is classified by its <strong>Products</strong> text, the same way
+                Product Mapping classifies Bill lines — but against this separate table, since Credit
+                Note's own Products vocabulary (ROI Account, Dealer Weekly Incentive Credit, RMA Shipping
+                Fee, Dealer Chargeback, ad-hoc &quot;Loans and Exchange...&quot; text, etc.) has nothing to
+                do with Bills' device/accessory SKUs. The first rule it matches (case-insensitive, per each
+                rule&apos;s own Match Type: Starts with / Contains / Fully matching) determines the Expense
+                Account. A line matching no rule is skipped and flagged.
+              </div>
+
+              {pendingCreditNoteProducts.length > 0 && (
+                <div style={styles.pendingRow}>
+                  <span style={styles.pendingLabel}>From your last upload:</span>
+                  {pendingCreditNoteProducts.map((p, i) => (
+                    <span key={i} style={styles.chip}>
+                      <button
+                        style={styles.chipMain}
+                        title={`Door ${p.doorNumber} · ${p.invoiceNo}`}
+                        onClick={() => useCreditNoteSuggestion(p.product)}
+                      >
+                        {p.product}
+                      </button>
+                      <button style={styles.chipDismiss} onClick={() => dismissPendingCreditNoteProduct(p)}>
+                        ×
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              )}
+
+              <div style={styles.tableWrap}>
+                <table style={styles.table}>
+                  <thead>
+                    <tr>
+                      <th style={{ ...styles.th, textAlign: "left" }}>Product Prefix</th>
+                      <th style={{ ...styles.th, textAlign: "left" }}>Match Type</th>
+                      <th style={{ ...styles.th, textAlign: "left" }}>Expense Account</th>
+                      <th style={{ ...styles.th, textAlign: "left" }}>Expense Memo (override)</th>
+                      <th style={{ ...styles.th, textAlign: "left" }}>Notes</th>
+                      <th style={styles.th}></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {creditNoteRows.map((r) => (
+                      <tr key={r.id} style={styles.tr}>
+                        <td style={styles.td}>
+                          <input
+                            style={styles.cellInput}
+                            defaultValue={r.product_prefix}
+                            onBlur={(e) => updateCreditNoteField(r.id, "product_prefix", e.target.value)}
+                          />
+                        </td>
+                        <td style={styles.td}>
+                          <select
+                            style={styles.cellInput}
+                            value={r.match_type || "starts_with"}
+                            onChange={(e) => updateCreditNoteField(r.id, "match_type", e.target.value)}
+                          >
+                            {MATCH_TYPE_OPTIONS.map((o) => (
+                              <option key={o.value} value={o.value}>
+                                {o.label}
+                              </option>
+                            ))}
+                          </select>
+                        </td>
+                        <td style={styles.td}>
+                          <input
+                            style={styles.cellInput}
+                            defaultValue={r.expense_account}
+                            onBlur={(e) => updateCreditNoteField(r.id, "expense_account", e.target.value)}
+                          />
+                        </td>
+                        <td style={styles.td}>
+                          <input
+                            style={styles.cellInput}
+                            placeholder="(uses raw memo text)"
+                            defaultValue={r.expense_memo || ""}
+                            onBlur={(e) => updateCreditNoteField(r.id, "expense_memo", e.target.value)}
+                          />
+                        </td>
+                        <td style={styles.td}>
+                          <input
+                            style={styles.cellInput}
+                            defaultValue={r.notes || ""}
+                            onBlur={(e) => updateCreditNoteField(r.id, "notes", e.target.value)}
+                          />
+                        </td>
+                        <td style={{ ...styles.td, whiteSpace: "nowrap" }}>
+                          {confirmDelete?.table === "credit_note_mappings" && confirmDelete.id === r.id ? (
+                            <>
+                              <button style={{ ...styles.linkBtn, color: "var(--danger)" }} onClick={handleDelete}>
+                                Confirm
+                              </button>
+                              <button style={styles.linkBtn} onClick={() => setConfirmDelete(null)}>
+                                Cancel
+                              </button>
+                            </>
+                          ) : (
+                            <button
+                              style={{ ...styles.linkBtn, color: "var(--danger)" }}
+                              onClick={() => setConfirmDelete({ table: "credit_note_mappings", id: r.id })}
+                            >
+                              Delete
+                            </button>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                    <tr>
+                      <td style={styles.td}>
+                        <input
+                          style={styles.cellInput}
+                          placeholder="e.g. ROI Account"
+                          value={creditNoteDraft.product_prefix}
+                          onChange={(e) => setCreditNoteDraft((d) => ({ ...d, product_prefix: e.target.value }))}
+                        />
+                      </td>
+                      <td style={styles.td}>
+                        <select
+                          style={styles.cellInput}
+                          value={creditNoteDraft.match_type}
+                          onChange={(e) => setCreditNoteDraft((d) => ({ ...d, match_type: e.target.value }))}
+                        >
+                          {MATCH_TYPE_OPTIONS.map((o) => (
+                            <option key={o.value} value={o.value}>
+                              {o.label}
+                            </option>
+                          ))}
+                        </select>
+                      </td>
+                      <td style={styles.td}>
+                        <input
+                          style={styles.cellInput}
+                          placeholder="e.g. Dealer Incentives"
+                          value={creditNoteDraft.expense_account}
+                          onChange={(e) => setCreditNoteDraft((d) => ({ ...d, expense_account: e.target.value }))}
+                        />
+                      </td>
+                      <td style={styles.td}>
+                        <input
+                          style={styles.cellInput}
+                          placeholder="(optional)"
+                          value={creditNoteDraft.expense_memo}
+                          onChange={(e) => setCreditNoteDraft((d) => ({ ...d, expense_memo: e.target.value }))}
+                        />
+                      </td>
+                      <td style={styles.td}>
+                        <input
+                          style={styles.cellInput}
+                          placeholder="(optional)"
+                          value={creditNoteDraft.notes}
+                          onChange={(e) => setCreditNoteDraft((d) => ({ ...d, notes: e.target.value }))}
+                        />
+                      </td>
+                      <td style={styles.td}>
+                        <button style={styles.addBtn} onClick={addCreditNoteRow}>
                           + Add
                         </button>
                       </td>
