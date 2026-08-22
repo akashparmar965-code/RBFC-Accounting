@@ -895,32 +895,43 @@ export default function BillsPage() {
                 </div>
 
                 {previewOpen && (
-                  <div style={styles.previewWrap}>
-                    <table style={styles.table}>
-                      <thead>
-                        <tr>
-                          {CSV_COLUMNS.map((c) => (
-                            <th key={c} style={styles.th}>
-                              {c}
-                            </th>
-                          ))}
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {companyEntries
-                          .filter(([company]) => selectedCompanies.has(company))
-                          .flatMap(([, rows]) => rows)
-                          .map((r, i) => (
-                            <tr key={i} style={styles.tr}>
-                              {CSV_COLUMNS.map((c) => (
-                                <td key={c} style={styles.td}>
-                                  {r[c]}
-                                </td>
-                              ))}
-                            </tr>
-                          ))}
-                      </tbody>
-                    </table>
+                  <div style={styles.previewGroups}>
+                    {companyEntries
+                      .filter(([company]) => selectedCompanies.has(company))
+                      .map(([company, rows]) => (
+                        <div key={company} style={styles.previewGroup}>
+                          <div style={styles.previewGroupHeader}>
+                            <span style={styles.companyName}>{company}</span>
+                            <span style={styles.previewMeta}>
+                              {rows.length} bill line{rows.length === 1 ? "" : "s"} · ${rowsTotal(rows).toFixed(2)}
+                            </span>
+                          </div>
+                          <div style={styles.previewWrap}>
+                            <table style={styles.table}>
+                              <thead>
+                                <tr>
+                                  {CSV_COLUMNS.map((c) => (
+                                    <th key={c} style={styles.th}>
+                                      {c}
+                                    </th>
+                                  ))}
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {rows.map((r, i) => (
+                                  <tr key={i} style={styles.tr}>
+                                    {CSV_COLUMNS.map((c) => (
+                                      <td key={c} style={styles.td}>
+                                        {r[c]}
+                                      </td>
+                                    ))}
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        </div>
+                      ))}
                   </div>
                 )}
               </>
@@ -1093,65 +1104,86 @@ export default function BillsPage() {
                 </div>
 
                 {epayPreviewOpen && (
-                  <>
-                    <div style={styles.previewSectionTitle}>Income</div>
-                    <div style={styles.previewWrap}>
-                      <table style={styles.table}>
-                        <thead>
-                          <tr>
-                            {INCOME_COLUMNS.map((c) => (
-                              <th key={c} style={styles.th}>
-                                {c}
-                              </th>
-                            ))}
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {epayCompanyNames
-                            .filter((c) => epaySelectedCompanies.has(c))
-                            .flatMap((c) => epayResult.incomeByCompany[c] || [])
-                            .map((r, i) => (
-                              <tr key={i} style={styles.tr}>
-                                {INCOME_COLUMNS.map((c) => (
-                                  <td key={c} style={styles.td}>
-                                    {r[c]}
-                                  </td>
-                                ))}
-                              </tr>
-                            ))}
-                        </tbody>
-                      </table>
-                    </div>
-
-                    <div style={styles.previewSectionTitle}>Purchase</div>
-                    <div style={styles.previewWrap}>
-                      <table style={styles.table}>
-                        <thead>
-                          <tr>
-                            {PURCHASE_COLUMNS.map((c) => (
-                              <th key={c} style={styles.th}>
-                                {c}
-                              </th>
-                            ))}
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {epayCompanyNames
-                            .filter((c) => epaySelectedCompanies.has(c))
-                            .flatMap((c) => epayResult.purchaseByCompany[c] || [])
-                            .map((r, i) => (
-                              <tr key={i} style={styles.tr}>
-                                {PURCHASE_COLUMNS.map((c) => (
-                                  <td key={c} style={styles.td}>
-                                    {r[c]}
-                                  </td>
-                                ))}
-                              </tr>
-                            ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  </>
+                  <div style={styles.previewGroups}>
+                    {epayCompanyNames
+                      .filter((c) => epaySelectedCompanies.has(c))
+                      .map((company) => {
+                        const incomeRows = epayResult.incomeByCompany[company] || [];
+                        const purchaseRows = epayResult.purchaseByCompany[company] || [];
+                        if (incomeRows.length === 0 && purchaseRows.length === 0) return null;
+                        return (
+                          <div key={company} style={styles.previewGroup}>
+                            <div style={styles.previewGroupHeader}>
+                              <span style={styles.companyName}>{company}</span>
+                            </div>
+                            {incomeRows.length > 0 && (
+                              <>
+                                <div style={styles.previewSectionTitle}>
+                                  Income · {incomeRows.length} line{incomeRows.length === 1 ? "" : "s"} · $
+                                  {epayRowsTotal(incomeRows, "Product/Service Amount").toFixed(2)}
+                                </div>
+                                <div style={styles.previewWrap}>
+                                  <table style={styles.table}>
+                                    <thead>
+                                      <tr>
+                                        {INCOME_COLUMNS.map((c) => (
+                                          <th key={c} style={styles.th}>
+                                            {c}
+                                          </th>
+                                        ))}
+                                      </tr>
+                                    </thead>
+                                    <tbody>
+                                      {incomeRows.map((r, i) => (
+                                        <tr key={i} style={styles.tr}>
+                                          {INCOME_COLUMNS.map((c) => (
+                                            <td key={c} style={styles.td}>
+                                              {r[c]}
+                                            </td>
+                                          ))}
+                                        </tr>
+                                      ))}
+                                    </tbody>
+                                  </table>
+                                </div>
+                              </>
+                            )}
+                            {purchaseRows.length > 0 && (
+                              <>
+                                <div style={styles.previewSectionTitle}>
+                                  Purchase · {purchaseRows.length} line{purchaseRows.length === 1 ? "" : "s"} · $
+                                  {epayRowsTotal(purchaseRows, "Expense Amount").toFixed(2)}
+                                </div>
+                                <div style={styles.previewWrap}>
+                                  <table style={styles.table}>
+                                    <thead>
+                                      <tr>
+                                        {PURCHASE_COLUMNS.map((c) => (
+                                          <th key={c} style={styles.th}>
+                                            {c}
+                                          </th>
+                                        ))}
+                                      </tr>
+                                    </thead>
+                                    <tbody>
+                                      {purchaseRows.map((r, i) => (
+                                        <tr key={i} style={styles.tr}>
+                                          {PURCHASE_COLUMNS.map((c) => (
+                                            <td key={c} style={styles.td}>
+                                              {r[c]}
+                                            </td>
+                                          ))}
+                                        </tr>
+                                      ))}
+                                    </tbody>
+                                  </table>
+                                </div>
+                              </>
+                            )}
+                          </div>
+                        );
+                      })}
+                  </div>
                 )}
               </>
             )}
@@ -1296,32 +1328,43 @@ export default function BillsPage() {
                 </div>
 
                 {ondigoPreviewOpen && (
-                  <div style={styles.previewWrap}>
-                    <table style={styles.table}>
-                      <thead>
-                        <tr>
-                          {CSV_COLUMNS.map((c) => (
-                            <th key={c} style={styles.th}>
-                              {c}
-                            </th>
-                          ))}
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {ondigoCompanyEntries
-                          .filter(([company]) => ondigoSelectedCompanies.has(company))
-                          .flatMap(([, rows]) => rows)
-                          .map((r, i) => (
-                            <tr key={i} style={styles.tr}>
-                              {CSV_COLUMNS.map((c) => (
-                                <td key={c} style={styles.td}>
-                                  {r[c]}
-                                </td>
-                              ))}
-                            </tr>
-                          ))}
-                      </tbody>
-                    </table>
+                  <div style={styles.previewGroups}>
+                    {ondigoCompanyEntries
+                      .filter(([company]) => ondigoSelectedCompanies.has(company))
+                      .map(([company, rows]) => (
+                        <div key={company} style={styles.previewGroup}>
+                          <div style={styles.previewGroupHeader}>
+                            <span style={styles.companyName}>{company}</span>
+                            <span style={styles.previewMeta}>
+                              {rows.length} bill line{rows.length === 1 ? "" : "s"} · ${rowsTotal(rows).toFixed(2)}
+                            </span>
+                          </div>
+                          <div style={styles.previewWrap}>
+                            <table style={styles.table}>
+                              <thead>
+                                <tr>
+                                  {CSV_COLUMNS.map((c) => (
+                                    <th key={c} style={styles.th}>
+                                      {c}
+                                    </th>
+                                  ))}
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {rows.map((r, i) => (
+                                  <tr key={i} style={styles.tr}>
+                                    {CSV_COLUMNS.map((c) => (
+                                      <td key={c} style={styles.td}>
+                                        {r[c]}
+                                      </td>
+                                    ))}
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        </div>
+                      ))}
                   </div>
                 )}
               </>
@@ -1503,32 +1546,43 @@ export default function BillsPage() {
                 </div>
 
                 {creditNotePreviewOpen && (
-                  <div style={styles.previewWrap}>
-                    <table style={styles.table}>
-                      <thead>
-                        <tr>
-                          {CSV_COLUMNS.map((c) => (
-                            <th key={c} style={styles.th}>
-                              {c}
-                            </th>
-                          ))}
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {creditNoteCompanyEntries
-                          .filter(([company]) => creditNoteSelectedCompanies.has(company))
-                          .flatMap(([, rows]) => rows)
-                          .map((r, i) => (
-                            <tr key={i} style={styles.tr}>
-                              {CSV_COLUMNS.map((c) => (
-                                <td key={c} style={styles.td}>
-                                  {r[c]}
-                                </td>
-                              ))}
-                            </tr>
-                          ))}
-                      </tbody>
-                    </table>
+                  <div style={styles.previewGroups}>
+                    {creditNoteCompanyEntries
+                      .filter(([company]) => creditNoteSelectedCompanies.has(company))
+                      .map(([company, rows]) => (
+                        <div key={company} style={styles.previewGroup}>
+                          <div style={styles.previewGroupHeader}>
+                            <span style={styles.companyName}>{company}</span>
+                            <span style={styles.previewMeta}>
+                              {rows.length} line{rows.length === 1 ? "" : "s"} · ${rowsTotal(rows).toFixed(2)}
+                            </span>
+                          </div>
+                          <div style={styles.previewWrap}>
+                            <table style={styles.table}>
+                              <thead>
+                                <tr>
+                                  {CSV_COLUMNS.map((c) => (
+                                    <th key={c} style={styles.th}>
+                                      {c}
+                                    </th>
+                                  ))}
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {rows.map((r, i) => (
+                                  <tr key={i} style={styles.tr}>
+                                    {CSV_COLUMNS.map((c) => (
+                                      <td key={c} style={styles.td}>
+                                        {r[c]}
+                                      </td>
+                                    ))}
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        </div>
+                      ))}
                   </div>
                 )}
               </>
@@ -1629,6 +1683,17 @@ const styles = {
   },
   actionsRow: { display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 20 },
 
+  previewGroups: { display: "flex", flexDirection: "column", gap: 16 },
+  previewGroup: {},
+  previewGroupHeader: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "baseline",
+    gap: 12,
+    marginBottom: 6,
+    flexWrap: "wrap",
+  },
+  previewMeta: { fontFamily: "var(--font-mono)", fontSize: 11.5, color: "var(--ink-soft)" },
   previewSectionTitle: {
     fontFamily: "var(--font-display)",
     fontWeight: 600,
