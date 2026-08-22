@@ -807,7 +807,7 @@ export default function BillsPage() {
               <div style={styles.warnBanner}>
                 {result.unmatched.length} door number(s) in the file don't match any store in your Store
                 Master, so they were skipped: <strong>{result.unmatched.join(", ")}</strong>. Add them in{" "}
-                <Link href="/mappings" style={styles.inlineLink}>
+                <Link href="/mappings?tab=vip#door-mapping" style={styles.inlineLink}>
                   Door Mapping
                 </Link>{" "}
                 or add the store in Store Master, then re-upload.
@@ -818,7 +818,7 @@ export default function BillsPage() {
               <div style={styles.errorBanner}>
                 {result.unmappedProducts.length} line(s) have a Product that doesn't match a known mapping,
                 so they were skipped. Add the product text below to{" "}
-                <Link href="/mappings" style={styles.inlineLink}>
+                <Link href="/mappings?tab=vip" style={styles.inlineLink}>
                   Product Mapping
                 </Link>{" "}
                 and re-upload:
@@ -996,7 +996,7 @@ export default function BillsPage() {
                 {epayResult.unmatchedAccounts.length} account number(s) in the file don't match any store's
                 "Epay" field, so they were skipped: <strong>{epayResult.unmatchedAccounts.join(", ")}</strong>.
                 Add them in{" "}
-                <Link href="/mappings" style={styles.inlineLink}>
+                <Link href="/mappings?tab=epay" style={styles.inlineLink}>
                   Epay Account Mapping
                 </Link>{" "}
                 or add the store in Store Master, then re-upload.
@@ -1226,7 +1226,7 @@ export default function BillsPage() {
                 {ondigoResult.unmatchedAddresses.length} invoice(s) have a Store/Location address that doesn't
                 match any store's VIP Address in Store Master (matched on the street portion only), so they were
                 skipped: <strong>{ondigoResult.unmatchedAddresses.join(" · ")}</strong>. Add them in{" "}
-                <Link href="/mappings" style={styles.inlineLink}>
+                <Link href="/mappings?tab=ondigo" style={styles.inlineLink}>
                   Ondigo Address Mapping
                 </Link>{" "}
                 or fix the address in Store Master's VIP Address field, then re-upload.
@@ -1405,7 +1405,7 @@ export default function BillsPage() {
                 {creditNoteResult.unmatched.length} door number(s) in the file don't match any store in your
                 Store Master, so they were skipped: <strong>{creditNoteResult.unmatched.join(", ")}</strong>.
                 Add them in{" "}
-                <Link href="/mappings" style={styles.inlineLink}>
+                <Link href="/mappings?tab=vip#door-mapping" style={styles.inlineLink}>
                   Door Mapping
                 </Link>{" "}
                 or add the store in Store Master, then re-upload.
@@ -1416,7 +1416,7 @@ export default function BillsPage() {
               <div style={styles.errorBanner}>
                 {creditNoteResult.unmappedProducts.length} credit memo(s) have a Memo that doesn't match a
                 known mapping, so they were skipped. Add the memo text below to{" "}
-                <Link href="/mappings" style={styles.inlineLink}>
+                <Link href="/mappings?tab=creditnote" style={styles.inlineLink}>
                   Credit Note Mapping
                 </Link>{" "}
                 and re-upload:

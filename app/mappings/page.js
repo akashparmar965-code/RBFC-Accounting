@@ -119,6 +119,31 @@ export default function MappingsPage() {
     setPendingCreditNoteProducts(pending.unmappedCreditNoteProducts);
   }, []);
 
+  // Other pages link here with ?tab=<key> (e.g. Bills' "Add them in Door
+  // Mapping" banner) so the right tab is already open instead of always
+  // landing on Store Master. Read via window.location directly rather than
+  // next/navigation's useSearchParams, which would force this whole page
+  // into a Suspense boundary just for this — this page is already
+  // client-only (auth-gated, redirects via useRouter), so a plain
+  // client-side read is simpler and has the same effect.
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const tab = params.get("tab");
+    const validTabs = ["store", "vip", "epay", "storemap", "stocktransfer", "ardeposits", "ondigo", "creditnote"];
+    if (tab && validTabs.includes(tab)) setActiveTab(tab);
+  }, []);
+
+  // Once the target tab's content has actually rendered, scroll to a
+  // #section-id from the link (e.g. #door-mapping, since Door Mapping is
+  // the 2nd section on the VIP tab, below Product Mapping).
+  useEffect(() => {
+    if (loading) return;
+    const hash = window.location.hash.replace("#", "");
+    if (!hash) return;
+    const el = document.getElementById(hash);
+    if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, [loading, activeTab]);
+
   const loadAll = useCallback(async () => {
     setLoading(true);
     setError("");
@@ -851,7 +876,7 @@ export default function MappingsPage() {
               </div>
             </div>
 
-            <div style={styles.sectionCard}>
+            <div style={styles.sectionCard} id="door-mapping">
               <div style={styles.sectionTitle}>Door Mapping</div>
               <div style={styles.sectionSub}>
                 A fallback for VIP Door Numbers that aren't in Store Master yet — lets a bill still match a

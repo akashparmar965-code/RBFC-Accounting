@@ -294,7 +294,7 @@ export default function SalesPage() {
           <div style={styles.warnBanner}>
             {result.unmatched.length} store name(s) in the file don't match any store in your Store
             Master, so they were skipped: <strong>{result.unmatched.join(", ")}</strong>. Add the store in{" "}
-            <Link href="/mappings" style={styles.inlineLink}>
+            <Link href="/mappings?tab=store" style={styles.inlineLink}>
               Store Master
             </Link>{" "}
             (matched by "Elevate Name"), then re-upload.
