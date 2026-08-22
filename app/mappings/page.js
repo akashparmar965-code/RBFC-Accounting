@@ -28,7 +28,14 @@ const emptyAccountDraft = { account_number: "", company_name: "", qbo_class: "",
 const emptyStoreNameDraft = { raw_name: "", elevate_name: "", notes: "" };
 const emptyDepositAccountDraft = { tender_type: "", deposit_to_account: "", payment_method: "", notes: "" };
 const emptyOndigoAddressDraft = { street_address: "", company_name: "", qbo_class: "", notes: "" };
-const emptyCreditNoteDraft = { product_prefix: "", match_type: "starts_with", expense_account: "", expense_memo: "", notes: "" };
+const emptyCreditNoteDraft = {
+  product_prefix: "",
+  match_type: "starts_with",
+  expense_account: "",
+  expense_memo: "",
+  notes: "",
+  ignore: false,
+};
 
 const STOCK_TRANSFER_ACCOUNT_LABELS = {
   devices_transfer_out: "Devices Transfer Out",
@@ -210,9 +217,12 @@ export default function MappingsPage() {
 
   async function updateCreditNoteField(id, field, value) {
     setCreditNoteRows((prev) => prev.map((r) => (r.id === id ? { ...r, [field]: value } : r)));
+    // "ignore" is a boolean -- `value || null` would wrongly turn `false` into null, so only
+    // apply that empty-string-to-null coercion to the text fields.
+    const dbValue = field === "ignore" ? value : value || null;
     const { error } = await supabase
       .from("credit_note_mappings")
-      .update({ [field]: value || null })
+      .update({ [field]: dbValue })
       .eq("id", id);
     if (error) setError(error.message);
   }
@@ -255,8 +265,12 @@ export default function MappingsPage() {
   }
 
   async function addCreditNoteRow() {
-    if (!creditNoteDraft.product_prefix.trim() || !creditNoteDraft.expense_account.trim()) {
-      setError("Product Prefix and Expense Account are required.");
+    if (!creditNoteDraft.product_prefix.trim()) {
+      setError("Memo Prefix is required.");
+      return;
+    }
+    if (!creditNoteDraft.ignore && !creditNoteDraft.expense_account.trim()) {
+      setError("Expense Account is required unless Ignore is checked.");
       return;
     }
     const { data, error } = await supabase
@@ -265,9 +279,10 @@ export default function MappingsPage() {
         {
           product_prefix: creditNoteDraft.product_prefix.trim(),
           match_type: creditNoteDraft.match_type || "starts_with",
-          expense_account: creditNoteDraft.expense_account.trim(),
+          expense_account: creditNoteDraft.expense_account.trim() || null,
           expense_memo: creditNoteDraft.expense_memo.trim() || null,
           notes: creditNoteDraft.notes.trim() || null,
+          ignore: creditNoteDraft.ignore,
         },
       ])
       .select();
@@ -1746,7 +1761,10 @@ export default function MappingsPage() {
                 (not Product Mapping — Credit Note's Memo vocabulary has nothing to do with Bills'
                 device/accessory SKUs). The first rule it matches (case-insensitive, per each rule&apos;s
                 own Match Type: Starts with / Contains / Fully matching) determines the Expense Account. A
-                line matching no rule is skipped and flagged.
+                line matching no rule is skipped and flagged. Check <strong>Ignore</strong> on a rule
+                (e.g. &quot;Weekly Incentive Credit&quot;) to drop every credit memo matching it from file
+                generation entirely — no Expense Account needed, and it won&apos;t show up as unmapped
+                either.
               </div>
 
               {pendingCreditNoteProducts.length > 0 && (
@@ -1781,6 +1799,7 @@ export default function MappingsPage() {
                     <tr>
                       <th style={{ ...styles.th, textAlign: "left" }}>Memo Prefix</th>
                       <th style={{ ...styles.th, textAlign: "left" }}>Match Type</th>
+                      <th style={styles.th}>Ignore</th>
                       <th style={{ ...styles.th, textAlign: "left" }}>Expense Account</th>
                       <th style={{ ...styles.th, textAlign: "left" }}>Expense Memo (override)</th>
                       <th style={{ ...styles.th, textAlign: "left" }}>Notes</th>
@@ -1810,10 +1829,18 @@ export default function MappingsPage() {
                             ))}
                           </select>
                         </td>
+                        <td style={{ ...styles.td, textAlign: "center" }}>
+                          <input
+                            type="checkbox"
+                            checked={!!r.ignore}
+                            onChange={(e) => updateCreditNoteField(r.id, "ignore", e.target.checked)}
+                          />
+                        </td>
                         <td style={styles.td}>
                           <input
                             style={styles.cellInput}
-                            defaultValue={r.expense_account}
+                            placeholder={r.ignore ? "(not needed — Ignore is checked)" : ""}
+                            defaultValue={r.expense_account || ""}
                             onBlur={(e) => updateCreditNoteField(r.id, "expense_account", e.target.value)}
                           />
                         </td>
@@ -1875,10 +1902,17 @@ export default function MappingsPage() {
                           ))}
                         </select>
                       </td>
+                      <td style={{ ...styles.td, textAlign: "center" }}>
+                        <input
+                          type="checkbox"
+                          checked={creditNoteDraft.ignore}
+                          onChange={(e) => setCreditNoteDraft((d) => ({ ...d, ignore: e.target.checked }))}
+                        />
+                      </td>
                       <td style={styles.td}>
                         <input
                           style={styles.cellInput}
-                          placeholder="e.g. Dealer Incentives"
+                          placeholder={creditNoteDraft.ignore ? "(not needed — Ignore is checked)" : "e.g. Dealer Incentives"}
                           value={creditNoteDraft.expense_account}
                           onChange={(e) => setCreditNoteDraft((d) => ({ ...d, expense_account: e.target.value }))}
                         />
