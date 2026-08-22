@@ -14,6 +14,7 @@ import {
   removePendingTenderType,
   removePendingOndigoAddress,
   removePendingCreditNoteProductsMatching,
+  clearPendingList,
 } from "@/lib/pendingMappings";
 
 const emptyProductDraft = { product_prefix: "", match_type: "starts_with", expense_account: "", expense_memo: "", notes: "" };
@@ -565,6 +566,12 @@ export default function MappingsPage() {
     setPendingCreditNoteProducts((prev) => prev.filter((p) => p !== item));
   }
 
+  /** "Clear all" for one "From your last upload" row — empties just that list, not the other pending tables. */
+  function clearAllPending(fieldName, setter) {
+    clearPendingList(fieldName);
+    setter([]);
+  }
+
   async function handleDelete() {
     if (!confirmDelete) return;
     const { table, id } = confirmDelete;
@@ -671,6 +678,12 @@ export default function MappingsPage() {
               {pendingProducts.length > 0 && (
                 <div style={styles.pendingRow}>
                   <span style={styles.pendingLabel}>From your last upload:</span>
+                  <button
+                    style={styles.clearAllBtn}
+                    onClick={() => clearAllPending("unmappedProducts", setPendingProducts)}
+                  >
+                    Clear all
+                  </button>
                   {pendingProducts.map((p, i) => (
                     <span key={i} style={styles.chip}>
                       <button
@@ -833,6 +846,9 @@ export default function MappingsPage() {
               {pendingDoors.length > 0 && (
                 <div style={styles.pendingRow}>
                   <span style={styles.pendingLabel}>From your last upload:</span>
+                  <button style={styles.clearAllBtn} onClick={() => clearAllPending("unmatchedDoors", setPendingDoors)}>
+                    Clear all
+                  </button>
                   {pendingDoors.map((d) => (
                     <span key={d} style={styles.chip}>
                       <button style={styles.chipMain} onClick={() => useDoorSuggestion(d)}>
@@ -997,6 +1013,12 @@ export default function MappingsPage() {
               {pendingAccounts.length > 0 && (
                 <div style={styles.pendingRow}>
                   <span style={styles.pendingLabel}>From your last upload:</span>
+                  <button
+                    style={styles.clearAllBtn}
+                    onClick={() => clearAllPending("unmatchedAccounts", setPendingAccounts)}
+                  >
+                    Clear all
+                  </button>
                   {pendingAccounts.map((a) => (
                     <span key={a} style={styles.chip}>
                       <button style={styles.chipMain} onClick={() => useAccountSuggestion(a)}>
@@ -1163,6 +1185,12 @@ export default function MappingsPage() {
               {pendingStoreNames.length > 0 && (
                 <div style={styles.pendingRow}>
                   <span style={styles.pendingLabel}>From your last upload:</span>
+                  <button
+                    style={styles.clearAllBtn}
+                    onClick={() => clearAllPending("unmatchedStoreNames", setPendingStoreNames)}
+                  >
+                    Clear all
+                  </button>
                   {pendingStoreNames.map((s) => (
                     <span key={s} style={styles.chip}>
                       <button style={styles.chipMain} onClick={() => useStoreNameSuggestion(s)}>
@@ -1371,6 +1399,12 @@ export default function MappingsPage() {
               {pendingTenderTypes.length > 0 && (
                 <div style={styles.pendingRow}>
                   <span style={styles.pendingLabel}>From your last upload:</span>
+                  <button
+                    style={styles.clearAllBtn}
+                    onClick={() => clearAllPending("unmatchedTenderTypes", setPendingTenderTypes)}
+                  >
+                    Clear all
+                  </button>
                   {pendingTenderTypes.map((t) => (
                     <span key={t} style={styles.chip}>
                       <button style={styles.chipMain} onClick={() => useTenderTypeSuggestion(t)}>
@@ -1541,6 +1575,12 @@ export default function MappingsPage() {
               {pendingOndigoAddresses.length > 0 && (
                 <div style={styles.pendingRow}>
                   <span style={styles.pendingLabel}>From your last upload:</span>
+                  <button
+                    style={styles.clearAllBtn}
+                    onClick={() => clearAllPending("unmatchedOndigoAddresses", setPendingOndigoAddresses)}
+                  >
+                    Clear all
+                  </button>
                   {pendingOndigoAddresses.map((a) => (
                     <span key={a} style={styles.chip}>
                       <button style={styles.chipMain} title={a} onClick={() => useOndigoAddressSuggestion(a)}>
@@ -1712,6 +1752,12 @@ export default function MappingsPage() {
               {pendingCreditNoteProducts.length > 0 && (
                 <div style={styles.pendingRow}>
                   <span style={styles.pendingLabel}>From your last upload:</span>
+                  <button
+                    style={styles.clearAllBtn}
+                    onClick={() => clearAllPending("unmappedCreditNoteProducts", setPendingCreditNoteProducts)}
+                  >
+                    Clear all
+                  </button>
                   {pendingCreditNoteProducts.map((p, i) => (
                     <span key={i} style={styles.chip}>
                       <button
@@ -1931,6 +1977,16 @@ const styles = {
     borderRadius: 8,
   },
   pendingLabel: { fontSize: 11.5, fontWeight: 700, color: "var(--warn-text)", marginRight: 2 },
+  clearAllBtn: {
+    background: "none",
+    border: "none",
+    color: "var(--warn-text)",
+    fontSize: 11.5,
+    fontWeight: 700,
+    textDecoration: "underline",
+    padding: 0,
+    cursor: "pointer",
+  },
   chip: {
     display: "inline-flex",
     alignItems: "center",
