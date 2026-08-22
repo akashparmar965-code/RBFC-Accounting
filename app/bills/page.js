@@ -567,13 +567,16 @@ export default function BillsPage() {
         }
       }
 
-      const groupedLines = aggregateCreditNoteLines(rawRows, creditNoteMappings || []);
+      const { groups: groupedLines, discountOrShippingFlags } = aggregateCreditNoteLines(
+        rawRows,
+        creditNoteMappings || []
+      );
       const { byCompany, unmatchedDoors, unmappedProducts } = buildCreditNoteRows(
         groupedLines,
         storeMaster,
         doorMappings || []
       );
-      setCreditNoteResult({ byCompany, unmatched: unmatchedDoors, unmappedProducts });
+      setCreditNoteResult({ byCompany, unmatched: unmatchedDoors, unmappedProducts, discountOrShippingFlags });
       setCreditNoteSelectedCompanies(new Set(Object.keys(byCompany)));
       savePendingMappings({ unmatchedDoors, unmappedCreditNoteProducts: unmappedProducts });
     } catch (e) {
@@ -1467,6 +1470,24 @@ export default function BillsPage() {
                   {creditNoteResult.unmappedProducts.map((m, i) => (
                     <li key={i}>
                       Door {m.doorNumber} · {m.invoiceNo} · "{m.product}"
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {creditNoteResult && creditNoteResult.discountOrShippingFlags.length > 0 && (
+              <div style={styles.warnBanner}>
+                {creditNoteResult.discountOrShippingFlags.length} credit memo(s) have a nonzero{" "}
+                <strong>Discount</strong> or <strong>Shipping Cost</strong> — every real file this formula was
+                verified against had both at $0, so this hasn't been confirmed on a real example yet. They
+                still posted using the same +Shipping Cost/−Discount formula as Other Cost/Other Deductions,
+                but review these manually:
+                <ul style={styles.unmappedList}>
+                  {creditNoteResult.discountOrShippingFlags.map((f, i) => (
+                    <li key={i}>
+                      Door {f.doorNumber} · {f.invoiceNo} · Discount ${f.discount.toFixed(2)} · Shipping Cost $
+                      {f.shippingCost.toFixed(2)}
                     </li>
                   ))}
                 </ul>
