@@ -695,6 +695,12 @@ export default function BillsPage() {
   const creditNoteCompanyEntries = creditNoteResult ? Object.entries(creditNoteResult.byCompany) : [];
   const creditNoteTotalRows = creditNoteCompanyEntries.reduce((sum, [, rows]) => sum + rows.length, 0);
   const creditNoteGrandTotal = creditNoteCompanyEntries.reduce((sum, [, rows]) => sum + rowsTotal(rows), 0);
+  // Guards a stale cached creditNoteResult from sessionStorage (saved by an
+  // older version of this page, before this field existed) from crashing
+  // render — `?? []` only covers null/undefined, not "field never existed",
+  // so this needs its own fallback rather than relying on optional chaining
+  // at each call site.
+  const creditNoteDiscountOrShippingFlags = creditNoteResult?.discountOrShippingFlags || [];
 
   return (
     <div style={styles.shell}>
@@ -1476,15 +1482,15 @@ export default function BillsPage() {
               </div>
             )}
 
-            {creditNoteResult && creditNoteResult.discountOrShippingFlags.length > 0 && (
+            {creditNoteDiscountOrShippingFlags.length > 0 && (
               <div style={styles.warnBanner}>
-                {creditNoteResult.discountOrShippingFlags.length} credit memo(s) have a nonzero{" "}
+                {creditNoteDiscountOrShippingFlags.length} credit memo(s) have a nonzero{" "}
                 <strong>Discount</strong> or <strong>Shipping Cost</strong> — every real file this formula was
                 verified against had both at $0, so this hasn't been confirmed on a real example yet. They
                 still posted using the same +Shipping Cost/−Discount formula as Other Cost/Other Deductions,
                 but review these manually:
                 <ul style={styles.unmappedList}>
-                  {creditNoteResult.discountOrShippingFlags.map((f, i) => (
+                  {creditNoteDiscountOrShippingFlags.map((f, i) => (
                     <li key={i}>
                       Door {f.doorNumber} · {f.invoiceNo} · Discount ${f.discount.toFixed(2)} · Shipping Cost $
                       {f.shippingCost.toFixed(2)}
