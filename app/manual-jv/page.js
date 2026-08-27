@@ -251,27 +251,6 @@ export default function ManualJvPage() {
     return Array.from(names).sort((a, b) => a.localeCompare(b));
   }, [storeMaster]);
 
-  // chart_of_accounts grouped by category, in a fixed head order (P&L first, then
-  // Balance Sheet), for <optgroup> rendering.
-  const accountOptionsByCategory = useMemo(() => {
-    const order = [
-      "Revenue",
-      "Cost of Goods Sold",
-      "Expense",
-      "Current Assets",
-      "Non Current Assets",
-      "Current Liabilities",
-      "Non Current Liabilities",
-      "Equity",
-    ];
-    const groups = {};
-    for (const category of order) groups[category] = [];
-    for (const a of accountOptions) {
-      if (groups[a.category]) groups[a.category].push(a.account_name);
-    }
-    return order.map((category) => [category, groups[category]]).filter(([, names]) => names.length > 0);
-  }, [accountOptions]);
-
   const companyStoreCounts = useMemo(() => {
     if (!storeMaster) return {};
     const byCompany = buildCompanyActiveStores(storeMaster);
@@ -589,6 +568,18 @@ export default function ManualJvPage() {
     <div style={styles.shell}>
       <Sidebar userEmail={session.user.email} />
 
+      {/* Shared by both Account Name inputs below (main JV lines + split JV
+          lines) -- lets typing filter/search chart_of_accounts natively via
+          the browser's own autocomplete, instead of scrolling a long
+          grouped <select>. Sorted by category then name so related
+          accounts still cluster in the suggestion list even without
+          optgroup-style headers, which <datalist> doesn't support. */}
+      <datalist id="chart-of-accounts-datalist">
+        {accountOptions.map((a) => (
+          <option key={a.account_name} value={a.account_name} />
+        ))}
+      </datalist>
+
       <main style={styles.main}>
         <div style={styles.topRow}>
           <h1 style={styles.h1}>Manual JV</h1>
@@ -652,25 +643,13 @@ export default function ManualJvPage() {
                       return (
                         <tr key={i} style={styles.tr}>
                           <td style={styles.td}>
-                            <select
+                            <input
                               style={styles.cellInput}
+                              list="chart-of-accounts-datalist"
+                              placeholder="Type to search…"
                               value={line.account_name}
                               onChange={(e) => updateLine(i, "account_name", e.target.value)}
-                            >
-                              <option value="">— select —</option>
-                              {accountOptionsByCategory.map(([category, names]) => (
-                                <optgroup key={category} label={category}>
-                                  {names.map((n) => (
-                                    <option key={n} value={n}>
-                                      {n}
-                                    </option>
-                                  ))}
-                                </optgroup>
-                              ))}
-                              {line.account_name && !accountOptions.some((a) => a.account_name === line.account_name) && (
-                                <option value={line.account_name}>{line.account_name}</option>
-                              )}
-                            </select>
+                            />
                           </td>
                           <td style={styles.td}>
                             <input
@@ -965,25 +944,13 @@ export default function ManualJvPage() {
                       return (
                         <tr key={i} style={styles.tr}>
                           <td style={styles.td}>
-                            <select
+                            <input
                               style={styles.cellInput}
+                              list="chart-of-accounts-datalist"
+                              placeholder="Type to search…"
                               value={line.account_name}
                               onChange={(e) => updateSplitLine(i, "account_name", e.target.value)}
-                            >
-                              <option value="">— select —</option>
-                              {accountOptionsByCategory.map(([category, names]) => (
-                                <optgroup key={category} label={category}>
-                                  {names.map((n) => (
-                                    <option key={n} value={n}>
-                                      {n}
-                                    </option>
-                                  ))}
-                                </optgroup>
-                              ))}
-                              {line.account_name && !accountOptions.some((a) => a.account_name === line.account_name) && (
-                                <option value={line.account_name}>{line.account_name}</option>
-                              )}
-                            </select>
+                            />
                           </td>
                           <td style={styles.td}>
                             <select
