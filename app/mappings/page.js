@@ -36,11 +36,19 @@ const emptyCreditNoteDraft = {
   notes: "",
   ignore: false,
 };
-const emptyChartOfAccountDraft = { account_name: "", category: "Expense", notes: "" };
+const emptyChartOfAccountDraft = { account_name: "", notes: "" };
 const ACCOUNT_CATEGORY_OPTIONS = [
   "Revenue",
   "Cost of Goods Sold",
   "Expense",
+  "Current Assets",
+  "Non Current Assets",
+  "Current Liabilities",
+  "Non Current Liabilities",
+  "Equity",
+];
+const INCOME_STATEMENT_CATEGORIES = ["Revenue", "Cost of Goods Sold", "Expense"];
+const BALANCE_SHEET_CATEGORIES = [
   "Current Assets",
   "Non Current Assets",
   "Current Liabilities",
@@ -99,7 +107,7 @@ export default function MappingsPage() {
   const [depositAccountDraft, setDepositAccountDraft] = useState(emptyDepositAccountDraft);
   const [ondigoAddressDraft, setOndigoAddressDraft] = useState(emptyOndigoAddressDraft);
   const [creditNoteDraft, setCreditNoteDraft] = useState(emptyCreditNoteDraft);
-  const [chartOfAccountDraft, setChartOfAccountDraft] = useState(emptyChartOfAccountDraft);
+  const [chartOfAccountDrafts, setChartOfAccountDrafts] = useState({}); // { [category]: { account_name, notes } }
   const [confirmDelete, setConfirmDelete] = useState(null); // { table, id }
   const [pendingDoors, setPendingDoors] = useState([]);
   const [pendingProducts, setPendingProducts] = useState([]);
@@ -357,8 +365,20 @@ export default function MappingsPage() {
     if (error) setError(error.message);
   }
 
-  async function addChartOfAccountRow() {
-    if (!chartOfAccountDraft.account_name.trim()) {
+  function getChartOfAccountDraft(category) {
+    return chartOfAccountDrafts[category] || emptyChartOfAccountDraft;
+  }
+
+  function setChartOfAccountDraftField(category, field, value) {
+    setChartOfAccountDrafts((prev) => ({
+      ...prev,
+      [category]: { ...(prev[category] || emptyChartOfAccountDraft), [field]: value },
+    }));
+  }
+
+  async function addChartOfAccountRow(category) {
+    const draft = getChartOfAccountDraft(category);
+    if (!draft.account_name.trim()) {
       setError("Account Name is required.");
       return;
     }
@@ -366,9 +386,9 @@ export default function MappingsPage() {
       .from("chart_of_accounts")
       .insert([
         {
-          account_name: chartOfAccountDraft.account_name.trim(),
-          category: chartOfAccountDraft.category,
-          notes: chartOfAccountDraft.notes.trim() || null,
+          account_name: draft.account_name.trim(),
+          category,
+          notes: draft.notes.trim() || null,
         },
       ])
       .select();
@@ -377,7 +397,114 @@ export default function MappingsPage() {
       return;
     }
     setChartOfAccountRows((prev) => [...prev, ...(data || [])]);
-    setChartOfAccountDraft(emptyChartOfAccountDraft);
+    setChartOfAccountDrafts((prev) => ({ ...prev, [category]: emptyChartOfAccountDraft }));
+  }
+
+  function renderChartOfAccountCategory(category) {
+    const rows = chartOfAccountRows.filter((r) => r.category === category);
+    const draft = getChartOfAccountDraft(category);
+    return (
+      <div key={category} style={styles.coaCategorySection}>
+        <div style={styles.coaCategoryHeader}>{category}</div>
+        <div style={styles.tableWrap}>
+          <table style={styles.table}>
+            <thead>
+              <tr>
+                <th style={{ ...styles.th, textAlign: "left" }}>Account Name</th>
+                <th style={{ ...styles.th, textAlign: "left" }}>Category</th>
+                <th style={{ ...styles.th, textAlign: "left" }}>Notes</th>
+                <th style={styles.th}></th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td style={styles.td}>
+                  <input
+                    style={styles.cellInput}
+                    placeholder="e.g. Marketing"
+                    value={draft.account_name}
+                    onChange={(e) => setChartOfAccountDraftField(category, "account_name", e.target.value)}
+                  />
+                </td>
+                <td style={styles.td}>
+                  <span style={styles.coaFixedCategory}>{category}</span>
+                </td>
+                <td style={styles.td}>
+                  <input
+                    style={styles.cellInput}
+                    placeholder="(optional)"
+                    value={draft.notes}
+                    onChange={(e) => setChartOfAccountDraftField(category, "notes", e.target.value)}
+                  />
+                </td>
+                <td style={styles.td}>
+                  <button style={styles.addBtn} onClick={() => addChartOfAccountRow(category)}>
+                    + Add
+                  </button>
+                </td>
+              </tr>
+              {rows.map((r) => (
+                <tr key={r.id} style={styles.tr}>
+                  <td style={styles.td}>
+                    <input
+                      style={styles.cellInput}
+                      defaultValue={r.account_name}
+                      onBlur={(e) => updateChartOfAccountField(r.id, "account_name", e.target.value)}
+                    />
+                  </td>
+                  <td style={styles.td}>
+                    <select
+                      style={styles.cellInput}
+                      value={r.category}
+                      onChange={(e) => updateChartOfAccountField(r.id, "category", e.target.value)}
+                    >
+                      {ACCOUNT_CATEGORY_OPTIONS.map((c) => (
+                        <option key={c} value={c}>
+                          {c}
+                        </option>
+                      ))}
+                    </select>
+                  </td>
+                  <td style={styles.td}>
+                    <input
+                      style={styles.cellInput}
+                      defaultValue={r.notes || ""}
+                      onBlur={(e) => updateChartOfAccountField(r.id, "notes", e.target.value)}
+                    />
+                  </td>
+                  <td style={{ ...styles.td, whiteSpace: "nowrap" }}>
+                    {confirmDelete?.table === "chart_of_accounts" && confirmDelete.id === r.id ? (
+                      <>
+                        <button style={{ ...styles.linkBtn, color: "var(--danger)" }} onClick={handleDelete}>
+                          Confirm
+                        </button>
+                        <button style={styles.linkBtn} onClick={() => setConfirmDelete(null)}>
+                          Cancel
+                        </button>
+                      </>
+                    ) : (
+                      <button
+                        style={{ ...styles.linkBtn, color: "var(--danger)" }}
+                        onClick={() => setConfirmDelete({ table: "chart_of_accounts", id: r.id })}
+                      >
+                        Delete
+                      </button>
+                    )}
+                  </td>
+                </tr>
+              ))}
+              {rows.length === 0 && (
+                <tr>
+                  <td style={styles.td} colSpan={4}>
+                    <span style={styles.coaEmptyNote}>No accounts yet in {category}.</span>
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    );
   }
 
   async function addDoorRow() {
@@ -2031,110 +2158,19 @@ export default function MappingsPage() {
               <div style={styles.sectionTitle}>Chart of Accounts</div>
               <div style={styles.sectionSub}>
                 The master list of Income/Expense/Balance-Sheet accounts used for JE generation across the
-                app — currently wired into Manual JV&apos;s Account Name dropdown. Each account belongs to
-                one Category, shown as an optgroup wherever the dropdown is used.
+                app — currently wired into Manual JV&apos;s Account Name dropdown. One section per Category;
+                changing an account&apos;s Category on its own row moves it to that section.
               </div>
+            </div>
 
-              <div style={styles.tableWrap}>
-                <table style={styles.table}>
-                  <thead>
-                    <tr>
-                      <th style={{ ...styles.th, textAlign: "left" }}>Account Name</th>
-                      <th style={{ ...styles.th, textAlign: "left" }}>Category</th>
-                      <th style={{ ...styles.th, textAlign: "left" }}>Notes</th>
-                      <th style={styles.th}></th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {chartOfAccountRows.map((r) => (
-                      <tr key={r.id} style={styles.tr}>
-                        <td style={styles.td}>
-                          <input
-                            style={styles.cellInput}
-                            defaultValue={r.account_name}
-                            onBlur={(e) => updateChartOfAccountField(r.id, "account_name", e.target.value)}
-                          />
-                        </td>
-                        <td style={styles.td}>
-                          <select
-                            style={styles.cellInput}
-                            value={r.category}
-                            onChange={(e) => updateChartOfAccountField(r.id, "category", e.target.value)}
-                          >
-                            {ACCOUNT_CATEGORY_OPTIONS.map((c) => (
-                              <option key={c} value={c}>
-                                {c}
-                              </option>
-                            ))}
-                          </select>
-                        </td>
-                        <td style={styles.td}>
-                          <input
-                            style={styles.cellInput}
-                            defaultValue={r.notes || ""}
-                            onBlur={(e) => updateChartOfAccountField(r.id, "notes", e.target.value)}
-                          />
-                        </td>
-                        <td style={{ ...styles.td, whiteSpace: "nowrap" }}>
-                          {confirmDelete?.table === "chart_of_accounts" && confirmDelete.id === r.id ? (
-                            <>
-                              <button style={{ ...styles.linkBtn, color: "var(--danger)" }} onClick={handleDelete}>
-                                Confirm
-                              </button>
-                              <button style={styles.linkBtn} onClick={() => setConfirmDelete(null)}>
-                                Cancel
-                              </button>
-                            </>
-                          ) : (
-                            <button
-                              style={{ ...styles.linkBtn, color: "var(--danger)" }}
-                              onClick={() => setConfirmDelete({ table: "chart_of_accounts", id: r.id })}
-                            >
-                              Delete
-                            </button>
-                          )}
-                        </td>
-                      </tr>
-                    ))}
-                    <tr>
-                      <td style={styles.td}>
-                        <input
-                          style={styles.cellInput}
-                          placeholder="e.g. Marketing"
-                          value={chartOfAccountDraft.account_name}
-                          onChange={(e) => setChartOfAccountDraft((d) => ({ ...d, account_name: e.target.value }))}
-                        />
-                      </td>
-                      <td style={styles.td}>
-                        <select
-                          style={styles.cellInput}
-                          value={chartOfAccountDraft.category}
-                          onChange={(e) => setChartOfAccountDraft((d) => ({ ...d, category: e.target.value }))}
-                        >
-                          {ACCOUNT_CATEGORY_OPTIONS.map((c) => (
-                            <option key={c} value={c}>
-                              {c}
-                            </option>
-                          ))}
-                        </select>
-                      </td>
-                      <td style={styles.td}>
-                        <input
-                          style={styles.cellInput}
-                          placeholder="(optional)"
-                          value={chartOfAccountDraft.notes}
-                          onChange={(e) => setChartOfAccountDraft((d) => ({ ...d, notes: e.target.value }))}
-                        />
-                      </td>
-                      <td style={styles.td}>
-                        <button style={styles.addBtn} onClick={addChartOfAccountRow}>
-                          + Add
-                        </button>
-                      </td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
+            <div style={styles.sectionCard}>
+              <div style={styles.sectionTitle}>Income Statement Items</div>
+              {INCOME_STATEMENT_CATEGORIES.map((category) => renderChartOfAccountCategory(category))}
+            </div>
+
+            <div style={styles.sectionCard}>
+              <div style={styles.sectionTitle}>Balance Sheet Items</div>
+              {BALANCE_SHEET_CATEGORIES.map((category) => renderChartOfAccountCategory(category))}
             </div>
           </>
         )}
@@ -2193,6 +2229,18 @@ const styles = {
   },
   sectionTitle: { fontFamily: "var(--font-display)", fontWeight: 600, fontSize: 15, marginBottom: 6 },
   sectionSub: { fontSize: 12.5, color: "var(--ink-soft)", marginBottom: 14, lineHeight: 1.5 },
+  coaCategorySection: { marginBottom: 22 },
+  coaCategoryHeader: {
+    fontFamily: "var(--font-display)",
+    fontWeight: 600,
+    fontSize: 13,
+    color: "var(--ink-soft)",
+    marginBottom: 6,
+    paddingBottom: 4,
+    borderBottom: "1px solid var(--line)",
+  },
+  coaFixedCategory: { fontSize: 12.5, color: "var(--ink-soft)" },
+  coaEmptyNote: { fontSize: 12, color: "var(--ink-soft)", fontStyle: "italic" },
   pendingRow: {
     display: "flex",
     flexWrap: "wrap",
