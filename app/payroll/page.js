@@ -845,6 +845,7 @@ export default function PayrollPage() {
                               {label}
                             </th>
                           ))}
+                          <th style={styles.th}>Total</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -882,9 +883,27 @@ export default function PayrollPage() {
                                   </td>
                                 );
                               })}
+                              <td style={{ ...styles.td, fontWeight: 600 }}>
+                                {expectedCompanyTotal(companyRows[company] || {}).toFixed(2)}
+                              </td>
                             </tr>
                           );
                         })}
+                        <tr style={{ ...styles.tr, fontWeight: 700 }}>
+                          <td style={{ ...styles.td, position: "sticky", left: 0, background: "var(--panel)" }}>
+                            Total
+                          </td>
+                          {PAYROLL_FIELDS.map(({ key }) => (
+                            <td key={key} style={styles.td}>
+                              {companies.reduce((sum, c) => sum + (Number(companyRows[c]?.[key]) || 0), 0).toFixed(2)}
+                            </td>
+                          ))}
+                          <td style={styles.td}>
+                            {companies
+                              .reduce((sum, c) => sum + expectedCompanyTotal(companyRows[c] || {}), 0)
+                              .toFixed(2)}
+                          </td>
+                        </tr>
                       </tbody>
                     </table>
                   </div>
@@ -1137,33 +1156,64 @@ export default function PayrollPage() {
                               {label}
                             </th>
                           ))}
+                          <th style={styles.th}>Total</th>
                         </tr>
                       </thead>
                       <tbody>
-                        {companies.map((company, rowIndex) => (
-                          <tr key={company} style={styles.tr}>
-                            <td style={{ ...styles.td, position: "sticky", left: 0, background: "var(--panel)", fontWeight: 600 }}>
-                              {company}
+                        {companies.map((company, rowIndex) => {
+                          const rowTotal = ARCADE_SUBCONTRACTOR_FIELDS.reduce(
+                            (sum, { key }) => sum + (Number(arcadeCompanyRows[company]?.[key]) || 0),
+                            0
+                          );
+                          return (
+                            <tr key={company} style={styles.tr}>
+                              <td style={{ ...styles.td, position: "sticky", left: 0, background: "var(--panel)", fontWeight: 600 }}>
+                                {company}
+                              </td>
+                              {ARCADE_SUBCONTRACTOR_FIELDS.map(({ key }, colIndex) => {
+                                const isNegative = Number(arcadeCompanyRows[company]?.[key]) < 0;
+                                return (
+                                  <td key={key} style={styles.td}>
+                                    <input
+                                      id={`arcade-cell-${rowIndex}-${colIndex}`}
+                                      type="text"
+                                      inputMode="decimal"
+                                      style={{ ...styles.numInput, ...(isNegative ? styles.numInputError : {}) }}
+                                      value={arcadeCompanyRows[company]?.[key] ?? ""}
+                                      onChange={(e) => handleArcadeCellChange(company, key, e.target.value)}
+                                      onKeyDown={(e) => handleArcadeGridKeyDown(e, rowIndex, colIndex)}
+                                      onBlur={() => commitArcadeCellExpression(company, key)}
+                                    />
+                                  </td>
+                                );
+                              })}
+                              <td style={{ ...styles.td, fontWeight: 600 }}>{rowTotal.toFixed(2)}</td>
+                            </tr>
+                          );
+                        })}
+                        <tr style={{ ...styles.tr, fontWeight: 700 }}>
+                          <td style={{ ...styles.td, position: "sticky", left: 0, background: "var(--panel)" }}>
+                            Total
+                          </td>
+                          {ARCADE_SUBCONTRACTOR_FIELDS.map(({ key }) => (
+                            <td key={key} style={styles.td}>
+                              {companies.reduce((sum, c) => sum + (Number(arcadeCompanyRows[c]?.[key]) || 0), 0).toFixed(2)}
                             </td>
-                            {ARCADE_SUBCONTRACTOR_FIELDS.map(({ key }, colIndex) => {
-                              const isNegative = Number(arcadeCompanyRows[company]?.[key]) < 0;
-                              return (
-                                <td key={key} style={styles.td}>
-                                  <input
-                                    id={`arcade-cell-${rowIndex}-${colIndex}`}
-                                    type="text"
-                                    inputMode="decimal"
-                                    style={{ ...styles.numInput, ...(isNegative ? styles.numInputError : {}) }}
-                                    value={arcadeCompanyRows[company]?.[key] ?? ""}
-                                    onChange={(e) => handleArcadeCellChange(company, key, e.target.value)}
-                                    onKeyDown={(e) => handleArcadeGridKeyDown(e, rowIndex, colIndex)}
-                                    onBlur={() => commitArcadeCellExpression(company, key)}
-                                  />
-                                </td>
-                              );
-                            })}
-                          </tr>
-                        ))}
+                          ))}
+                          <td style={styles.td}>
+                            {companies
+                              .reduce(
+                                (sum, c) =>
+                                  sum +
+                                  ARCADE_SUBCONTRACTOR_FIELDS.reduce(
+                                    (s, { key }) => s + (Number(arcadeCompanyRows[c]?.[key]) || 0),
+                                    0
+                                  ),
+                                0
+                              )
+                              .toFixed(2)}
+                          </td>
+                        </tr>
                       </tbody>
                     </table>
                   </div>
