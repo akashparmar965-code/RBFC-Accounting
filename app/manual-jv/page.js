@@ -45,6 +45,7 @@ export default function ManualJvPage() {
   const [storeMaster, setStoreMaster] = useState(null);
   const [storeMasterError, setStoreMasterError] = useState("");
   const [storeNameMap, setStoreNameMap] = useState({});
+  const [accountOptions, setAccountOptions] = useState([]); // [{ account_name, category }] from chart_of_accounts
 
   const [jvLines, setJvLines] = useState([]);
   const [linesLoading, setLinesLoading] = useState(false);
@@ -143,6 +144,20 @@ export default function ManualJvPage() {
       });
   }, [session]);
 
+  useEffect(() => {
+    if (!session) return;
+    const supabase = createClient();
+    supabase
+      .from("chart_of_accounts")
+      .select("account_name, category")
+      .order("category", { ascending: true })
+      .order("account_name", { ascending: true })
+      .then(({ data, error }) => {
+        if (error) return;
+        setAccountOptions(data || []);
+      });
+  }, [session]);
+
   const loadLines = useCallback(async (dateStr) => {
     if (!dateStr) return;
     setLinesLoading(true);
@@ -235,6 +250,27 @@ export default function ManualJvPage() {
     }
     return Array.from(names).sort((a, b) => a.localeCompare(b));
   }, [storeMaster]);
+
+  // chart_of_accounts grouped by category, in a fixed head order (P&L first, then
+  // Balance Sheet), for <optgroup> rendering.
+  const accountOptionsByCategory = useMemo(() => {
+    const order = [
+      "Revenue",
+      "Cost of Goods Sold",
+      "Expense",
+      "Current Assets",
+      "Non Current Assets",
+      "Current Liabilities",
+      "Non Current Liabilities",
+      "Equity",
+    ];
+    const groups = {};
+    for (const category of order) groups[category] = [];
+    for (const a of accountOptions) {
+      if (groups[a.category]) groups[a.category].push(a.account_name);
+    }
+    return order.map((category) => [category, groups[category]]).filter(([, names]) => names.length > 0);
+  }, [accountOptions]);
 
   const companyStoreCounts = useMemo(() => {
     if (!storeMaster) return {};
@@ -616,12 +652,25 @@ export default function ManualJvPage() {
                       return (
                         <tr key={i} style={styles.tr}>
                           <td style={styles.td}>
-                            <input
+                            <select
                               style={styles.cellInput}
-                              placeholder="e.g. Personal Expense"
                               value={line.account_name}
                               onChange={(e) => updateLine(i, "account_name", e.target.value)}
-                            />
+                            >
+                              <option value="">— select —</option>
+                              {accountOptionsByCategory.map(([category, names]) => (
+                                <optgroup key={category} label={category}>
+                                  {names.map((n) => (
+                                    <option key={n} value={n}>
+                                      {n}
+                                    </option>
+                                  ))}
+                                </optgroup>
+                              ))}
+                              {line.account_name && !accountOptions.some((a) => a.account_name === line.account_name) && (
+                                <option value={line.account_name}>{line.account_name}</option>
+                              )}
+                            </select>
                           </td>
                           <td style={styles.td}>
                             <input
@@ -916,12 +965,25 @@ export default function ManualJvPage() {
                       return (
                         <tr key={i} style={styles.tr}>
                           <td style={styles.td}>
-                            <input
+                            <select
                               style={styles.cellInput}
-                              placeholder="e.g. Personal Expense"
                               value={line.account_name}
                               onChange={(e) => updateSplitLine(i, "account_name", e.target.value)}
-                            />
+                            >
+                              <option value="">— select —</option>
+                              {accountOptionsByCategory.map(([category, names]) => (
+                                <optgroup key={category} label={category}>
+                                  {names.map((n) => (
+                                    <option key={n} value={n}>
+                                      {n}
+                                    </option>
+                                  ))}
+                                </optgroup>
+                              ))}
+                              {line.account_name && !accountOptions.some((a) => a.account_name === line.account_name) && (
+                                <option value={line.account_name}>{line.account_name}</option>
+                              )}
+                            </select>
                           </td>
                           <td style={styles.td}>
                             <select
