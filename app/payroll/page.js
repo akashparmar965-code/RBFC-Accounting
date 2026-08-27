@@ -27,7 +27,12 @@ import { savePendingMappings } from "@/lib/pendingMappings";
 import { savePageState, loadPageState } from "@/lib/pageState";
 import { triggerDownload, todayIso, firstOfMonthIso } from "@/lib/download";
 import { sharedPageStyles } from "@/lib/pageStyles";
-import { findNegativeGridEntries, checkRawRowsUsable, evaluateAddSubtractExpression } from "@/lib/validation";
+import {
+  findNegativeGridEntries,
+  checkRawRowsUsable,
+  evaluateAddSubtractExpression,
+  isValidNumericExpressionInput,
+} from "@/lib/validation";
 
 const STATE_KEY = "payroll";
 
@@ -499,6 +504,10 @@ export default function PayrollPage() {
   }, [companies, arcadePayPeriodDate, loadArcadeGrid]);
 
   function handleArcadeCellChange(company, key, value) {
+    // Reject the whole keystroke rather than stripping bad characters out
+    // of it -- avoids the cursor jumping around when a disallowed
+    // character (a letter, a 2nd ".", a 3rd decimal digit) gets typed.
+    if (!isValidNumericExpressionInput(value)) return;
     setArcadeCompanyRows((prev) => ({
       ...prev,
       [company]: { ...prev[company], [key]: value },
@@ -1144,7 +1153,6 @@ export default function PayrollPage() {
                                     id={`arcade-cell-${rowIndex}-${colIndex}`}
                                     type="text"
                                     inputMode="decimal"
-                                    placeholder="e.g. 100+150"
                                     style={{ ...styles.numInput, ...(isNegative ? styles.numInputError : {}) }}
                                     value={arcadeCompanyRows[company]?.[key] ?? ""}
                                     onChange={(e) => handleArcadeCellChange(company, key, e.target.value)}
