@@ -27,7 +27,7 @@ import { savePendingMappings } from "@/lib/pendingMappings";
 import { savePageState, loadPageState } from "@/lib/pageState";
 import { triggerDownload, todayIso, firstOfMonthIso } from "@/lib/download";
 import { sharedPageStyles } from "@/lib/pageStyles";
-import { findNegativeGridEntries, checkRawRowsUsable } from "@/lib/validation";
+import { findNegativeGridEntries, checkRawRowsUsable, evaluateAddSubtractExpression } from "@/lib/validation";
 
 const STATE_KEY = "payroll";
 
@@ -505,7 +505,24 @@ export default function PayrollPage() {
     }));
   }
 
+  // Lets a cell be typed as "100+150" and resolve to 250 -- evaluated on
+  // blur and on Enter (not on every keystroke, so "100+" mid-typing isn't
+  // clobbered before the second number is entered).
+  function commitArcadeCellExpression(company, key) {
+    const raw = arcadeCompanyRows[company]?.[key];
+    const evaluated = evaluateAddSubtractExpression(raw);
+    if (evaluated !== null && String(evaluated) !== String(raw ?? "")) {
+      handleArcadeCellChange(company, key, String(evaluated));
+    }
+  }
+
   function handleArcadeGridKeyDown(e, rowIndex, colIndex) {
+    if (e.key === "Enter") {
+      const company = companies[rowIndex];
+      const key = ARCADE_SUBCONTRACTOR_FIELDS[colIndex]?.key;
+      if (company && key) commitArcadeCellExpression(company, key);
+      return;
+    }
     if (e.key !== "ArrowUp" && e.key !== "ArrowDown") return;
     e.preventDefault();
     const nextRow = e.key === "ArrowUp" ? rowIndex - 1 : rowIndex + 1;
@@ -1125,13 +1142,14 @@ export default function PayrollPage() {
                                 <td key={key} style={styles.td}>
                                   <input
                                     id={`arcade-cell-${rowIndex}-${colIndex}`}
-                                    type="number"
-                                    step="0.01"
-                                    min="0"
+                                    type="text"
+                                    inputMode="decimal"
+                                    placeholder="e.g. 100+150"
                                     style={{ ...styles.numInput, ...(isNegative ? styles.numInputError : {}) }}
                                     value={arcadeCompanyRows[company]?.[key] ?? ""}
                                     onChange={(e) => handleArcadeCellChange(company, key, e.target.value)}
                                     onKeyDown={(e) => handleArcadeGridKeyDown(e, rowIndex, colIndex)}
+                                    onBlur={() => commitArcadeCellExpression(company, key)}
                                   />
                                 </td>
                               );
