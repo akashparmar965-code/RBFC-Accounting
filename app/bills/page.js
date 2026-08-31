@@ -206,14 +206,14 @@ export default function BillsPage() {
         }
       }
 
-      const groupedLines = aggregateBillLines(rawRows, productMappings || []);
+      const { groups: groupedLines, sharedDocumentFlags } = aggregateBillLines(rawRows, productMappings || []);
       const { byCompany, unmatchedDoors, unmappedProducts } = buildBillRows(
         groupedLines,
         storeMaster,
         "all",
         doorMappings || []
       );
-      setResult({ byCompany, unmatched: unmatchedDoors, unmappedProducts });
+      setResult({ byCompany, unmatched: unmatchedDoors, unmappedProducts, sharedDocumentFlags });
       setSelectedCompanies(new Set(Object.keys(byCompany)));
       savePendingMappings({ unmatchedDoors, unmappedProducts });
     } catch (e) {
@@ -844,6 +844,23 @@ export default function BillsPage() {
                   {result.unmappedProducts.map((m, i) => (
                     <li key={i}>
                       Door {m.doorNumber} · {m.invoiceNo} · "{m.product}"
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {result && result.sharedDocumentFlags?.length > 0 && (
+              <div style={styles.errorBanner}>
+                {result.sharedDocumentFlags.length} invoice(s) in this file are attributed to more than one
+                Door Number — a real VIP export anomaly, not legitimate per-door billing (a genuine invoice is
+                always exactly one door). These were held out of every output file entirely, not posted to any
+                door. Check the invoice number directly on VIP's own site to find which single door it really
+                belongs to, then add it back manually:
+                <ul style={styles.unmappedList}>
+                  {result.sharedDocumentFlags.map((f, i) => (
+                    <li key={i}>
+                      {f.invoiceNo} · {f.doorCount} doors · {f.rowCount} rows
                     </li>
                   ))}
                 </ul>
