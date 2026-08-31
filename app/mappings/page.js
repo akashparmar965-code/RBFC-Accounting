@@ -36,7 +36,7 @@ const emptyCreditNoteDraft = {
   notes: "",
   ignore: false,
 };
-const emptyChartOfAccountDraft = { account_name: "", notes: "" };
+const emptyChartOfAccountDraft = { account_name: "", subcategory: "", notes: "" };
 const ACCOUNT_CATEGORY_OPTIONS = [
   "Revenue",
   "Cost of Goods Sold",
@@ -388,6 +388,7 @@ export default function MappingsPage() {
         {
           account_name: draft.account_name.trim(),
           category,
+          subcategory: draft.subcategory.trim() || null,
           notes: draft.notes.trim() || null,
         },
       ])
@@ -412,6 +413,7 @@ export default function MappingsPage() {
               <tr>
                 <th style={{ ...styles.th, textAlign: "left" }}>Account Name</th>
                 <th style={{ ...styles.th, textAlign: "left" }}>Category</th>
+                <th style={{ ...styles.th, textAlign: "left" }}>Sub Category</th>
                 <th style={{ ...styles.th, textAlign: "left" }}>Notes</th>
                 <th style={styles.th}></th>
               </tr>
@@ -428,6 +430,14 @@ export default function MappingsPage() {
                 </td>
                 <td style={styles.td}>
                   <span style={styles.coaFixedCategory}>{category}</span>
+                </td>
+                <td style={styles.td}>
+                  <input
+                    style={styles.cellInput}
+                    placeholder="e.g. Operating Expenses"
+                    value={draft.subcategory}
+                    onChange={(e) => setChartOfAccountDraftField(category, "subcategory", e.target.value)}
+                  />
                 </td>
                 <td style={styles.td}>
                   <input
@@ -468,6 +478,13 @@ export default function MappingsPage() {
                   <td style={styles.td}>
                     <input
                       style={styles.cellInput}
+                      defaultValue={r.subcategory || ""}
+                      onBlur={(e) => updateChartOfAccountField(r.id, "subcategory", e.target.value)}
+                    />
+                  </td>
+                  <td style={styles.td}>
+                    <input
+                      style={styles.cellInput}
                       defaultValue={r.notes || ""}
                       onBlur={(e) => updateChartOfAccountField(r.id, "notes", e.target.value)}
                     />
@@ -495,7 +512,7 @@ export default function MappingsPage() {
               ))}
               {rows.length === 0 && (
                 <tr>
-                  <td style={styles.td} colSpan={4}>
+                  <td style={styles.td} colSpan={5}>
                     <span style={styles.coaEmptyNote}>No accounts yet in {category}.</span>
                   </td>
                 </tr>
@@ -2159,7 +2176,10 @@ export default function MappingsPage() {
               <div style={styles.sectionSub}>
                 The master list of Income/Expense/Balance-Sheet accounts used for JE generation across the
                 app — currently wired into Manual JV&apos;s Account Name dropdown. One section per Category;
-                changing an account&apos;s Category on its own row moves it to that section.
+                changing an account&apos;s Category on its own row moves it to that section. Sub Category is
+                a free-text label for your own finer grouping within a Category (e.g. &quot;Operating
+                Expenses&quot; vs &quot;Payroll&quot; within Expense) — optional, not shown in the Manual JV
+                dropdown.
               </div>
             </div>
 
