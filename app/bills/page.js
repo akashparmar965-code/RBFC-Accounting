@@ -72,7 +72,7 @@ export default function BillsPage() {
   const [ondigoDragOver, setOndigoDragOver] = useState(false);
   const [ondigoProcessing, setOndigoProcessing] = useState(false);
   const [ondigoError, setOndigoError] = useState("");
-  const [ondigoResult, setOndigoResult] = useState(saved?.ondigoResult ?? null); // { byCompany, unmatchedAddresses }
+  const [ondigoResult, setOndigoResult] = useState(saved?.ondigoResult ?? null); // { byCompany, unmatchedOndigoNumbers }
   const [ondigoPreviewOpen, setOndigoPreviewOpen] = useState(saved?.ondigoPreviewOpen ?? false);
   const [ondigoSelectedCompanies, setOndigoSelectedCompanies] = useState(new Set(saved?.ondigoSelectedCompanies ?? []));
   const [ondigoPeriodMonth, setOndigoPeriodMonth] = useState(saved?.ondigoPeriodMonth ?? currentMonthIso());
@@ -420,8 +420,6 @@ export default function BillsPage() {
       const supabase = createClient();
       const { data: storeMaster, error: smError } = await supabase.from("stores").select("*");
       if (smError) throw new Error("Could not load Store Master: " + smError.message);
-      const { data: addressMappings, error: amError } = await supabase.from("ondigo_address_mappings").select("*");
-      if (amError) throw new Error("Could not load Ondigo address mappings: " + amError.message);
       const { data: ondigoDefaultRows, error: odError } = await supabase.from("ondigo_defaults").select("*");
       if (odError) throw new Error("Could not load Ondigo defaults: " + odError.message);
       const defaultsByKey = {};
@@ -430,15 +428,15 @@ export default function BillsPage() {
       const buffer = await file.arrayBuffer();
       const rawRows = parseOndigoWorkbook(buffer);
       if (!rawRows.length) throw new Error("No rows found in this file.");
-      if (!("Invoice #" in rawRows[0]) || !("Store/Location" in rawRows[0])) {
+      if (!("ChildCustNo" in rawRows[0]) || !("DocumentNo" in rawRows[0])) {
         throw new Error(
-          "This file doesn't look like an Ondigo export — no 'Invoice #'/'Store/Location' column found."
+          "This file doesn't look like an Ondigo export — no 'ChildCustNo'/'DocumentNo' column found."
         );
       }
-      const usableIssue = checkRawRowsUsable(rawRows, ["Invoice #", "Store/Location"], "Ondigo export");
+      const usableIssue = checkRawRowsUsable(rawRows, ["ChildCustNo", "DocumentNo"], "Ondigo export");
       if (usableIssue) throw new Error(usableIssue);
       if (mode !== "reconciliation") {
-        const { start, end } = dateRangeFromRows(rawRows, "Invoice Date");
+        const { start, end } = dateRangeFromRows(rawRows, "PostingDate");
         if (start && end && !isFileRangeWithinMonth(start, end, monthStr)) {
           throw new Error(
             `This file's dates (${start}–${end}) don't fall within the selected Month (${monthStr}) — not loaded. Pick the correct Month, upload the correct file, or switch to Reconciliation mode.`
@@ -446,13 +444,12 @@ export default function BillsPage() {
         }
       }
 
-      const { byCompany, unmatchedAddresses } = buildOndigoBillRows(rawRows, storeMaster, addressMappings || [], {
+      const { byCompany, unmatchedOndigoNumbers } = buildOndigoBillRows(rawRows, storeMaster, {
         vendor: defaultsByKey.vendor,
         expenseAccount: defaultsByKey.expense_account,
       });
-      setOndigoResult({ byCompany, unmatchedAddresses });
+      setOndigoResult({ byCompany, unmatchedOndigoNumbers });
       setOndigoSelectedCompanies(new Set(Object.keys(byCompany)));
-      savePendingMappings({ unmatchedOndigoAddresses: unmatchedAddresses });
     } catch (e) {
       setOndigoError(e.message || String(e));
     } finally {
@@ -716,7 +713,7 @@ export default function BillsPage() {
                 : activeTab === "epay"
                 ? "Upload the Epay invoices export — get income and purchase uploads, one pair per company"
                 : activeTab === "ondigo"
-                ? "Upload the Ondigo invoices export — matched by store address, one file per company"
+                ? "Upload the Ondigo statement export — matched by Ondigo Number, one file per company"
                 : "Upload the VIP export's Credit Note sheet — classified by Credit Note Mapping, one file per company"}
             </p>
           </div>
@@ -1262,15 +1259,15 @@ export default function BillsPage() {
             {ondigoProcessing && <div style={styles.info}>Processing…</div>}
             {ondigoError && <div style={styles.errorBanner}>{ondigoError}</div>}
 
-            {ondigoResult && ondigoResult.unmatchedAddresses.length > 0 && (
+            {ondigoResult && ondigoResult.unmatchedOndigoNumbers.length > 0 && (
               <div style={styles.warnBanner}>
-                {ondigoResult.unmatchedAddresses.length} invoice(s) have a Store/Location address that doesn't
-                match any store's VIP Address in Store Master (matched on the street portion only), so they were
-                skipped: <strong>{ondigoResult.unmatchedAddresses.join(" · ")}</strong>. Add them in{" "}
-                <Link href="/mappings?tab=ondigo" style={styles.inlineLink}>
-                  Ondigo Address Mapping
-                </Link>{" "}
-                or fix the address in Store Master's VIP Address field, then re-upload.
+                {ondigoResult.unmatchedOndigoNumbers.length} invoice(s) reference an Ondigo Number that doesn't
+                match any store in your Store Master, so they were skipped:{" "}
+                <strong>{ondigoResult.unmatchedOndigoNumbers.join(", ")}</strong>. Add the Ondigo Number to{" "}
+                <Link href="/mappings?tab=store" style={styles.inlineLink}>
+                  the matching store in Store Master
+                </Link>
+                , then re-upload.
               </div>
             )}
 

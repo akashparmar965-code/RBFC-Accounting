@@ -18,10 +18,20 @@ const FIELDS = [
   { key: "vip_address", label: "VIP Address" },
   { key: "elevate_name_new_qbo_class", label: "QB Class Name" },
   { key: "ondigo_address", label: "Ondigo Address" },
+  { key: "ondigo_number", label: "Ondigo Number" },
   { key: "salesforce_id", label: "Salesforce ID" },
 ];
 
-const TABLE_COLUMNS = ["status", "elevate_name", "rbfc_market", "asm", "company_name", "epay", "vip_website_no"];
+const TABLE_COLUMNS = [
+  "status",
+  "elevate_name",
+  "rbfc_market",
+  "asm",
+  "company_name",
+  "epay",
+  "vip_website_no",
+  "ondigo_number",
+];
 
 const emptyForm = () =>
   FIELDS.reduce((acc, f) => ({ ...acc, [f.key]: f.key === "status" ? "Active" : "" }), {});

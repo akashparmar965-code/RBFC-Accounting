@@ -11,6 +11,7 @@ create table if not exists stores (
   company_name text,
   elevate_name_new_qbo_class text,
   ondigo_address text,
+  ondigo_number text,
   salesforce_id text,
   rbfc_market text,
   asm text,
