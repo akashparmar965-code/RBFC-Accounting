@@ -23,6 +23,8 @@ const SECTION_FIELDS = [
 ];
 
 const CONCEPTS_TAB = "__concepts__";
+const UTILITIES_TAB = "__utilities__";
+const emptyBankMemoDraft = { bank_memo: "", account_name: "", notes: "" };
 
 function Bulleted({ text }) {
   const lines = (text || "").split("\n").map((l) => l.trim()).filter(Boolean);
@@ -55,6 +57,11 @@ export default function SopPage() {
   const [editingSectionId, setEditingSectionId] = useState(null);
   const [sectionDraft, setSectionDraft] = useState(null);
 
+  const [bankMemoRows, setBankMemoRows] = useState([]);
+  const [bankMemoDraft, setBankMemoDraft] = useState(emptyBankMemoDraft);
+  const [accountOptions, setAccountOptions] = useState([]); // [{ account_name }] from chart_of_accounts
+  const [confirmDeleteBankMemoId, setConfirmDeleteBankMemoId] = useState(null);
+
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
       setSession(data.session);
@@ -65,14 +72,19 @@ export default function SopPage() {
   const loadAll = useCallback(async () => {
     setLoading(true);
     setError("");
-    const [conceptsRes, sectionsRes] = await Promise.all([
+    const [conceptsRes, sectionsRes, bankMemoRes, accountsRes] = await Promise.all([
       supabase.from("sop_shared_concepts").select("*").order("sort_order", { ascending: true }),
       supabase.from("sop_sections").select("*").order("sort_order", { ascending: true }),
+      supabase.from("bank_memo_accounts").select("*").order("bank_memo", { ascending: true }),
+      supabase.from("chart_of_accounts").select("account_name").order("category").order("account_name"),
     ]);
     if (conceptsRes.error) setError(conceptsRes.error.message);
     else setConcepts(conceptsRes.data || []);
     if (sectionsRes.error) setError(sectionsRes.error.message);
     else setSections(sectionsRes.data || []);
+    if (bankMemoRes.error) setError(bankMemoRes.error.message);
+    else setBankMemoRows(bankMemoRes.data || []);
+    if (!accountsRes.error) setAccountOptions(accountsRes.data || []);
     setLoading(false);
   }, [supabase]);
 
@@ -135,6 +147,50 @@ export default function SopPage() {
     setActiveTab(tab);
   }
 
+  // ---- Utilities: Bank Memo -> Account Name reference ----
+
+  async function updateBankMemoField(id, field, value) {
+    setBankMemoRows((prev) => prev.map((r) => (r.id === id ? { ...r, [field]: value } : r)));
+    const { error } = await supabase
+      .from("bank_memo_accounts")
+      .update({ [field]: value || null })
+      .eq("id", id);
+    if (error) setError(error.message);
+  }
+
+  async function addBankMemoRow() {
+    if (!bankMemoDraft.bank_memo.trim() || !bankMemoDraft.account_name.trim()) {
+      setError("Bank Memo and Account Name are required.");
+      return;
+    }
+    const { data, error } = await supabase
+      .from("bank_memo_accounts")
+      .insert([
+        {
+          bank_memo: bankMemoDraft.bank_memo.trim(),
+          account_name: bankMemoDraft.account_name.trim(),
+          notes: bankMemoDraft.notes.trim() || null,
+        },
+      ])
+      .select();
+    if (error) {
+      setError(error.message);
+      return;
+    }
+    setBankMemoRows((prev) => [...prev, ...(data || [])]);
+    setBankMemoDraft(emptyBankMemoDraft);
+  }
+
+  async function deleteBankMemoRow(id) {
+    const { error } = await supabase.from("bank_memo_accounts").delete().eq("id", id);
+    if (error) {
+      setError(error.message);
+      return;
+    }
+    setBankMemoRows((prev) => prev.filter((r) => r.id !== id));
+    setConfirmDeleteBankMemoId(null);
+  }
+
   if (session === undefined) {
     return <div style={styles.loadingScreen}>Loading…</div>;
   }
@@ -174,6 +230,12 @@ export default function SopPage() {
                   {s.title}
                 </button>
               ))}
+              <button
+                style={activeTab === UTILITIES_TAB ? styles.tabActive : styles.tab}
+                onClick={() => switchTab(UTILITIES_TAB)}
+              >
+                Utilities
+              </button>
             </div>
 
             {activeTab === CONCEPTS_TAB && (
@@ -296,6 +358,126 @@ export default function SopPage() {
                   </div>
                 );
               })()}
+
+            {activeTab === UTILITIES_TAB && (
+              <div style={styles.card}>
+                <h2 style={styles.h2}>Utilities</h2>
+                <p style={styles.sectionSub}>
+                  A personal reference: the description text a bank statement shows for a transaction (its
+                  Bank Memo), mapped to which Account Name that transaction usually gets booked to — a quick
+                  lookup when bifurcating Expenses during reconciliation, not tied to any upload or JE
+                  generation elsewhere in the app.
+                </p>
+
+                <div style={styles.tableWrap}>
+                  <table style={styles.table}>
+                    <thead>
+                      <tr>
+                        <th style={{ ...styles.th, textAlign: "left" }}>Bank Memo</th>
+                        <th style={{ ...styles.th, textAlign: "left" }}>Account Name</th>
+                        <th style={{ ...styles.th, textAlign: "left" }}>Notes</th>
+                        <th style={styles.th}></th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr>
+                        <td style={styles.td}>
+                          <input
+                            style={styles.cellInput}
+                            placeholder="e.g. SP FUEL DEPOT #4412"
+                            value={bankMemoDraft.bank_memo}
+                            onChange={(e) => setBankMemoDraft((d) => ({ ...d, bank_memo: e.target.value }))}
+                          />
+                        </td>
+                        <td style={styles.td}>
+                          <input
+                            style={styles.cellInput}
+                            list="bank-memo-account-datalist"
+                            placeholder="Type to search…"
+                            value={bankMemoDraft.account_name}
+                            onChange={(e) => setBankMemoDraft((d) => ({ ...d, account_name: e.target.value }))}
+                          />
+                        </td>
+                        <td style={styles.td}>
+                          <input
+                            style={styles.cellInput}
+                            placeholder="(optional)"
+                            value={bankMemoDraft.notes}
+                            onChange={(e) => setBankMemoDraft((d) => ({ ...d, notes: e.target.value }))}
+                          />
+                        </td>
+                        <td style={styles.td}>
+                          <button style={styles.addBtn} onClick={addBankMemoRow}>
+                            + Add
+                          </button>
+                        </td>
+                      </tr>
+                      {bankMemoRows.map((r) => (
+                        <tr key={r.id} style={styles.tr}>
+                          <td style={styles.td}>
+                            <input
+                              style={styles.cellInput}
+                              defaultValue={r.bank_memo}
+                              onBlur={(e) => updateBankMemoField(r.id, "bank_memo", e.target.value)}
+                            />
+                          </td>
+                          <td style={styles.td}>
+                            <input
+                              style={styles.cellInput}
+                              list="bank-memo-account-datalist"
+                              defaultValue={r.account_name}
+                              onBlur={(e) => updateBankMemoField(r.id, "account_name", e.target.value)}
+                            />
+                          </td>
+                          <td style={styles.td}>
+                            <input
+                              style={styles.cellInput}
+                              defaultValue={r.notes || ""}
+                              onBlur={(e) => updateBankMemoField(r.id, "notes", e.target.value)}
+                            />
+                          </td>
+                          <td style={{ ...styles.td, whiteSpace: "nowrap" }}>
+                            {confirmDeleteBankMemoId === r.id ? (
+                              <>
+                                <button
+                                  style={{ ...styles.linkBtn, color: "var(--danger)" }}
+                                  onClick={() => deleteBankMemoRow(r.id)}
+                                >
+                                  Confirm
+                                </button>
+                                <button style={styles.linkBtn} onClick={() => setConfirmDeleteBankMemoId(null)}>
+                                  Cancel
+                                </button>
+                              </>
+                            ) : (
+                              <button
+                                style={{ ...styles.linkBtn, color: "var(--danger)" }}
+                                onClick={() => setConfirmDeleteBankMemoId(r.id)}
+                              >
+                                Delete
+                              </button>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                      {bankMemoRows.length === 0 && (
+                        <tr>
+                          <td style={styles.td} colSpan={4}>
+                            <span style={styles.emptyField}>— nothing added yet —</span>
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+
+                <datalist id="bank-memo-account-datalist">
+                  {accountOptions.map((a) => (
+                    <option key={a.account_name} value={a.account_name} />
+                  ))}
+                </datalist>
+              </div>
+            )}
           </>
         )}
       </main>
@@ -321,6 +503,50 @@ const styles = {
   },
   emptyState: { padding: "48px 16px", textAlign: "center", color: "var(--ink-soft)", fontSize: 13 },
   emptyField: { fontSize: 12.5, color: "var(--ink-soft)", fontStyle: "italic" },
+
+  tableWrap: { overflow: "auto" },
+  table: { width: "100%", borderCollapse: "collapse", fontSize: 12.5 },
+  th: {
+    textAlign: "center",
+    padding: "8px 10px",
+    borderBottom: "1px solid var(--line)",
+    color: "var(--ink-soft)",
+    fontWeight: 600,
+    fontSize: 10.5,
+    textTransform: "uppercase",
+    letterSpacing: "0.04em",
+    whiteSpace: "nowrap",
+  },
+  td: { padding: "6px 8px" },
+  cellInput: {
+    width: "100%",
+    minWidth: 140,
+    padding: "6px 8px",
+    borderRadius: 5,
+    border: "1px solid var(--line)",
+    fontSize: 12.5,
+    fontFamily: "var(--font-mono)",
+  },
+  linkBtn: {
+    background: "none",
+    border: "none",
+    color: "var(--ledger)",
+    fontSize: 12,
+    fontWeight: 600,
+    marginRight: 12,
+    padding: 0,
+    fontFamily: "var(--font-body)",
+  },
+  addBtn: {
+    background: "transparent",
+    color: "var(--ledger)",
+    border: "1px solid var(--ledger)",
+    borderRadius: 5,
+    padding: "6px 12px",
+    fontSize: 12,
+    fontWeight: 600,
+    whiteSpace: "nowrap",
+  },
 
   sectionSub: { fontSize: 12.5, color: "var(--ink-soft)", marginBottom: 14, lineHeight: 1.5, maxWidth: 720 },
 
