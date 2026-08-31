@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState, useCallback } from "react";
 import { createClient } from "@/lib/supabaseClient";
+import { sortRows, toggleSort, sortArrow } from "@/lib/sorting";
 
 const STATUS_OPTIONS = ["Active", "Closed"];
 
@@ -41,6 +42,7 @@ export default function StoreMasterPanel() {
   const [saving, setSaving] = useState(false);
   const [confirmDeleteId, setConfirmDeleteId] = useState(null);
   const [companyOptions, setCompanyOptions] = useState([]);
+  const [sort, setSort] = useState(null);
 
   const loadStores = useCallback(async () => {
     setLoading(true);
@@ -88,6 +90,8 @@ export default function StoreMasterPanel() {
       return FIELDS.some((f) => (s[f.key] || "").toString().toLowerCase().includes(q));
     });
   }, [stores, search, marketFilter, companyFilter]);
+
+  const sortedFiltered = useMemo(() => sortRows(filtered, sort), [filtered, sort]);
 
   function openAdd() {
     setEditingId(null);
@@ -182,15 +186,21 @@ export default function StoreMasterPanel() {
             <thead>
               <tr>
                 {TABLE_COLUMNS.map((key) => (
-                  <th key={key} style={styles.th}>
+                  <th
+                    key={key}
+                    style={{ ...styles.th, cursor: "pointer", userSelect: "none" }}
+                    onClick={() => toggleSort(setSort, key)}
+                    title="Click to sort"
+                  >
                     {FIELDS.find((f) => f.key === key)?.label}
+                    {sortArrow(sort, key)}
                   </th>
                 ))}
                 <th style={styles.th}></th>
               </tr>
             </thead>
             <tbody>
-              {filtered.map((s) => {
+              {sortedFiltered.map((s) => {
                 const closed = s.status === "Closed";
                 return (
                 <tr key={s.id} style={styles.tr}>

@@ -16,6 +16,7 @@ import {
   removePendingCreditNoteProductsMatching,
   clearPendingList,
 } from "@/lib/pendingMappings";
+import { sortRows, toggleSort, sortArrow } from "@/lib/sorting";
 
 const emptyProductDraft = { product_prefix: "", match_type: "starts_with", expense_account: "", expense_memo: "", notes: "" };
 const MATCH_TYPE_OPTIONS = [
@@ -95,6 +96,31 @@ export default function MappingsPage() {
   const [ondigoDefaultRows, setOndigoDefaultRows] = useState([]);
   const [creditNoteRows, setCreditNoteRows] = useState([]);
   const [chartOfAccountRows, setChartOfAccountRows] = useState([]);
+
+  // Clickable-column sort state per table (null = natural DB .order()); see lib/sorting.js.
+  const [productSort, setProductSort] = useState(null);
+  const [doorSort, setDoorSort] = useState(null);
+  const [accountSort, setAccountSort] = useState(null);
+  const [storeNameSort, setStoreNameSort] = useState(null);
+  const [depositAccountSort, setDepositAccountSort] = useState(null);
+  const [ondigoAddressSort, setOndigoAddressSort] = useState(null);
+  const [creditNoteSort, setCreditNoteSort] = useState(null);
+  const [chartOfAccountSort, setChartOfAccountSort] = useState(null);
+
+  const sortedProductRows = useMemo(() => sortRows(productRows, productSort), [productRows, productSort]);
+  const sortedDoorRows = useMemo(() => sortRows(doorRows, doorSort), [doorRows, doorSort]);
+  const sortedAccountRows = useMemo(() => sortRows(accountRows, accountSort), [accountRows, accountSort]);
+  const sortedStoreNameRows = useMemo(() => sortRows(storeNameRows, storeNameSort), [storeNameRows, storeNameSort]);
+  const sortedDepositAccountRows = useMemo(
+    () => sortRows(depositAccountRows, depositAccountSort),
+    [depositAccountRows, depositAccountSort]
+  );
+  const sortedOndigoAddressRows = useMemo(
+    () => sortRows(ondigoAddressRows, ondigoAddressSort),
+    [ondigoAddressRows, ondigoAddressSort]
+  );
+  const sortedCreditNoteRows = useMemo(() => sortRows(creditNoteRows, creditNoteSort), [creditNoteRows, creditNoteSort]);
+
   const [elevateNameOptions, setElevateNameOptions] = useState([]); // [{ value, label }]
   const [companyOptions, setCompanyOptions] = useState([]);
   const [qboClassOptions, setQboClassOptions] = useState([]); // Store Master's elevate_name_new_qbo_class, distinct + sorted
@@ -402,7 +428,10 @@ export default function MappingsPage() {
   }
 
   function renderChartOfAccountCategory(category) {
-    const rows = chartOfAccountRows.filter((r) => r.category === category);
+    const rows = sortRows(
+      chartOfAccountRows.filter((r) => r.category === category),
+      chartOfAccountSort
+    );
     const draft = getChartOfAccountDraft(category);
     return (
       <div key={category} style={styles.coaCategorySection}>
@@ -411,10 +440,18 @@ export default function MappingsPage() {
           <table style={styles.table}>
             <thead>
               <tr>
-                <th style={{ ...styles.th, textAlign: "left" }}>Account Name</th>
-                <th style={{ ...styles.th, textAlign: "left" }}>Category</th>
-                <th style={{ ...styles.th, textAlign: "left" }}>Sub Category</th>
-                <th style={{ ...styles.th, textAlign: "left" }}>Notes</th>
+                <th style={styles.thSortable} onClick={() => toggleSort(setChartOfAccountSort, "account_name")}>
+                  Account Name{sortArrow(chartOfAccountSort, "account_name")}
+                </th>
+                <th style={styles.thSortable} onClick={() => toggleSort(setChartOfAccountSort, "category")}>
+                  Category{sortArrow(chartOfAccountSort, "category")}
+                </th>
+                <th style={styles.thSortable} onClick={() => toggleSort(setChartOfAccountSort, "subcategory")}>
+                  Sub Category{sortArrow(chartOfAccountSort, "subcategory")}
+                </th>
+                <th style={styles.thSortable} onClick={() => toggleSort(setChartOfAccountSort, "notes")}>
+                  Notes{sortArrow(chartOfAccountSort, "notes")}
+                </th>
                 <th style={styles.th}></th>
               </tr>
             </thead>
@@ -945,16 +982,26 @@ export default function MappingsPage() {
                 <table style={styles.table}>
                   <thead>
                     <tr>
-                      <th style={{ ...styles.th, textAlign: "left" }}>Product Prefix</th>
-                      <th style={{ ...styles.th, textAlign: "left" }}>Match Type</th>
-                      <th style={{ ...styles.th, textAlign: "left" }}>Expense Account</th>
-                      <th style={{ ...styles.th, textAlign: "left" }}>Expense Memo (override)</th>
-                      <th style={{ ...styles.th, textAlign: "left" }}>Notes</th>
+                      <th style={styles.thSortable} onClick={() => toggleSort(setProductSort, "product_prefix")}>
+                        Product Prefix{sortArrow(productSort, "product_prefix")}
+                      </th>
+                      <th style={styles.thSortable} onClick={() => toggleSort(setProductSort, "match_type")}>
+                        Match Type{sortArrow(productSort, "match_type")}
+                      </th>
+                      <th style={styles.thSortable} onClick={() => toggleSort(setProductSort, "expense_account")}>
+                        Expense Account{sortArrow(productSort, "expense_account")}
+                      </th>
+                      <th style={styles.thSortable} onClick={() => toggleSort(setProductSort, "expense_memo")}>
+                        Expense Memo (override){sortArrow(productSort, "expense_memo")}
+                      </th>
+                      <th style={styles.thSortable} onClick={() => toggleSort(setProductSort, "notes")}>
+                        Notes{sortArrow(productSort, "notes")}
+                      </th>
                       <th style={styles.th}></th>
                     </tr>
                   </thead>
                   <tbody>
-                    {productRows.map((r) => (
+                    {sortedProductRows.map((r) => (
                       <tr key={r.id} style={styles.tr}>
                         <td style={styles.td}>
                           <input
@@ -1106,15 +1153,23 @@ export default function MappingsPage() {
                 <table style={styles.table}>
                   <thead>
                     <tr>
-                      <th style={{ ...styles.th, textAlign: "left" }}>Door Number</th>
-                      <th style={{ ...styles.th, textAlign: "left" }}>Company Name</th>
-                      <th style={{ ...styles.th, textAlign: "left" }}>QBO Class</th>
-                      <th style={{ ...styles.th, textAlign: "left" }}>Notes</th>
+                      <th style={styles.thSortable} onClick={() => toggleSort(setDoorSort, "door_number")}>
+                        Door Number{sortArrow(doorSort, "door_number")}
+                      </th>
+                      <th style={styles.thSortable} onClick={() => toggleSort(setDoorSort, "company_name")}>
+                        Company Name{sortArrow(doorSort, "company_name")}
+                      </th>
+                      <th style={styles.thSortable} onClick={() => toggleSort(setDoorSort, "qbo_class")}>
+                        QBO Class{sortArrow(doorSort, "qbo_class")}
+                      </th>
+                      <th style={styles.thSortable} onClick={() => toggleSort(setDoorSort, "notes")}>
+                        Notes{sortArrow(doorSort, "notes")}
+                      </th>
                       <th style={styles.th}></th>
                     </tr>
                   </thead>
                   <tbody>
-                    {doorRows.map((r) => (
+                    {sortedDoorRows.map((r) => (
                       <tr key={r.id} style={styles.tr}>
                         <td style={styles.td}>
                           <input
@@ -1276,15 +1331,23 @@ export default function MappingsPage() {
                 <table style={styles.table}>
                   <thead>
                     <tr>
-                      <th style={{ ...styles.th, textAlign: "left" }}>Account Number</th>
-                      <th style={{ ...styles.th, textAlign: "left" }}>Company Name</th>
-                      <th style={{ ...styles.th, textAlign: "left" }}>QBO Class</th>
-                      <th style={{ ...styles.th, textAlign: "left" }}>Notes</th>
+                      <th style={styles.thSortable} onClick={() => toggleSort(setAccountSort, "account_number")}>
+                        Account Number{sortArrow(accountSort, "account_number")}
+                      </th>
+                      <th style={styles.thSortable} onClick={() => toggleSort(setAccountSort, "company_name")}>
+                        Company Name{sortArrow(accountSort, "company_name")}
+                      </th>
+                      <th style={styles.thSortable} onClick={() => toggleSort(setAccountSort, "qbo_class")}>
+                        QBO Class{sortArrow(accountSort, "qbo_class")}
+                      </th>
+                      <th style={styles.thSortable} onClick={() => toggleSort(setAccountSort, "notes")}>
+                        Notes{sortArrow(accountSort, "notes")}
+                      </th>
                       <th style={styles.th}></th>
                     </tr>
                   </thead>
                   <tbody>
-                    {accountRows.map((r) => (
+                    {sortedAccountRows.map((r) => (
                       <tr key={r.id} style={styles.tr}>
                         <td style={styles.td}>
                           <input
@@ -1448,14 +1511,20 @@ export default function MappingsPage() {
                 <table style={styles.table}>
                   <thead>
                     <tr>
-                      <th style={{ ...styles.th, textAlign: "left" }}>Raw Store Name</th>
-                      <th style={{ ...styles.th, textAlign: "left" }}>Elevate Name</th>
-                      <th style={{ ...styles.th, textAlign: "left" }}>Notes</th>
+                      <th style={styles.thSortable} onClick={() => toggleSort(setStoreNameSort, "raw_name")}>
+                        Raw Store Name{sortArrow(storeNameSort, "raw_name")}
+                      </th>
+                      <th style={styles.thSortable} onClick={() => toggleSort(setStoreNameSort, "elevate_name")}>
+                        Elevate Name{sortArrow(storeNameSort, "elevate_name")}
+                      </th>
+                      <th style={styles.thSortable} onClick={() => toggleSort(setStoreNameSort, "notes")}>
+                        Notes{sortArrow(storeNameSort, "notes")}
+                      </th>
                       <th style={styles.th}></th>
                     </tr>
                   </thead>
                   <tbody>
-                    {storeNameRows.map((r) => (
+                    {sortedStoreNameRows.map((r) => (
                       <tr key={r.id} style={styles.tr}>
                         <td style={styles.td}>
                           <input
@@ -1662,15 +1731,29 @@ export default function MappingsPage() {
                 <table style={styles.table}>
                   <thead>
                     <tr>
-                      <th style={{ ...styles.th, textAlign: "left" }}>Tender Type</th>
-                      <th style={{ ...styles.th, textAlign: "left" }}>Deposit To Account</th>
-                      <th style={{ ...styles.th, textAlign: "left" }}>Payment Method</th>
-                      <th style={{ ...styles.th, textAlign: "left" }}>Notes</th>
+                      <th style={styles.thSortable} onClick={() => toggleSort(setDepositAccountSort, "tender_type")}>
+                        Tender Type{sortArrow(depositAccountSort, "tender_type")}
+                      </th>
+                      <th
+                        style={styles.thSortable}
+                        onClick={() => toggleSort(setDepositAccountSort, "deposit_to_account")}
+                      >
+                        Deposit To Account{sortArrow(depositAccountSort, "deposit_to_account")}
+                      </th>
+                      <th
+                        style={styles.thSortable}
+                        onClick={() => toggleSort(setDepositAccountSort, "payment_method")}
+                      >
+                        Payment Method{sortArrow(depositAccountSort, "payment_method")}
+                      </th>
+                      <th style={styles.thSortable} onClick={() => toggleSort(setDepositAccountSort, "notes")}>
+                        Notes{sortArrow(depositAccountSort, "notes")}
+                      </th>
                       <th style={styles.th}></th>
                     </tr>
                   </thead>
                   <tbody>
-                    {depositAccountRows.map((r) => (
+                    {sortedDepositAccountRows.map((r) => (
                       <tr key={r.id} style={styles.tr}>
                         <td style={styles.td}>
                           <input
@@ -1838,15 +1921,23 @@ export default function MappingsPage() {
                 <table style={styles.table}>
                   <thead>
                     <tr>
-                      <th style={{ ...styles.th, textAlign: "left" }}>Street Address</th>
-                      <th style={{ ...styles.th, textAlign: "left" }}>Company Name</th>
-                      <th style={{ ...styles.th, textAlign: "left" }}>QBO Class</th>
-                      <th style={{ ...styles.th, textAlign: "left" }}>Notes</th>
+                      <th style={styles.thSortable} onClick={() => toggleSort(setOndigoAddressSort, "street_address")}>
+                        Street Address{sortArrow(ondigoAddressSort, "street_address")}
+                      </th>
+                      <th style={styles.thSortable} onClick={() => toggleSort(setOndigoAddressSort, "company_name")}>
+                        Company Name{sortArrow(ondigoAddressSort, "company_name")}
+                      </th>
+                      <th style={styles.thSortable} onClick={() => toggleSort(setOndigoAddressSort, "qbo_class")}>
+                        QBO Class{sortArrow(ondigoAddressSort, "qbo_class")}
+                      </th>
+                      <th style={styles.thSortable} onClick={() => toggleSort(setOndigoAddressSort, "notes")}>
+                        Notes{sortArrow(ondigoAddressSort, "notes")}
+                      </th>
                       <th style={styles.th}></th>
                     </tr>
                   </thead>
                   <tbody>
-                    {ondigoAddressRows.map((r) => (
+                    {sortedOndigoAddressRows.map((r) => (
                       <tr key={r.id} style={styles.tr}>
                         <td style={styles.td}>
                           <input
@@ -2022,17 +2113,32 @@ export default function MappingsPage() {
                 <table style={styles.table}>
                   <thead>
                     <tr>
-                      <th style={{ ...styles.th, textAlign: "left" }}>Memo Prefix</th>
-                      <th style={{ ...styles.th, textAlign: "left" }}>Match Type</th>
-                      <th style={styles.th}>Ignore</th>
-                      <th style={{ ...styles.th, textAlign: "left" }}>Expense Account</th>
-                      <th style={{ ...styles.th, textAlign: "left" }}>Expense Memo (override)</th>
-                      <th style={{ ...styles.th, textAlign: "left" }}>Notes</th>
+                      <th style={styles.thSortable} onClick={() => toggleSort(setCreditNoteSort, "product_prefix")}>
+                        Memo Prefix{sortArrow(creditNoteSort, "product_prefix")}
+                      </th>
+                      <th style={styles.thSortable} onClick={() => toggleSort(setCreditNoteSort, "match_type")}>
+                        Match Type{sortArrow(creditNoteSort, "match_type")}
+                      </th>
+                      <th
+                        style={{ ...styles.thSortable, textAlign: "center" }}
+                        onClick={() => toggleSort(setCreditNoteSort, "ignore")}
+                      >
+                        Ignore{sortArrow(creditNoteSort, "ignore")}
+                      </th>
+                      <th style={styles.thSortable} onClick={() => toggleSort(setCreditNoteSort, "expense_account")}>
+                        Expense Account{sortArrow(creditNoteSort, "expense_account")}
+                      </th>
+                      <th style={styles.thSortable} onClick={() => toggleSort(setCreditNoteSort, "expense_memo")}>
+                        Expense Memo (override){sortArrow(creditNoteSort, "expense_memo")}
+                      </th>
+                      <th style={styles.thSortable} onClick={() => toggleSort(setCreditNoteSort, "notes")}>
+                        Notes{sortArrow(creditNoteSort, "notes")}
+                      </th>
                       <th style={styles.th}></th>
                     </tr>
                   </thead>
                   <tbody>
-                    {creditNoteRows.map((r) => (
+                    {sortedCreditNoteRows.map((r) => (
                       <tr key={r.id} style={styles.tr}>
                         <td style={styles.td}>
                           <input
@@ -2322,6 +2428,19 @@ const styles = {
     textTransform: "uppercase",
     letterSpacing: "0.04em",
     whiteSpace: "nowrap",
+  },
+  thSortable: {
+    textAlign: "left",
+    padding: "8px 10px",
+    borderBottom: "1px solid var(--line)",
+    color: "var(--ink-soft)",
+    fontWeight: 600,
+    fontSize: 10.5,
+    textTransform: "uppercase",
+    letterSpacing: "0.04em",
+    whiteSpace: "nowrap",
+    cursor: "pointer",
+    userSelect: "none",
   },
   tr: { borderBottom: "1px solid var(--line)" },
   td: { padding: "6px 8px" },

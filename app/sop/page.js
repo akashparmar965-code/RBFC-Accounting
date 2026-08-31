@@ -6,6 +6,7 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabaseClient";
 import Sidebar from "@/components/Sidebar";
 import { sharedPageStyles } from "@/lib/pageStyles";
+import { sortRows, toggleSort, sortArrow } from "@/lib/sorting";
 
 const SECTION_FIELDS = [
   { key: "source_of_file", label: "Source of File", hint: "Where this file comes from and how to pull it." },
@@ -59,29 +60,10 @@ export default function SopPage() {
 
   const [bankMemoRows, setBankMemoRows] = useState([]);
   const [bankMemoDraft, setBankMemoDraft] = useState(emptyBankMemoDraft);
-  const [accountOptions, setAccountOptions] = useState([]); // [{ account_name }] from chart_of_accounts
+  const [accountOptions, setAccountOptions] = useState([]); // [{ account_name }] from chart_of_accounts, Expense category only
   const [confirmDeleteBankMemoId, setConfirmDeleteBankMemoId] = useState(null);
   const [bankMemoSort, setBankMemoSort] = useState({ column: "bank_memo", direction: "asc" });
-
-  function toggleBankMemoSort(column) {
-    setBankMemoSort((prev) =>
-      prev.column === column
-        ? { column, direction: prev.direction === "asc" ? "desc" : "asc" }
-        : { column, direction: "asc" }
-    );
-  }
-
-  const sortedBankMemoRows = useMemo(() => {
-    const { column, direction } = bankMemoSort;
-    const sorted = [...bankMemoRows].sort((a, b) => {
-      const av = (a[column] || "").toString().toLowerCase();
-      const bv = (b[column] || "").toString().toLowerCase();
-      if (av < bv) return -1;
-      if (av > bv) return 1;
-      return 0;
-    });
-    return direction === "asc" ? sorted : sorted.reverse();
-  }, [bankMemoRows, bankMemoSort]);
+  const sortedBankMemoRows = useMemo(() => sortRows(bankMemoRows, bankMemoSort), [bankMemoRows, bankMemoSort]);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
@@ -97,7 +79,11 @@ export default function SopPage() {
       supabase.from("sop_shared_concepts").select("*").order("sort_order", { ascending: true }),
       supabase.from("sop_sections").select("*").order("sort_order", { ascending: true }),
       supabase.from("bank_memo_accounts").select("*").order("bank_memo", { ascending: true }),
-      supabase.from("chart_of_accounts").select("account_name").order("category").order("account_name"),
+      supabase
+        .from("chart_of_accounts")
+        .select("account_name")
+        .eq("category", "Expense")
+        .order("account_name"),
     ]);
     if (conceptsRes.error) setError(conceptsRes.error.message);
     else setConcepts(conceptsRes.data || []);
@@ -387,7 +373,8 @@ export default function SopPage() {
                   A personal reference: the description text a bank statement shows for a transaction (its
                   Bank Memo), mapped to which Account Name that transaction usually gets booked to — a quick
                   lookup when bifurcating Expenses during reconciliation, not tied to any upload or JE
-                  generation elsewhere in the app.
+                  generation elsewhere in the app. Account Name only lists accounts from Mapping Master's
+                  Accounts tab in the <strong>Expense</strong> category, since that's what this table is for.
                 </p>
 
                 <div style={styles.tableWrap}>
@@ -402,11 +389,11 @@ export default function SopPage() {
                           <th
                             key={column}
                             style={{ ...styles.th, textAlign: "left", cursor: "pointer", userSelect: "none" }}
-                            onClick={() => toggleBankMemoSort(column)}
+                            onClick={() => toggleSort(setBankMemoSort, column)}
                             title="Click to sort"
                           >
                             {label}
-                            {bankMemoSort.column === column && (bankMemoSort.direction === "asc" ? " ▲" : " ▼")}
+                            {sortArrow(bankMemoSort, column)}
                           </th>
                         ))}
                         <th style={styles.th}></th>
