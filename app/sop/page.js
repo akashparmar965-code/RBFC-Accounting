@@ -61,6 +61,27 @@ export default function SopPage() {
   const [bankMemoDraft, setBankMemoDraft] = useState(emptyBankMemoDraft);
   const [accountOptions, setAccountOptions] = useState([]); // [{ account_name }] from chart_of_accounts
   const [confirmDeleteBankMemoId, setConfirmDeleteBankMemoId] = useState(null);
+  const [bankMemoSort, setBankMemoSort] = useState({ column: "bank_memo", direction: "asc" });
+
+  function toggleBankMemoSort(column) {
+    setBankMemoSort((prev) =>
+      prev.column === column
+        ? { column, direction: prev.direction === "asc" ? "desc" : "asc" }
+        : { column, direction: "asc" }
+    );
+  }
+
+  const sortedBankMemoRows = useMemo(() => {
+    const { column, direction } = bankMemoSort;
+    const sorted = [...bankMemoRows].sort((a, b) => {
+      const av = (a[column] || "").toString().toLowerCase();
+      const bv = (b[column] || "").toString().toLowerCase();
+      if (av < bv) return -1;
+      if (av > bv) return 1;
+      return 0;
+    });
+    return direction === "asc" ? sorted : sorted.reverse();
+  }, [bankMemoRows, bankMemoSort]);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
@@ -373,9 +394,21 @@ export default function SopPage() {
                   <table style={styles.table}>
                     <thead>
                       <tr>
-                        <th style={{ ...styles.th, textAlign: "left" }}>Bank Memo</th>
-                        <th style={{ ...styles.th, textAlign: "left" }}>Account Name</th>
-                        <th style={{ ...styles.th, textAlign: "left" }}>Notes</th>
+                        {[
+                          { column: "bank_memo", label: "Bank Memo" },
+                          { column: "account_name", label: "Account Name" },
+                          { column: "notes", label: "Notes" },
+                        ].map(({ column, label }) => (
+                          <th
+                            key={column}
+                            style={{ ...styles.th, textAlign: "left", cursor: "pointer", userSelect: "none" }}
+                            onClick={() => toggleBankMemoSort(column)}
+                            title="Click to sort"
+                          >
+                            {label}
+                            {bankMemoSort.column === column && (bankMemoSort.direction === "asc" ? " ▲" : " ▼")}
+                          </th>
+                        ))}
                         <th style={styles.th}></th>
                       </tr>
                     </thead>
@@ -412,7 +445,7 @@ export default function SopPage() {
                           </button>
                         </td>
                       </tr>
-                      {bankMemoRows.map((r) => (
+                      {sortedBankMemoRows.map((r) => (
                         <tr key={r.id} style={styles.tr}>
                           <td style={styles.td}>
                             <input
