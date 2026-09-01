@@ -561,24 +561,17 @@ export default function InventoryPage() {
                     </tr>
                   ))}
                 </tbody>
+                <tfoot>
+                  <tr>
+                    <td style={styles.totalsCell} colSpan={2}>
+                      Total ({filteredChangeRows.length} store{filteredChangeRows.length === 1 ? "" : "s"})
+                    </td>
+                    <td style={styles.totalsCell}>{changeTotals.opening.toFixed(2)}</td>
+                    <td style={styles.totalsCell}>{changeTotals.closing.toFixed(2)}</td>
+                    <td style={styles.totalsCell}>{changeTotals.change.toFixed(2)}</td>
+                  </tr>
+                </tfoot>
               </table>
-            </div>
-            <div style={styles.totalsBar}>
-              <span style={styles.totalsBarLabel}>
-                Total ({filteredChangeRows.length} store{filteredChangeRows.length === 1 ? "" : "s"})
-              </span>
-              <span style={styles.totalsBarFigure}>
-                <span style={styles.totalsBarFigureLabel}>Opening</span>
-                {changeTotals.opening.toFixed(2)}
-              </span>
-              <span style={styles.totalsBarFigure}>
-                <span style={styles.totalsBarFigureLabel}>Closing</span>
-                {changeTotals.closing.toFixed(2)}
-              </span>
-              <span style={styles.totalsBarFigure}>
-                <span style={styles.totalsBarFigureLabel}>Change</span>
-                {changeTotals.change.toFixed(2)}
-              </span>
             </div>
           </div>
         )}
@@ -1041,40 +1034,20 @@ const styles = {
     fontSize: 11.5,
     whiteSpace: "nowrap",
   },
-  totalsBar: {
-    display: "flex",
-    flexWrap: "wrap",
-    alignItems: "center",
-    gap: "8px 28px",
-    marginTop: 10,
-    padding: "12px 16px",
-    borderRadius: 8,
-    background: "rgba(34, 163, 123, 0.14)",
-    border: "1px solid var(--ledger)",
-  },
-  totalsBarLabel: {
+  // Plain (non-sticky) tfoot row, same table as the header/body -- lines up
+  // with the Opening/Closing/Change columns exactly since it's the same
+  // columns, same table. Do NOT make this position:sticky again -- that
+  // caused it to visibly overlap/garble with data rows while scrolling
+  // (border-collapse + sticky doesn't paint opaquely in some browsers).
+  totalsCell: {
+    padding: "10px 8px",
+    fontFamily: "var(--font-mono)",
     fontSize: 12.5,
     fontWeight: 700,
     color: "var(--ink)",
-    marginRight: "auto",
-  },
-  totalsBarFigure: {
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "flex-end",
-    gap: 2,
-    fontFamily: "var(--font-mono)",
-    fontSize: 14,
-    fontWeight: 700,
-    color: "var(--ink)",
-  },
-  totalsBarFigureLabel: {
-    fontFamily: "var(--font-body)",
-    fontSize: 10,
-    fontWeight: 600,
-    textTransform: "uppercase",
-    letterSpacing: "0.03em",
-    color: "var(--ink-soft)",
+    whiteSpace: "nowrap",
+    background: "rgba(34, 163, 123, 0.14)",
+    borderTop: "2px solid var(--ledger)",
   },
   actionsRow: { display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 20, alignItems: "center" },
   generateBtn: {
