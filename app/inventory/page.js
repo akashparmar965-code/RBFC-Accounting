@@ -1034,19 +1034,27 @@ const styles = {
     fontSize: 11.5,
     whiteSpace: "nowrap",
   },
-  // Plain (non-sticky) tfoot row, same table as the header/body -- lines up
-  // with the Opening/Closing/Change columns exactly since it's the same
-  // columns, same table. Do NOT make this position:sticky again -- that
-  // caused it to visibly overlap/garble with data rows while scrolling
-  // (border-collapse + sticky doesn't paint opaquely in some browsers).
+  // tfoot row, same table as the header/body -- lines up with the
+  // Opening/Closing/Change columns exactly since it's the same columns,
+  // same table. Sticky at the bottom so it's visible without scrolling to
+  // the end. table's borderCollapse:"separate" above is required for this
+  // to paint opaquely while scrolling (collapse + sticky bleeds/overlaps
+  // scrolled rows in some browsers -- don't revert that). Background here
+  // must stay a fully OPAQUE color, not a translucent rgba tint -- a
+  // low-alpha sticky background still lets scrolled row text show through
+  // underneath it (not a bug, just normal alpha blending), which looked
+  // just as garbled as the original overlap bug.
   totalsCell: {
+    position: "sticky",
+    bottom: 0,
+    zIndex: 2,
     padding: "10px 8px",
     fontFamily: "var(--font-mono)",
     fontSize: 12.5,
     fontWeight: 700,
     color: "var(--ink)",
     whiteSpace: "nowrap",
-    background: "rgba(34, 163, 123, 0.14)",
+    background: "#173230",
     borderTop: "2px solid var(--ledger)",
   },
   actionsRow: { display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 20, alignItems: "center" },
