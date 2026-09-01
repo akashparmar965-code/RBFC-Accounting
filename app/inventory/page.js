@@ -563,12 +563,12 @@ export default function InventoryPage() {
                 </tbody>
                 <tfoot>
                   <tr style={styles.totalsRow}>
-                    <td style={styles.td} colSpan={2}>
+                    <td style={styles.totalsCell} colSpan={2}>
                       Total ({filteredChangeRows.length} store{filteredChangeRows.length === 1 ? "" : "s"})
                     </td>
-                    <td style={styles.td}>{changeTotals.opening.toFixed(2)}</td>
-                    <td style={styles.td}>{changeTotals.closing.toFixed(2)}</td>
-                    <td style={styles.td}>{changeTotals.change.toFixed(2)}</td>
+                    <td style={styles.totalsCell}>{changeTotals.opening.toFixed(2)}</td>
+                    <td style={styles.totalsCell}>{changeTotals.closing.toFixed(2)}</td>
+                    <td style={styles.totalsCell}>{changeTotals.change.toFixed(2)}</td>
                   </tr>
                 </tfoot>
               </table>
@@ -1009,6 +1009,10 @@ const styles = {
   },
   table: { width: "100%", borderCollapse: "collapse", fontSize: 12 },
   th: {
+    position: "sticky",
+    top: 0,
+    zIndex: 2,
+    background: "var(--panel)",
     textAlign: "left",
     padding: "9px 10px",
     borderBottom: "1px solid var(--line)",
@@ -1029,9 +1033,17 @@ const styles = {
   totalsRow: {
     position: "sticky",
     bottom: 0,
-    background: "var(--panel)",
+    zIndex: 2,
+  },
+  totalsCell: {
+    padding: "10px 8px",
+    fontFamily: "var(--font-mono)",
+    fontSize: 12.5,
     fontWeight: 700,
-    borderTop: "2px solid var(--line)",
+    color: "var(--ink)",
+    whiteSpace: "nowrap",
+    background: "rgba(34, 163, 123, 0.14)",
+    borderTop: "2px solid var(--ledger)",
   },
   actionsRow: { display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 20, alignItems: "center" },
   generateBtn: {
