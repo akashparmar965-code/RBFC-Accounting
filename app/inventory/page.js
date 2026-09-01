@@ -62,6 +62,7 @@ export default function InventoryPage() {
   // aren't kept around after computing this) — restored directly so a
   // reload/tab-switch doesn't need the original files again.
   const [changeResult, setChangeResult] = useState(saved?.changeResult ?? null); // { changeRows, unmatchedStores }
+  const [changeCompanyFilter, setChangeCompanyFilter] = useState(saved?.changeCompanyFilter ?? "all");
 
   const [generating, setGenerating] = useState(false);
   const [generateError, setGenerateError] = useState("");
@@ -104,6 +105,7 @@ export default function InventoryPage() {
       openingFileName,
       closingFileName,
       changeResult,
+      changeCompanyFilter,
       result,
       previewOpen,
       selectedCompanies: Array.from(selectedCompanies),
@@ -122,6 +124,7 @@ export default function InventoryPage() {
     openingFileName,
     closingFileName,
     changeResult,
+    changeCompanyFilter,
     result,
     previewOpen,
     selectedCompanies,
@@ -233,6 +236,7 @@ export default function InventoryPage() {
     const closingByStore = sumCostByStore(mappedClosing);
     const { changeRows, unmatchedStores } = buildInventoryChangeRows(openingByStore, closingByStore, storeMaster);
     setChangeResult({ changeRows, unmatchedStores });
+    setChangeCompanyFilter("all");
     setResult(null);
     setPreviewOpen(false);
     savePendingMappings({ unmatchedStoreNames: unmatchedStores });
@@ -399,6 +403,17 @@ export default function InventoryPage() {
   const totalRows = companyEntries.reduce((sum, [, rows]) => sum + rows.length, 0);
   const grandTotal = companyEntries.reduce((sum, [, rows]) => sum + debitTotal(rows), 0);
   const changeRows = changeResult?.changeRows || [];
+  const changeCompanies = Array.from(new Set(changeRows.map((r) => r.company))).sort();
+  const filteredChangeRows =
+    changeCompanyFilter === "all" ? changeRows : changeRows.filter((r) => r.company === changeCompanyFilter);
+  const changeTotals = filteredChangeRows.reduce(
+    (acc, r) => ({
+      opening: acc.opening + (Number(r.opening) || 0),
+      closing: acc.closing + (Number(r.closing) || 0),
+      change: acc.change + (Number(r.change) || 0),
+    }),
+    { opening: 0, closing: 0, change: 0 }
+  );
 
   const agingCompanyEntries = agingResult ? Object.entries(agingResult.byCompany) : [];
   const agingTotalRows = agingCompanyEntries.reduce((sum, [, rows]) => sum + rows.length, 0);
@@ -507,6 +522,23 @@ export default function InventoryPage() {
         {changeResult && changeRows.length > 0 && (
           <div style={styles.card}>
             <h2 style={styles.h2}>2. Opening / Closing / Change in Inventory (preview)</h2>
+            <div style={styles.fieldRow}>
+              <label style={styles.fieldBlock}>
+                <span style={styles.fieldLabel}>Company</span>
+                <select
+                  style={styles.dateInput}
+                  value={changeCompanyFilter}
+                  onChange={(e) => setChangeCompanyFilter(e.target.value)}
+                >
+                  <option value="all">All companies</option>
+                  {changeCompanies.map((c) => (
+                    <option key={c} value={c}>
+                      {c}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
             <div style={styles.tableWrap}>
               <table style={styles.table}>
                 <thead>
@@ -519,7 +551,7 @@ export default function InventoryPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {changeRows.map((r, i) => (
+                  {filteredChangeRows.map((r, i) => (
                     <tr key={i} style={styles.tr}>
                       <td style={styles.td}>{r.company}</td>
                       <td style={styles.td}>{r.storeLabel}</td>
@@ -529,6 +561,16 @@ export default function InventoryPage() {
                     </tr>
                   ))}
                 </tbody>
+                <tfoot>
+                  <tr style={styles.totalsRow}>
+                    <td style={styles.td} colSpan={2}>
+                      Total ({filteredChangeRows.length} store{filteredChangeRows.length === 1 ? "" : "s"})
+                    </td>
+                    <td style={styles.td}>{changeTotals.opening.toFixed(2)}</td>
+                    <td style={styles.td}>{changeTotals.closing.toFixed(2)}</td>
+                    <td style={styles.td}>{changeTotals.change.toFixed(2)}</td>
+                  </tr>
+                </tfoot>
               </table>
             </div>
           </div>
@@ -983,6 +1025,13 @@ const styles = {
     fontFamily: "var(--font-mono)",
     fontSize: 11.5,
     whiteSpace: "nowrap",
+  },
+  totalsRow: {
+    position: "sticky",
+    bottom: 0,
+    background: "var(--panel)",
+    fontWeight: 700,
+    borderTop: "2px solid var(--line)",
   },
   actionsRow: { display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 20, alignItems: "center" },
   generateBtn: {
