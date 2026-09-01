@@ -561,17 +561,24 @@ export default function InventoryPage() {
                     </tr>
                   ))}
                 </tbody>
-                <tfoot>
-                  <tr style={styles.totalsRow}>
-                    <td style={styles.totalsCell} colSpan={2}>
-                      Total ({filteredChangeRows.length} store{filteredChangeRows.length === 1 ? "" : "s"})
-                    </td>
-                    <td style={styles.totalsCell}>{changeTotals.opening.toFixed(2)}</td>
-                    <td style={styles.totalsCell}>{changeTotals.closing.toFixed(2)}</td>
-                    <td style={styles.totalsCell}>{changeTotals.change.toFixed(2)}</td>
-                  </tr>
-                </tfoot>
               </table>
+            </div>
+            <div style={styles.totalsBar}>
+              <span style={styles.totalsBarLabel}>
+                Total ({filteredChangeRows.length} store{filteredChangeRows.length === 1 ? "" : "s"})
+              </span>
+              <span style={styles.totalsBarFigure}>
+                <span style={styles.totalsBarFigureLabel}>Opening</span>
+                {changeTotals.opening.toFixed(2)}
+              </span>
+              <span style={styles.totalsBarFigure}>
+                <span style={styles.totalsBarFigureLabel}>Closing</span>
+                {changeTotals.closing.toFixed(2)}
+              </span>
+              <span style={styles.totalsBarFigure}>
+                <span style={styles.totalsBarFigureLabel}>Change</span>
+                {changeTotals.change.toFixed(2)}
+              </span>
             </div>
           </div>
         )}
@@ -1007,7 +1014,11 @@ const styles = {
     overflow: "auto",
     maxHeight: 420,
   },
-  table: { width: "100%", borderCollapse: "collapse", fontSize: 12 },
+  // separate/0 instead of collapse -- border-collapse breaks position:sticky
+  // th painting opaquely over rows scrolling underneath in some browsers
+  // (rows visibly bleed through/overlap the sticky header); 0 spacing keeps
+  // the same collapsed look without that bug.
+  table: { width: "100%", borderCollapse: "separate", borderSpacing: 0, fontSize: 12 },
   th: {
     position: "sticky",
     top: 0,
@@ -1030,20 +1041,40 @@ const styles = {
     fontSize: 11.5,
     whiteSpace: "nowrap",
   },
-  totalsRow: {
-    position: "sticky",
-    bottom: 0,
-    zIndex: 2,
+  totalsBar: {
+    display: "flex",
+    flexWrap: "wrap",
+    alignItems: "center",
+    gap: "8px 28px",
+    marginTop: 10,
+    padding: "12px 16px",
+    borderRadius: 8,
+    background: "rgba(34, 163, 123, 0.14)",
+    border: "1px solid var(--ledger)",
   },
-  totalsCell: {
-    padding: "10px 8px",
-    fontFamily: "var(--font-mono)",
+  totalsBarLabel: {
     fontSize: 12.5,
     fontWeight: 700,
     color: "var(--ink)",
-    whiteSpace: "nowrap",
-    background: "rgba(34, 163, 123, 0.14)",
-    borderTop: "2px solid var(--ledger)",
+    marginRight: "auto",
+  },
+  totalsBarFigure: {
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "flex-end",
+    gap: 2,
+    fontFamily: "var(--font-mono)",
+    fontSize: 14,
+    fontWeight: 700,
+    color: "var(--ink)",
+  },
+  totalsBarFigureLabel: {
+    fontFamily: "var(--font-body)",
+    fontSize: 10,
+    fontWeight: 600,
+    textTransform: "uppercase",
+    letterSpacing: "0.03em",
+    color: "var(--ink-soft)",
   },
   actionsRow: { display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 20, alignItems: "center" },
   generateBtn: {
