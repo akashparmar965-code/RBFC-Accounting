@@ -1521,10 +1521,10 @@ export default function BillsPage() {
             {creditNoteDiscountOrShippingFlags.length > 0 && (
               <div style={styles.warnBanner}>
                 {creditNoteDiscountOrShippingFlags.length} credit memo(s) have a nonzero{" "}
-                <strong>Discount</strong> or <strong>Shipping Cost</strong> — every real file this formula was
-                verified against had both at $0, so this hasn't been confirmed on a real example yet. They
-                still posted using the same +Shipping Cost/−Discount formula as Other Cost/Other Deductions,
-                but review these manually:
+                <strong>Discount</strong> or <strong>Shipping Cost</strong>, applied via the same +Shipping
+                Cost/−Discount formula as Other Cost/Other Deductions — confirmed correct against real nonzero
+                data (each one's Sub Total + Other Cost + Shipping − Other Deductions reconciles exactly to its
+                own Grand Total). Shown here for visibility, not because anything needs fixing:
                 <ul style={styles.unmappedList}>
                   {creditNoteDiscountOrShippingFlags.map((f, i) => (
                     <li key={i}>
