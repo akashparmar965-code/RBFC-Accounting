@@ -23,7 +23,12 @@ import {
   PURCHASE_COLUMNS,
 } from "@/lib/epayProcessor";
 import { parseOndigoWorkbook, buildOndigoBillRows } from "@/lib/ondigoProcessor";
-import { parseVipCreditNoteWorkbook, aggregateCreditNoteLines, buildCreditNoteRows } from "@/lib/creditNoteProcessor";
+import {
+  parseVipCreditNoteWorkbook,
+  aggregateCreditNoteLines,
+  buildCreditNoteRows,
+  isNewCreditNoteFormat,
+} from "@/lib/creditNoteProcessor";
 import { buildExportFileName, dateRangeFromRows, isFileRangeWithinMonth, currentMonthIso } from "@/lib/fileNaming";
 import { savePendingMappings } from "@/lib/pendingMappings";
 import { savePageState, loadPageState } from "@/lib/pageState";
@@ -559,13 +564,21 @@ export default function BillsPage() {
           "This file doesn't look like a VIP export — no 'Door Number' column found in the Credit Note sheet."
         );
       }
-      const usableIssue = checkRawRowsUsable(rawRows, ["Door Number", "Invoice Number"], "VIP Credit Note sheet");
+      // VIP reshaped the Credit Note sheet's export around the same time as
+      // the Bill sheet (Invoice Number -> Document, Tran Date -> Date);
+      // both shapes are supported since older files may still come in.
+      const isNewCNFormat = isNewCreditNoteFormat(rawRows);
+      const usableIssue = checkRawRowsUsable(
+        rawRows,
+        ["Door Number", isNewCNFormat ? "Document" : "Invoice Number"],
+        "VIP Credit Note sheet"
+      );
       if (usableIssue) throw new Error(usableIssue);
       // Reconciliation mode skips the Month-range gate so a year-to-date
       // or any-date-range file can load for cross-checking — Accounting
       // mode keeps the normal single-month guard for actual JE booking.
       if (mode !== "reconciliation") {
-        const { start, end } = dateRangeFromRows(rawRows, "Tran Date");
+        const { start, end } = dateRangeFromRows(rawRows, isNewCNFormat ? "Date" : "Tran Date");
         if (start && end && !isFileRangeWithinMonth(start, end, monthStr)) {
           throw new Error(
             `This file's dates (${start}–${end}) don't fall within the selected Month (${monthStr}) — not loaded. Pick the correct Month, upload the correct file, or switch to Reconciliation mode.`
