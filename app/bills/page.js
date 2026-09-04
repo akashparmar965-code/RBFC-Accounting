@@ -12,6 +12,7 @@ import {
   rowsToCsv,
   rowsToXlsxBuffer,
   CSV_COLUMNS,
+  isNewBillFormat,
 } from "@/lib/billsProcessor";
 import {
   parseEpayWorkbook,
@@ -183,13 +184,21 @@ export default function BillsPage() {
           "This file doesn't look like a VIP export — no 'Door Number' column found in the Bill sheet."
         );
       }
-      const usableIssue = checkRawRowsUsable(rawRows, ["Door Number", "Invoice Number"], "VIP Bill sheet");
+      // VIP reshaped the Bill sheet's export around Aug 2026 (Invoice
+      // Number -> Document, Tran Date -> Invoice Date); both shapes are
+      // supported since older files may still come in.
+      const isNewFormat = isNewBillFormat(rawRows);
+      const usableIssue = checkRawRowsUsable(
+        rawRows,
+        ["Door Number", isNewFormat ? "Document" : "Invoice Number"],
+        "VIP Bill sheet"
+      );
       if (usableIssue) throw new Error(usableIssue);
       // Reconciliation mode skips the Month-range gate so a year-to-date
       // or any-date-range file can load for cross-checking — Accounting
       // mode keeps the normal single-month guard for actual JE booking.
       if (mode !== "reconciliation") {
-        const { start, end } = dateRangeFromRows(rawRows, "Tran Date");
+        const { start, end } = dateRangeFromRows(rawRows, isNewFormat ? "Invoice Date" : "Tran Date");
         if (start && end && !isFileRangeWithinMonth(start, end, monthStr)) {
           throw new Error(
             `This file's dates (${start}–${end}) don't fall within the selected Month (${monthStr}) — not loaded. Pick the correct Month, upload the correct file, or switch to Reconciliation mode.`
@@ -197,14 +206,14 @@ export default function BillsPage() {
         }
       }
 
-      const groupedLines = aggregateBillLines(rawRows, productMappings || []);
+      const { groups: groupedLines, sharedDocumentFlags } = aggregateBillLines(rawRows, productMappings || []);
       const { byCompany, unmatchedDoors, unmappedProducts } = buildBillRows(
         groupedLines,
         storeMaster,
         "all",
         doorMappings || []
       );
-      setResult({ byCompany, unmatched: unmatchedDoors, unmappedProducts });
+      setResult({ byCompany, unmatched: unmatchedDoors, unmappedProducts, sharedDocumentFlags });
       setSelectedCompanies(new Set(Object.keys(byCompany)));
       savePendingMappings({ unmatchedDoors, unmappedProducts });
     } catch (e) {
@@ -832,6 +841,23 @@ export default function BillsPage() {
                   {result.unmappedProducts.map((m, i) => (
                     <li key={i}>
                       Door {m.doorNumber} · {m.invoiceNo} · "{m.product}"
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {result && result.sharedDocumentFlags?.length > 0 && (
+              <div style={styles.errorBanner}>
+                {result.sharedDocumentFlags.length} invoice(s) in this file are attributed to more than one
+                Door Number — a real VIP export anomaly, not legitimate per-door billing (a genuine invoice is
+                always exactly one door). These were held out of every output file entirely, not posted to any
+                door. Check the invoice number directly on VIP's own site to find which single door it really
+                belongs to, then add it back manually:
+                <ul style={styles.unmappedList}>
+                  {result.sharedDocumentFlags.map((f, i) => (
+                    <li key={i}>
+                      {f.invoiceNo} · {f.doorCount} doors · {f.rowCount} rows
                     </li>
                   ))}
                 </ul>
