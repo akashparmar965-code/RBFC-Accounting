@@ -553,10 +553,6 @@ export default function BillsPage() {
         .from("credit_note_mappings")
         .select("*");
       if (cmError) throw new Error("Could not load Credit Note mappings: " + cmError.message);
-      // Blank-Memo credit memos fall back to Products classification via
-      // Bills' own Product Mapping table -- see aggregateCreditNoteLines.
-      const { data: productMappings, error: pmError } = await supabase.from("product_mappings").select("*");
-      if (pmError) throw new Error("Could not load product mappings: " + pmError.message);
       const { data: doorMappings, error: dmError } = await supabase.from("door_mappings").select("*");
       if (dmError) throw new Error("Could not load door mappings: " + dmError.message);
 
@@ -590,11 +586,7 @@ export default function BillsPage() {
         }
       }
 
-      const { groups: groupedLines } = aggregateCreditNoteLines(
-        rawRows,
-        creditNoteMappings || [],
-        productMappings || []
-      );
+      const { groups: groupedLines } = aggregateCreditNoteLines(rawRows, creditNoteMappings || []);
       const { byCompany, unmatchedDoors, unmappedProducts } = buildCreditNoteRows(
         groupedLines,
         storeMaster,
@@ -1499,45 +1491,21 @@ export default function BillsPage() {
               </div>
             )}
 
-            {creditNoteResult && creditNoteResult.unmappedProducts.some((m) => m.source !== "products") && (
+            {creditNoteResult && creditNoteResult.unmappedProducts.length > 0 && (
               <div style={styles.errorBanner}>
-                {creditNoteResult.unmappedProducts.filter((m) => m.source !== "products").length} credit
-                memo(s) have a Memo that doesn't match a known mapping, so they were skipped. Add the memo
-                text below to{" "}
+                {creditNoteResult.unmappedProducts.length} line(s) have a Memo or Products value that doesn't
+                match a known mapping, so they were skipped (for a blank-Memo credit memo, other lines on the
+                same credit memo still posted). Add the text below to{" "}
                 <Link href="/mappings?tab=creditnote" style={styles.inlineLink}>
                   Credit Note Mapping
                 </Link>{" "}
                 and re-upload:
                 <ul style={styles.unmappedList}>
-                  {creditNoteResult.unmappedProducts
-                    .filter((m) => m.source !== "products")
-                    .map((m, i) => (
-                      <li key={i}>
-                        Door {m.doorNumber} · {m.invoiceNo} · "{m.product}"
-                      </li>
-                    ))}
-                </ul>
-              </div>
-            )}
-
-            {creditNoteResult && creditNoteResult.unmappedProducts.some((m) => m.source === "products") && (
-              <div style={styles.errorBanner}>
-                {creditNoteResult.unmappedProducts.filter((m) => m.source === "products").length} line(s) on a
-                blank-Memo credit memo have a Products value that doesn't match a known mapping, so they were
-                skipped (other lines on the same credit memo still posted). These fall back to Bills' own
-                Product Mapping, not Credit Note Mapping — add the product text below to{" "}
-                <Link href="/mappings?tab=vip" style={styles.inlineLink}>
-                  Product Mapping
-                </Link>{" "}
-                and re-upload:
-                <ul style={styles.unmappedList}>
-                  {creditNoteResult.unmappedProducts
-                    .filter((m) => m.source === "products")
-                    .map((m, i) => (
-                      <li key={i}>
-                        Door {m.doorNumber} · {m.invoiceNo} · "{m.product}"
-                      </li>
-                    ))}
+                  {creditNoteResult.unmappedProducts.map((m, i) => (
+                    <li key={i}>
+                      Door {m.doorNumber} · {m.invoiceNo} · "{m.product}"
+                    </li>
+                  ))}
                 </ul>
               </div>
             )}
