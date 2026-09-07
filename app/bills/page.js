@@ -590,7 +590,7 @@ export default function BillsPage() {
         }
       }
 
-      const { groups: groupedLines, discountOrShippingFlags } = aggregateCreditNoteLines(
+      const { groups: groupedLines } = aggregateCreditNoteLines(
         rawRows,
         creditNoteMappings || [],
         productMappings || []
@@ -600,7 +600,7 @@ export default function BillsPage() {
         storeMaster,
         doorMappings || []
       );
-      setCreditNoteResult({ byCompany, unmatched: unmatchedDoors, unmappedProducts, discountOrShippingFlags });
+      setCreditNoteResult({ byCompany, unmatched: unmatchedDoors, unmappedProducts });
       setCreditNoteSelectedCompanies(new Set(Object.keys(byCompany)));
       savePendingMappings({ unmatchedDoors, unmappedCreditNoteProducts: unmappedProducts });
     } catch (e) {
@@ -719,12 +719,6 @@ export default function BillsPage() {
   const creditNoteCompanyEntries = creditNoteResult ? Object.entries(creditNoteResult.byCompany) : [];
   const creditNoteTotalRows = creditNoteCompanyEntries.reduce((sum, [, rows]) => sum + rows.length, 0);
   const creditNoteGrandTotal = creditNoteCompanyEntries.reduce((sum, [, rows]) => sum + rowsTotal(rows), 0);
-  // Guards a stale cached creditNoteResult from sessionStorage (saved by an
-  // older version of this page, before this field existed) from crashing
-  // render — `?? []` only covers null/undefined, not "field never existed",
-  // so this needs its own fallback rather than relying on optional chaining
-  // at each call site.
-  const creditNoteDiscountOrShippingFlags = creditNoteResult?.discountOrShippingFlags || [];
 
   return (
     <div style={styles.shell}>
@@ -1544,24 +1538,6 @@ export default function BillsPage() {
                         Door {m.doorNumber} · {m.invoiceNo} · "{m.product}"
                       </li>
                     ))}
-                </ul>
-              </div>
-            )}
-
-            {creditNoteDiscountOrShippingFlags.length > 0 && (
-              <div style={styles.warnBanner}>
-                {creditNoteDiscountOrShippingFlags.length} credit memo(s) have a nonzero{" "}
-                <strong>Discount</strong> or <strong>Shipping Cost</strong>, applied via the same +Shipping
-                Cost/−Discount formula as Other Cost/Other Deductions — confirmed correct against real nonzero
-                data (each one's Sub Total + Other Cost + Shipping − Other Deductions reconciles exactly to its
-                own Grand Total). Shown here for visibility, not because anything needs fixing:
-                <ul style={styles.unmappedList}>
-                  {creditNoteDiscountOrShippingFlags.map((f, i) => (
-                    <li key={i}>
-                      Door {f.doorNumber} · {f.invoiceNo} · Discount ${f.discount.toFixed(2)} · Shipping Cost $
-                      {f.shippingCost.toFixed(2)}
-                    </li>
-                  ))}
                 </ul>
               </div>
             )}
