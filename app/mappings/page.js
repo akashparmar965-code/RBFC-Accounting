@@ -2069,18 +2069,21 @@ export default function MappingsPage() {
             <div style={styles.sectionCard}>
               <div style={styles.sectionTitle}>Credit Note Mapping</div>
               <div style={styles.sectionSub}>
-                A VIP Credit Note line is classified by its <strong>Memo</strong> text (not Products —
+                A VIP Credit Note line is classified by its <strong>Memo</strong> text when it has one —
                 Memo is the same for every line of a given credit memo, so the whole credit memo posts as
                 one line; e.g. &quot;Weekly Incentive Credit - February 1st 2026&quot;, &quot;Xfinity
-                Activation Bounty $25 3/01/2026 - 3/31/2026&quot;, &quot;transfer commission withhold
-                earned on 4/16/26 due to OC New Age 4/1/26&quot;). Matched against this separate table
-                (not Product Mapping — Credit Note's Memo vocabulary has nothing to do with Bills'
-                device/accessory SKUs). The first rule it matches (case-insensitive, per each rule&apos;s
-                own Match Type: Starts with / Contains / Fully matching) determines the Expense Account. A
-                line matching no rule is skipped and flagged. Check <strong>Ignore</strong> on a rule
-                (e.g. &quot;Weekly Incentive Credit&quot;) to drop every credit memo matching it from file
-                generation entirely — no Expense Account needed, and it won&apos;t show up as unmapped
-                either.
+                Activation Bounty $25 3/01/2026 - 3/31/2026&quot;. If a credit memo has a{" "}
+                <strong>blank Memo</strong>, it's classified <strong>per line by Products</strong> instead
+                against these same rules (device/accessory returns, e.g. &quot;Boost...&quot;, &quot;RMA
+                Shipping Fee&quot;) — Credit Note is matched only from this table, never from Bills&apos;
+                own Product Mapping. The first rule it matches (case-insensitive, per each rule&apos;s own
+                Match Type: Starts with / Contains / Fully matching) determines the Expense Account. Text
+                matching no rule is skipped and flagged. Check <strong>Ignore</strong> on a rule to drop it
+                silently — the whole credit memo for a Memo-path match, or just that one line for a
+                blank-Memo Products-path match — no Expense Account needed, and it won&apos;t show up as
+                unmapped either. Rows below are split into <strong>Included</strong> and{" "}
+                <strong>Ignored</strong> sections so you can check at a glance that the right ones are
+                ignored — toggling a row&apos;s Ignore checkbox moves it between sections.
               </div>
 
               {pendingCreditNoteProducts.length > 0 && (
@@ -2109,49 +2112,162 @@ export default function MappingsPage() {
                 </div>
               )}
 
-              <div style={styles.tableWrap}>
-                <table style={styles.table}>
-                  <thead>
-                    <tr>
-                      <th style={styles.thSortable} onClick={() => toggleSort(setCreditNoteSort, "product_prefix")}>
-                        Memo Prefix{sortArrow(creditNoteSort, "product_prefix")}
-                      </th>
-                      <th style={styles.thSortable} onClick={() => toggleSort(setCreditNoteSort, "match_type")}>
-                        Match Type{sortArrow(creditNoteSort, "match_type")}
-                      </th>
-                      <th
-                        style={{ ...styles.thSortable, textAlign: "center" }}
-                        onClick={() => toggleSort(setCreditNoteSort, "ignore")}
-                      >
-                        Ignore{sortArrow(creditNoteSort, "ignore")}
-                      </th>
-                      <th style={styles.thSortable} onClick={() => toggleSort(setCreditNoteSort, "expense_account")}>
-                        Expense Account{sortArrow(creditNoteSort, "expense_account")}
-                      </th>
-                      <th style={styles.thSortable} onClick={() => toggleSort(setCreditNoteSort, "expense_memo")}>
-                        Expense Memo (override){sortArrow(creditNoteSort, "expense_memo")}
-                      </th>
-                      <th style={styles.thSortable} onClick={() => toggleSort(setCreditNoteSort, "notes")}>
-                        Notes{sortArrow(creditNoteSort, "notes")}
-                      </th>
-                      <th style={styles.th}></th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {sortedCreditNoteRows.map((r) => (
-                      <tr key={r.id} style={styles.tr}>
+              {[
+                {
+                  key: "included",
+                  label: "Included",
+                  sub: "posts to its own Expense Account",
+                  rows: sortedCreditNoteRows.filter((r) => !r.ignore),
+                },
+                {
+                  key: "ignored",
+                  label: "Ignored",
+                  sub: "dropped from file generation entirely, never flagged",
+                  rows: sortedCreditNoteRows.filter((r) => r.ignore),
+                },
+              ].map((section) => (
+                <div key={section.key} style={styles.coaCategorySection}>
+                  <div style={styles.coaCategoryHeader}>
+                    {section.label} ({section.rows.length}) — {section.sub}
+                  </div>
+                  <div style={styles.tableWrap}>
+                    <table style={styles.table}>
+                      <thead>
+                        <tr>
+                          <th style={styles.thSortable} onClick={() => toggleSort(setCreditNoteSort, "product_prefix")}>
+                            Memo Prefix{sortArrow(creditNoteSort, "product_prefix")}
+                          </th>
+                          <th style={styles.thSortable} onClick={() => toggleSort(setCreditNoteSort, "match_type")}>
+                            Match Type{sortArrow(creditNoteSort, "match_type")}
+                          </th>
+                          <th
+                            style={{ ...styles.thSortable, textAlign: "center" }}
+                            onClick={() => toggleSort(setCreditNoteSort, "ignore")}
+                          >
+                            Ignore{sortArrow(creditNoteSort, "ignore")}
+                          </th>
+                          <th style={styles.thSortable} onClick={() => toggleSort(setCreditNoteSort, "expense_account")}>
+                            Expense Account{sortArrow(creditNoteSort, "expense_account")}
+                          </th>
+                          <th style={styles.thSortable} onClick={() => toggleSort(setCreditNoteSort, "expense_memo")}>
+                            Expense Memo (override){sortArrow(creditNoteSort, "expense_memo")}
+                          </th>
+                          <th style={styles.thSortable} onClick={() => toggleSort(setCreditNoteSort, "notes")}>
+                            Notes{sortArrow(creditNoteSort, "notes")}
+                          </th>
+                          <th style={styles.th}></th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {section.rows.length === 0 ? (
+                          <tr>
+                            <td style={styles.coaEmptyNote} colSpan={7}>
+                              No rules here.
+                            </td>
+                          </tr>
+                        ) : (
+                          section.rows.map((r) => (
+                            <tr key={r.id} style={styles.tr}>
+                              <td style={styles.td}>
+                                <input
+                                  style={styles.cellInput}
+                                  defaultValue={r.product_prefix}
+                                  onBlur={(e) => updateCreditNoteField(r.id, "product_prefix", e.target.value)}
+                                />
+                              </td>
+                              <td style={styles.td}>
+                                <select
+                                  style={styles.cellInput}
+                                  value={r.match_type || "starts_with"}
+                                  onChange={(e) => updateCreditNoteField(r.id, "match_type", e.target.value)}
+                                >
+                                  {MATCH_TYPE_OPTIONS.map((o) => (
+                                    <option key={o.value} value={o.value}>
+                                      {o.label}
+                                    </option>
+                                  ))}
+                                </select>
+                              </td>
+                              <td style={{ ...styles.td, textAlign: "center" }}>
+                                <input
+                                  type="checkbox"
+                                  checked={!!r.ignore}
+                                  onChange={(e) => updateCreditNoteField(r.id, "ignore", e.target.checked)}
+                                />
+                              </td>
+                              <td style={styles.td}>
+                                <input
+                                  style={styles.cellInput}
+                                  placeholder={r.ignore ? "(not needed — Ignore is checked)" : ""}
+                                  defaultValue={r.expense_account || ""}
+                                  onBlur={(e) => updateCreditNoteField(r.id, "expense_account", e.target.value)}
+                                />
+                              </td>
+                              <td style={styles.td}>
+                                <input
+                                  style={styles.cellInput}
+                                  placeholder="(uses raw memo text)"
+                                  defaultValue={r.expense_memo || ""}
+                                  onBlur={(e) => updateCreditNoteField(r.id, "expense_memo", e.target.value)}
+                                />
+                              </td>
+                              <td style={styles.td}>
+                                <input
+                                  style={styles.cellInput}
+                                  defaultValue={r.notes || ""}
+                                  onBlur={(e) => updateCreditNoteField(r.id, "notes", e.target.value)}
+                                />
+                              </td>
+                              <td style={{ ...styles.td, whiteSpace: "nowrap" }}>
+                                {confirmDelete?.table === "credit_note_mappings" && confirmDelete.id === r.id ? (
+                                  <>
+                                    <button
+                                      style={{ ...styles.linkBtn, color: "var(--danger)" }}
+                                      onClick={handleDelete}
+                                    >
+                                      Confirm
+                                    </button>
+                                    <button style={styles.linkBtn} onClick={() => setConfirmDelete(null)}>
+                                      Cancel
+                                    </button>
+                                  </>
+                                ) : (
+                                  <button
+                                    style={{ ...styles.linkBtn, color: "var(--danger)" }}
+                                    onClick={() => setConfirmDelete({ table: "credit_note_mappings", id: r.id })}
+                                  >
+                                    Delete
+                                  </button>
+                                )}
+                              </td>
+                            </tr>
+                          ))
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              ))}
+
+              <div style={styles.coaCategorySection}>
+                <div style={styles.coaCategoryHeader}>+ Add new rule</div>
+                <div style={styles.tableWrap}>
+                  <table style={styles.table}>
+                    <tbody>
+                      <tr>
                         <td style={styles.td}>
                           <input
                             style={styles.cellInput}
-                            defaultValue={r.product_prefix}
-                            onBlur={(e) => updateCreditNoteField(r.id, "product_prefix", e.target.value)}
+                            placeholder="e.g. Weekly Incentive Credit"
+                            value={creditNoteDraft.product_prefix}
+                            onChange={(e) => setCreditNoteDraft((d) => ({ ...d, product_prefix: e.target.value }))}
                           />
                         </td>
                         <td style={styles.td}>
                           <select
                             style={styles.cellInput}
-                            value={r.match_type || "starts_with"}
-                            onChange={(e) => updateCreditNoteField(r.id, "match_type", e.target.value)}
+                            value={creditNoteDraft.match_type}
+                            onChange={(e) => setCreditNoteDraft((d) => ({ ...d, match_type: e.target.value }))}
                           >
                             {MATCH_TYPE_OPTIONS.map((o) => (
                               <option key={o.value} value={o.value}>
@@ -2163,115 +2279,45 @@ export default function MappingsPage() {
                         <td style={{ ...styles.td, textAlign: "center" }}>
                           <input
                             type="checkbox"
-                            checked={!!r.ignore}
-                            onChange={(e) => updateCreditNoteField(r.id, "ignore", e.target.checked)}
+                            checked={creditNoteDraft.ignore}
+                            onChange={(e) => setCreditNoteDraft((d) => ({ ...d, ignore: e.target.checked }))}
                           />
                         </td>
                         <td style={styles.td}>
                           <input
                             style={styles.cellInput}
-                            placeholder={r.ignore ? "(not needed — Ignore is checked)" : ""}
-                            defaultValue={r.expense_account || ""}
-                            onBlur={(e) => updateCreditNoteField(r.id, "expense_account", e.target.value)}
+                            placeholder={
+                              creditNoteDraft.ignore ? "(not needed — Ignore is checked)" : "e.g. Dealer Incentives"
+                            }
+                            value={creditNoteDraft.expense_account}
+                            onChange={(e) => setCreditNoteDraft((d) => ({ ...d, expense_account: e.target.value }))}
                           />
                         </td>
                         <td style={styles.td}>
                           <input
                             style={styles.cellInput}
-                            placeholder="(uses raw memo text)"
-                            defaultValue={r.expense_memo || ""}
-                            onBlur={(e) => updateCreditNoteField(r.id, "expense_memo", e.target.value)}
+                            placeholder="(optional)"
+                            value={creditNoteDraft.expense_memo}
+                            onChange={(e) => setCreditNoteDraft((d) => ({ ...d, expense_memo: e.target.value }))}
                           />
                         </td>
                         <td style={styles.td}>
                           <input
                             style={styles.cellInput}
-                            defaultValue={r.notes || ""}
-                            onBlur={(e) => updateCreditNoteField(r.id, "notes", e.target.value)}
+                            placeholder="(optional)"
+                            value={creditNoteDraft.notes}
+                            onChange={(e) => setCreditNoteDraft((d) => ({ ...d, notes: e.target.value }))}
                           />
                         </td>
-                        <td style={{ ...styles.td, whiteSpace: "nowrap" }}>
-                          {confirmDelete?.table === "credit_note_mappings" && confirmDelete.id === r.id ? (
-                            <>
-                              <button style={{ ...styles.linkBtn, color: "var(--danger)" }} onClick={handleDelete}>
-                                Confirm
-                              </button>
-                              <button style={styles.linkBtn} onClick={() => setConfirmDelete(null)}>
-                                Cancel
-                              </button>
-                            </>
-                          ) : (
-                            <button
-                              style={{ ...styles.linkBtn, color: "var(--danger)" }}
-                              onClick={() => setConfirmDelete({ table: "credit_note_mappings", id: r.id })}
-                            >
-                              Delete
-                            </button>
-                          )}
+                        <td style={styles.td}>
+                          <button style={styles.addBtn} onClick={addCreditNoteRow}>
+                            + Add
+                          </button>
                         </td>
                       </tr>
-                    ))}
-                    <tr>
-                      <td style={styles.td}>
-                        <input
-                          style={styles.cellInput}
-                          placeholder="e.g. Weekly Incentive Credit"
-                          value={creditNoteDraft.product_prefix}
-                          onChange={(e) => setCreditNoteDraft((d) => ({ ...d, product_prefix: e.target.value }))}
-                        />
-                      </td>
-                      <td style={styles.td}>
-                        <select
-                          style={styles.cellInput}
-                          value={creditNoteDraft.match_type}
-                          onChange={(e) => setCreditNoteDraft((d) => ({ ...d, match_type: e.target.value }))}
-                        >
-                          {MATCH_TYPE_OPTIONS.map((o) => (
-                            <option key={o.value} value={o.value}>
-                              {o.label}
-                            </option>
-                          ))}
-                        </select>
-                      </td>
-                      <td style={{ ...styles.td, textAlign: "center" }}>
-                        <input
-                          type="checkbox"
-                          checked={creditNoteDraft.ignore}
-                          onChange={(e) => setCreditNoteDraft((d) => ({ ...d, ignore: e.target.checked }))}
-                        />
-                      </td>
-                      <td style={styles.td}>
-                        <input
-                          style={styles.cellInput}
-                          placeholder={creditNoteDraft.ignore ? "(not needed — Ignore is checked)" : "e.g. Dealer Incentives"}
-                          value={creditNoteDraft.expense_account}
-                          onChange={(e) => setCreditNoteDraft((d) => ({ ...d, expense_account: e.target.value }))}
-                        />
-                      </td>
-                      <td style={styles.td}>
-                        <input
-                          style={styles.cellInput}
-                          placeholder="(optional)"
-                          value={creditNoteDraft.expense_memo}
-                          onChange={(e) => setCreditNoteDraft((d) => ({ ...d, expense_memo: e.target.value }))}
-                        />
-                      </td>
-                      <td style={styles.td}>
-                        <input
-                          style={styles.cellInput}
-                          placeholder="(optional)"
-                          value={creditNoteDraft.notes}
-                          onChange={(e) => setCreditNoteDraft((d) => ({ ...d, notes: e.target.value }))}
-                        />
-                      </td>
-                      <td style={styles.td}>
-                        <button style={styles.addBtn} onClick={addCreditNoteRow}>
-                          + Add
-                        </button>
-                      </td>
-                    </tr>
-                  </tbody>
-                </table>
+                    </tbody>
+                  </table>
+                </div>
               </div>
             </div>
           </>
