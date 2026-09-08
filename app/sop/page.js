@@ -25,7 +25,14 @@ const SECTION_FIELDS = [
 
 const CONCEPTS_TAB = "__concepts__";
 const UTILITIES_TAB = "__utilities__";
+const BANK_RULES_TAB = "__bankrules__";
 const emptyBankMemoDraft = { bank_memo: "", account_name: "", notes: "" };
+const emptyBankRuleDraft = { bank_memo_prefix: "", match_type: "starts_with", account_name: "", notes: "" };
+const MATCH_TYPE_OPTIONS = [
+  { value: "starts_with", label: "Starts with" },
+  { value: "contains", label: "Contains" },
+  { value: "exact", label: "Fully matching" },
+];
 
 function Bulleted({ text }) {
   const lines = (text || "").split("\n").map((l) => l.trim()).filter(Boolean);
@@ -65,6 +72,12 @@ export default function SopPage() {
   const [bankMemoSort, setBankMemoSort] = useState({ column: "bank_memo", direction: "asc" });
   const sortedBankMemoRows = useMemo(() => sortRows(bankMemoRows, bankMemoSort), [bankMemoRows, bankMemoSort]);
 
+  const [bankRuleRows, setBankRuleRows] = useState([]);
+  const [bankRuleDraft, setBankRuleDraft] = useState(emptyBankRuleDraft);
+  const [confirmDeleteBankRuleId, setConfirmDeleteBankRuleId] = useState(null);
+  const [bankRuleSort, setBankRuleSort] = useState({ column: "bank_memo_prefix", direction: "asc" });
+  const sortedBankRuleRows = useMemo(() => sortRows(bankRuleRows, bankRuleSort), [bankRuleRows, bankRuleSort]);
+
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
       setSession(data.session);
@@ -75,10 +88,11 @@ export default function SopPage() {
   const loadAll = useCallback(async () => {
     setLoading(true);
     setError("");
-    const [conceptsRes, sectionsRes, bankMemoRes, accountsRes] = await Promise.all([
+    const [conceptsRes, sectionsRes, bankMemoRes, bankRuleRes, accountsRes] = await Promise.all([
       supabase.from("sop_shared_concepts").select("*").order("sort_order", { ascending: true }),
       supabase.from("sop_sections").select("*").order("sort_order", { ascending: true }),
       supabase.from("bank_memo_accounts").select("*").order("bank_memo", { ascending: true }),
+      supabase.from("bank_classification_rules").select("*").order("bank_memo_prefix", { ascending: true }),
       supabase
         .from("chart_of_accounts")
         .select("account_name")
@@ -91,6 +105,8 @@ export default function SopPage() {
     else setSections(sectionsRes.data || []);
     if (bankMemoRes.error) setError(bankMemoRes.error.message);
     else setBankMemoRows(bankMemoRes.data || []);
+    if (bankRuleRes.error) setError(bankRuleRes.error.message);
+    else setBankRuleRows(bankRuleRes.data || []);
     if (!accountsRes.error) setAccountOptions(accountsRes.data || []);
     setLoading(false);
   }, [supabase]);
@@ -198,6 +214,55 @@ export default function SopPage() {
     setConfirmDeleteBankMemoId(null);
   }
 
+  // ---- Bank Classification Rules: prefix/contains/exact match on a Bank
+  // Memo -> Account Name, same rule shape as Mapping Master's Product/
+  // Credit Note Mapping (unlike Utilities' exact 1:1 lookup above, this
+  // buckets a whole family of memo text like "SP FUEL DEPOT #..." under
+  // one rule) ----
+
+  async function updateBankRuleField(id, field, value) {
+    setBankRuleRows((prev) => prev.map((r) => (r.id === id ? { ...r, [field]: value } : r)));
+    const { error } = await supabase
+      .from("bank_classification_rules")
+      .update({ [field]: value || null })
+      .eq("id", id);
+    if (error) setError(error.message);
+  }
+
+  async function addBankRuleRow() {
+    if (!bankRuleDraft.bank_memo_prefix.trim()) {
+      setError("Bank Memo Prefix is required.");
+      return;
+    }
+    const { data, error } = await supabase
+      .from("bank_classification_rules")
+      .insert([
+        {
+          bank_memo_prefix: bankRuleDraft.bank_memo_prefix.trim(),
+          match_type: bankRuleDraft.match_type,
+          account_name: bankRuleDraft.account_name.trim() || null,
+          notes: bankRuleDraft.notes.trim() || null,
+        },
+      ])
+      .select();
+    if (error) {
+      setError(error.message);
+      return;
+    }
+    setBankRuleRows((prev) => [...prev, ...(data || [])]);
+    setBankRuleDraft(emptyBankRuleDraft);
+  }
+
+  async function deleteBankRuleRow(id) {
+    const { error } = await supabase.from("bank_classification_rules").delete().eq("id", id);
+    if (error) {
+      setError(error.message);
+      return;
+    }
+    setBankRuleRows((prev) => prev.filter((r) => r.id !== id));
+    setConfirmDeleteBankRuleId(null);
+  }
+
   if (session === undefined) {
     return <div style={styles.loadingScreen}>Loading…</div>;
   }
@@ -242,6 +307,12 @@ export default function SopPage() {
                 onClick={() => switchTab(UTILITIES_TAB)}
               >
                 Utilities
+              </button>
+              <button
+                style={activeTab === BANK_RULES_TAB ? styles.tabActive : styles.tab}
+                onClick={() => switchTab(BANK_RULES_TAB)}
+              >
+                Bank Classification Rules
               </button>
             </div>
 
@@ -492,6 +563,169 @@ export default function SopPage() {
                 </div>
 
                 <datalist id="bank-memo-account-datalist">
+                  {accountOptions.map((a) => (
+                    <option key={a.account_name} value={a.account_name} />
+                  ))}
+                </datalist>
+              </div>
+            )}
+
+            {activeTab === BANK_RULES_TAB && (
+              <div style={styles.card}>
+                <h2 style={styles.h2}>Bank Classification Rules</h2>
+                <p style={styles.sectionSub}>
+                  A rule-based version of the Utilities lookup above: match a Bank Memo by{" "}
+                  <strong>prefix, contains, or exact text</strong> (same Match Type as Mapping Master's Product/
+                  Credit Note Mapping) instead of an exact 1:1 memo, so one rule can bucket a whole family of
+                  memo text — e.g. &quot;SP FUEL DEPOT&quot; (Starts with) catches every &quot;SP FUEL DEPOT
+                  #4412&quot;, &quot;#7789&quot;, etc. The first rule a memo matches (case-insensitive) determines
+                  the Account Name. Personal reference for bifurcating Expenses during reconciliation, same as
+                  Utilities — not tied to any upload or JE generation elsewhere in the app. Account Name only
+                  lists accounts from Mapping Master's Accounts tab in the <strong>Expense</strong> category.
+                </p>
+
+                <div style={styles.tableWrap}>
+                  <table style={styles.table}>
+                    <thead>
+                      <tr>
+                        {[
+                          { column: "bank_memo_prefix", label: "Bank Memo Prefix" },
+                          { column: "match_type", label: "Match Type" },
+                          { column: "account_name", label: "Account Name" },
+                          { column: "notes", label: "Notes" },
+                        ].map(({ column, label }) => (
+                          <th
+                            key={column}
+                            style={{ ...styles.th, textAlign: "left", cursor: "pointer", userSelect: "none" }}
+                            onClick={() => toggleSort(setBankRuleSort, column)}
+                            title="Click to sort"
+                          >
+                            {label}
+                            {sortArrow(bankRuleSort, column)}
+                          </th>
+                        ))}
+                        <th style={styles.th}></th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr>
+                        <td style={styles.td}>
+                          <input
+                            style={styles.cellInput}
+                            placeholder="e.g. SP FUEL DEPOT"
+                            value={bankRuleDraft.bank_memo_prefix}
+                            onChange={(e) => setBankRuleDraft((d) => ({ ...d, bank_memo_prefix: e.target.value }))}
+                          />
+                        </td>
+                        <td style={styles.td}>
+                          <select
+                            style={styles.cellInput}
+                            value={bankRuleDraft.match_type}
+                            onChange={(e) => setBankRuleDraft((d) => ({ ...d, match_type: e.target.value }))}
+                          >
+                            {MATCH_TYPE_OPTIONS.map((o) => (
+                              <option key={o.value} value={o.value}>
+                                {o.label}
+                              </option>
+                            ))}
+                          </select>
+                        </td>
+                        <td style={styles.td}>
+                          <input
+                            style={styles.cellInput}
+                            list="bank-rule-account-datalist"
+                            placeholder="Type to search…"
+                            value={bankRuleDraft.account_name}
+                            onChange={(e) => setBankRuleDraft((d) => ({ ...d, account_name: e.target.value }))}
+                          />
+                        </td>
+                        <td style={styles.td}>
+                          <input
+                            style={styles.cellInput}
+                            placeholder="(optional)"
+                            value={bankRuleDraft.notes}
+                            onChange={(e) => setBankRuleDraft((d) => ({ ...d, notes: e.target.value }))}
+                          />
+                        </td>
+                        <td style={styles.td}>
+                          <button style={styles.addBtn} onClick={addBankRuleRow}>
+                            + Add
+                          </button>
+                        </td>
+                      </tr>
+                      {sortedBankRuleRows.map((r) => (
+                        <tr key={r.id} style={styles.tr}>
+                          <td style={styles.td}>
+                            <input
+                              style={styles.cellInput}
+                              defaultValue={r.bank_memo_prefix}
+                              onBlur={(e) => updateBankRuleField(r.id, "bank_memo_prefix", e.target.value)}
+                            />
+                          </td>
+                          <td style={styles.td}>
+                            <select
+                              style={styles.cellInput}
+                              value={r.match_type || "starts_with"}
+                              onChange={(e) => updateBankRuleField(r.id, "match_type", e.target.value)}
+                            >
+                              {MATCH_TYPE_OPTIONS.map((o) => (
+                                <option key={o.value} value={o.value}>
+                                  {o.label}
+                                </option>
+                              ))}
+                            </select>
+                          </td>
+                          <td style={styles.td}>
+                            <input
+                              style={styles.cellInput}
+                              list="bank-rule-account-datalist"
+                              defaultValue={r.account_name || ""}
+                              onBlur={(e) => updateBankRuleField(r.id, "account_name", e.target.value)}
+                            />
+                          </td>
+                          <td style={styles.td}>
+                            <input
+                              style={styles.cellInput}
+                              defaultValue={r.notes || ""}
+                              onBlur={(e) => updateBankRuleField(r.id, "notes", e.target.value)}
+                            />
+                          </td>
+                          <td style={{ ...styles.td, whiteSpace: "nowrap" }}>
+                            {confirmDeleteBankRuleId === r.id ? (
+                              <>
+                                <button
+                                  style={{ ...styles.linkBtn, color: "var(--danger)" }}
+                                  onClick={() => deleteBankRuleRow(r.id)}
+                                >
+                                  Confirm
+                                </button>
+                                <button style={styles.linkBtn} onClick={() => setConfirmDeleteBankRuleId(null)}>
+                                  Cancel
+                                </button>
+                              </>
+                            ) : (
+                              <button
+                                style={{ ...styles.linkBtn, color: "var(--danger)" }}
+                                onClick={() => setConfirmDeleteBankRuleId(r.id)}
+                              >
+                                Delete
+                              </button>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                      {bankRuleRows.length === 0 && (
+                        <tr>
+                          <td style={styles.td} colSpan={5}>
+                            <span style={styles.emptyField}>— nothing added yet —</span>
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+
+                <datalist id="bank-rule-account-datalist">
                   {accountOptions.map((a) => (
                     <option key={a.account_name} value={a.account_name} />
                   ))}
