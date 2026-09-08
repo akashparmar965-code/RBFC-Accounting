@@ -1001,6 +1001,58 @@ export default function MappingsPage() {
                     </tr>
                   </thead>
                   <tbody>
+                    <tr>
+                      <td style={styles.td}>
+                        <input
+                          style={styles.cellInput}
+                          placeholder="e.g. Vantedge Program Membership Fees"
+                          value={productDraft.product_prefix}
+                          onChange={(e) => setProductDraft((d) => ({ ...d, product_prefix: e.target.value }))}
+                        />
+                      </td>
+                      <td style={styles.td}>
+                        <select
+                          style={styles.cellInput}
+                          value={productDraft.match_type}
+                          onChange={(e) => setProductDraft((d) => ({ ...d, match_type: e.target.value }))}
+                        >
+                          {MATCH_TYPE_OPTIONS.map((o) => (
+                            <option key={o.value} value={o.value}>
+                              {o.label}
+                            </option>
+                          ))}
+                        </select>
+                      </td>
+                      <td style={styles.td}>
+                        <input
+                          style={styles.cellInput}
+                          placeholder="e.g. Other Services VIP"
+                          value={productDraft.expense_account}
+                          onChange={(e) => setProductDraft((d) => ({ ...d, expense_account: e.target.value }))}
+                        />
+                      </td>
+                      <td style={styles.td}>
+                        <input
+                          style={styles.cellInput}
+                          placeholder="(optional)"
+                          value={productDraft.expense_memo}
+                          onChange={(e) => setProductDraft((d) => ({ ...d, expense_memo: e.target.value }))}
+                        />
+                      </td>
+                      <td style={styles.td}>
+                        <input
+                          style={styles.cellInput}
+                          placeholder="(optional)"
+                          value={productDraft.notes}
+                          onChange={(e) => setProductDraft((d) => ({ ...d, notes: e.target.value }))}
+                        />
+                      </td>
+                      <td style={styles.td}>
+                        <button style={styles.addBtn} onClick={addProductRow}>
+                          + Add
+                        </button>
+                      </td>
+                    </tr>
                     {sortedProductRows.map((r) => (
                       <tr key={r.id} style={styles.tr}>
                         <td style={styles.td}>
@@ -1066,58 +1118,6 @@ export default function MappingsPage() {
                         </td>
                       </tr>
                     ))}
-                    <tr>
-                      <td style={styles.td}>
-                        <input
-                          style={styles.cellInput}
-                          placeholder="e.g. Vantedge Program Membership Fees"
-                          value={productDraft.product_prefix}
-                          onChange={(e) => setProductDraft((d) => ({ ...d, product_prefix: e.target.value }))}
-                        />
-                      </td>
-                      <td style={styles.td}>
-                        <select
-                          style={styles.cellInput}
-                          value={productDraft.match_type}
-                          onChange={(e) => setProductDraft((d) => ({ ...d, match_type: e.target.value }))}
-                        >
-                          {MATCH_TYPE_OPTIONS.map((o) => (
-                            <option key={o.value} value={o.value}>
-                              {o.label}
-                            </option>
-                          ))}
-                        </select>
-                      </td>
-                      <td style={styles.td}>
-                        <input
-                          style={styles.cellInput}
-                          placeholder="e.g. Other Services VIP"
-                          value={productDraft.expense_account}
-                          onChange={(e) => setProductDraft((d) => ({ ...d, expense_account: e.target.value }))}
-                        />
-                      </td>
-                      <td style={styles.td}>
-                        <input
-                          style={styles.cellInput}
-                          placeholder="(optional)"
-                          value={productDraft.expense_memo}
-                          onChange={(e) => setProductDraft((d) => ({ ...d, expense_memo: e.target.value }))}
-                        />
-                      </td>
-                      <td style={styles.td}>
-                        <input
-                          style={styles.cellInput}
-                          placeholder="(optional)"
-                          value={productDraft.notes}
-                          onChange={(e) => setProductDraft((d) => ({ ...d, notes: e.target.value }))}
-                        />
-                      </td>
-                      <td style={styles.td}>
-                        <button style={styles.addBtn} onClick={addProductRow}>
-                          + Add
-                        </button>
-                      </td>
-                    </tr>
                   </tbody>
                 </table>
               </div>
@@ -1169,6 +1169,57 @@ export default function MappingsPage() {
                     </tr>
                   </thead>
                   <tbody>
+                    <tr>
+                      <td style={styles.td}>
+                        <input
+                          style={styles.cellInput}
+                          placeholder="e.g. 7483262"
+                          value={doorDraft.door_number}
+                          onChange={(e) => setDoorDraft((d) => ({ ...d, door_number: e.target.value }))}
+                        />
+                      </td>
+                      <td style={styles.td}>
+                        <select
+                          style={styles.cellInput}
+                          value={doorDraft.company_name}
+                          onChange={(e) => setDoorDraft((d) => ({ ...d, company_name: e.target.value }))}
+                        >
+                          <option value="">— Select —</option>
+                          {companyOptions.map((c) => (
+                            <option key={c} value={c}>
+                              {c}
+                            </option>
+                          ))}
+                        </select>
+                      </td>
+                      <td style={styles.td}>
+                        <select
+                          style={styles.cellInput}
+                          value={doorDraft.qbo_class}
+                          onChange={(e) => setDoorDraft((d) => ({ ...d, qbo_class: e.target.value }))}
+                        >
+                          <option value="">— Select —</option>
+                          {qboClassOptions.map((c) => (
+                            <option key={c} value={c}>
+                              {c}
+                            </option>
+                          ))}
+                        </select>
+                      </td>
+                      <td style={styles.td}>
+                        <input
+                          style={styles.cellInput}
+                          placeholder="(optional)"
+                          value={doorDraft.notes}
+                          onChange={(e) => setDoorDraft((d) => ({ ...d, notes: e.target.value }))}
+                        />
+                      </td>
+                      <td style={styles.td}>
+                        <button style={styles.addBtn} onClick={addDoorRow}>
+                          + Add
+                        </button>
+                      </td>
+                    </tr>
                     {sortedDoorRows.map((r) => (
                       <tr key={r.id} style={styles.tr}>
                         <td style={styles.td}>
@@ -1240,57 +1291,6 @@ export default function MappingsPage() {
                         </td>
                       </tr>
                     ))}
-                    <tr>
-                      <td style={styles.td}>
-                        <input
-                          style={styles.cellInput}
-                          placeholder="e.g. 7483262"
-                          value={doorDraft.door_number}
-                          onChange={(e) => setDoorDraft((d) => ({ ...d, door_number: e.target.value }))}
-                        />
-                      </td>
-                      <td style={styles.td}>
-                        <select
-                          style={styles.cellInput}
-                          value={doorDraft.company_name}
-                          onChange={(e) => setDoorDraft((d) => ({ ...d, company_name: e.target.value }))}
-                        >
-                          <option value="">— Select —</option>
-                          {companyOptions.map((c) => (
-                            <option key={c} value={c}>
-                              {c}
-                            </option>
-                          ))}
-                        </select>
-                      </td>
-                      <td style={styles.td}>
-                        <select
-                          style={styles.cellInput}
-                          value={doorDraft.qbo_class}
-                          onChange={(e) => setDoorDraft((d) => ({ ...d, qbo_class: e.target.value }))}
-                        >
-                          <option value="">— Select —</option>
-                          {qboClassOptions.map((c) => (
-                            <option key={c} value={c}>
-                              {c}
-                            </option>
-                          ))}
-                        </select>
-                      </td>
-                      <td style={styles.td}>
-                        <input
-                          style={styles.cellInput}
-                          placeholder="(optional)"
-                          value={doorDraft.notes}
-                          onChange={(e) => setDoorDraft((d) => ({ ...d, notes: e.target.value }))}
-                        />
-                      </td>
-                      <td style={styles.td}>
-                        <button style={styles.addBtn} onClick={addDoorRow}>
-                          + Add
-                        </button>
-                      </td>
-                    </tr>
                   </tbody>
                 </table>
               </div>
@@ -1347,6 +1347,57 @@ export default function MappingsPage() {
                     </tr>
                   </thead>
                   <tbody>
+                    <tr>
+                      <td style={styles.td}>
+                        <input
+                          style={styles.cellInput}
+                          placeholder="e.g. 502329"
+                          value={accountDraft.account_number}
+                          onChange={(e) => setAccountDraft((d) => ({ ...d, account_number: e.target.value }))}
+                        />
+                      </td>
+                      <td style={styles.td}>
+                        <select
+                          style={styles.cellInput}
+                          value={accountDraft.company_name}
+                          onChange={(e) => setAccountDraft((d) => ({ ...d, company_name: e.target.value }))}
+                        >
+                          <option value="">— Select —</option>
+                          {companyOptions.map((c) => (
+                            <option key={c} value={c}>
+                              {c}
+                            </option>
+                          ))}
+                        </select>
+                      </td>
+                      <td style={styles.td}>
+                        <select
+                          style={styles.cellInput}
+                          value={accountDraft.qbo_class}
+                          onChange={(e) => setAccountDraft((d) => ({ ...d, qbo_class: e.target.value }))}
+                        >
+                          <option value="">— Select —</option>
+                          {qboClassOptions.map((c) => (
+                            <option key={c} value={c}>
+                              {c}
+                            </option>
+                          ))}
+                        </select>
+                      </td>
+                      <td style={styles.td}>
+                        <input
+                          style={styles.cellInput}
+                          placeholder="(optional)"
+                          value={accountDraft.notes}
+                          onChange={(e) => setAccountDraft((d) => ({ ...d, notes: e.target.value }))}
+                        />
+                      </td>
+                      <td style={styles.td}>
+                        <button style={styles.addBtn} onClick={addAccountRow}>
+                          + Add
+                        </button>
+                      </td>
+                    </tr>
                     {sortedAccountRows.map((r) => (
                       <tr key={r.id} style={styles.tr}>
                         <td style={styles.td}>
@@ -1418,57 +1469,6 @@ export default function MappingsPage() {
                         </td>
                       </tr>
                     ))}
-                    <tr>
-                      <td style={styles.td}>
-                        <input
-                          style={styles.cellInput}
-                          placeholder="e.g. 502329"
-                          value={accountDraft.account_number}
-                          onChange={(e) => setAccountDraft((d) => ({ ...d, account_number: e.target.value }))}
-                        />
-                      </td>
-                      <td style={styles.td}>
-                        <select
-                          style={styles.cellInput}
-                          value={accountDraft.company_name}
-                          onChange={(e) => setAccountDraft((d) => ({ ...d, company_name: e.target.value }))}
-                        >
-                          <option value="">— Select —</option>
-                          {companyOptions.map((c) => (
-                            <option key={c} value={c}>
-                              {c}
-                            </option>
-                          ))}
-                        </select>
-                      </td>
-                      <td style={styles.td}>
-                        <select
-                          style={styles.cellInput}
-                          value={accountDraft.qbo_class}
-                          onChange={(e) => setAccountDraft((d) => ({ ...d, qbo_class: e.target.value }))}
-                        >
-                          <option value="">— Select —</option>
-                          {qboClassOptions.map((c) => (
-                            <option key={c} value={c}>
-                              {c}
-                            </option>
-                          ))}
-                        </select>
-                      </td>
-                      <td style={styles.td}>
-                        <input
-                          style={styles.cellInput}
-                          placeholder="(optional)"
-                          value={accountDraft.notes}
-                          onChange={(e) => setAccountDraft((d) => ({ ...d, notes: e.target.value }))}
-                        />
-                      </td>
-                      <td style={styles.td}>
-                        <button style={styles.addBtn} onClick={addAccountRow}>
-                          + Add
-                        </button>
-                      </td>
-                    </tr>
                   </tbody>
                 </table>
               </div>
@@ -1524,6 +1524,43 @@ export default function MappingsPage() {
                     </tr>
                   </thead>
                   <tbody>
+                    <tr>
+                      <td style={styles.td}>
+                        <input
+                          style={styles.cellInput}
+                          placeholder="e.g. EP - Butler"
+                          value={storeNameDraft.raw_name}
+                          onChange={(e) => setStoreNameDraft((d) => ({ ...d, raw_name: e.target.value }))}
+                        />
+                      </td>
+                      <td style={styles.td}>
+                        <select
+                          style={styles.cellInput}
+                          value={storeNameDraft.elevate_name}
+                          onChange={(e) => setStoreNameDraft((d) => ({ ...d, elevate_name: e.target.value }))}
+                        >
+                          <option value="">— Select —</option>
+                          {elevateNameOptions.map((o) => (
+                            <option key={o.value} value={o.value}>
+                              {o.label}
+                            </option>
+                          ))}
+                        </select>
+                      </td>
+                      <td style={styles.td}>
+                        <input
+                          style={styles.cellInput}
+                          placeholder="(optional)"
+                          value={storeNameDraft.notes}
+                          onChange={(e) => setStoreNameDraft((d) => ({ ...d, notes: e.target.value }))}
+                        />
+                      </td>
+                      <td style={styles.td}>
+                        <button style={styles.addBtn} onClick={addStoreNameRow}>
+                          + Add
+                        </button>
+                      </td>
+                    </tr>
                     {sortedStoreNameRows.map((r) => (
                       <tr key={r.id} style={styles.tr}>
                         <td style={styles.td}>
@@ -1578,43 +1615,6 @@ export default function MappingsPage() {
                         </td>
                       </tr>
                     ))}
-                    <tr>
-                      <td style={styles.td}>
-                        <input
-                          style={styles.cellInput}
-                          placeholder="e.g. EP - Butler"
-                          value={storeNameDraft.raw_name}
-                          onChange={(e) => setStoreNameDraft((d) => ({ ...d, raw_name: e.target.value }))}
-                        />
-                      </td>
-                      <td style={styles.td}>
-                        <select
-                          style={styles.cellInput}
-                          value={storeNameDraft.elevate_name}
-                          onChange={(e) => setStoreNameDraft((d) => ({ ...d, elevate_name: e.target.value }))}
-                        >
-                          <option value="">— Select —</option>
-                          {elevateNameOptions.map((o) => (
-                            <option key={o.value} value={o.value}>
-                              {o.label}
-                            </option>
-                          ))}
-                        </select>
-                      </td>
-                      <td style={styles.td}>
-                        <input
-                          style={styles.cellInput}
-                          placeholder="(optional)"
-                          value={storeNameDraft.notes}
-                          onChange={(e) => setStoreNameDraft((d) => ({ ...d, notes: e.target.value }))}
-                        />
-                      </td>
-                      <td style={styles.td}>
-                        <button style={styles.addBtn} onClick={addStoreNameRow}>
-                          + Add
-                        </button>
-                      </td>
-                    </tr>
                   </tbody>
                 </table>
               </div>
@@ -1753,6 +1753,45 @@ export default function MappingsPage() {
                     </tr>
                   </thead>
                   <tbody>
+                    <tr>
+                      <td style={styles.td}>
+                        <input
+                          style={styles.cellInput}
+                          placeholder="e.g. Zelle"
+                          value={depositAccountDraft.tender_type}
+                          onChange={(e) => setDepositAccountDraft((d) => ({ ...d, tender_type: e.target.value }))}
+                        />
+                      </td>
+                      <td style={styles.td}>
+                        <input
+                          style={styles.cellInput}
+                          placeholder="e.g. Cash in Hand"
+                          value={depositAccountDraft.deposit_to_account}
+                          onChange={(e) => setDepositAccountDraft((d) => ({ ...d, deposit_to_account: e.target.value }))}
+                        />
+                      </td>
+                      <td style={styles.td}>
+                        <input
+                          style={styles.cellInput}
+                          placeholder="e.g. Bank"
+                          value={depositAccountDraft.payment_method}
+                          onChange={(e) => setDepositAccountDraft((d) => ({ ...d, payment_method: e.target.value }))}
+                        />
+                      </td>
+                      <td style={styles.td}>
+                        <input
+                          style={styles.cellInput}
+                          placeholder="(optional)"
+                          value={depositAccountDraft.notes}
+                          onChange={(e) => setDepositAccountDraft((d) => ({ ...d, notes: e.target.value }))}
+                        />
+                      </td>
+                      <td style={styles.td}>
+                        <button style={styles.addBtn} onClick={addDepositAccountRow}>
+                          + Add
+                        </button>
+                      </td>
+                    </tr>
                     {sortedDepositAccountRows.map((r) => (
                       <tr key={r.id} style={styles.tr}>
                         <td style={styles.td}>
@@ -1804,45 +1843,6 @@ export default function MappingsPage() {
                         </td>
                       </tr>
                     ))}
-                    <tr>
-                      <td style={styles.td}>
-                        <input
-                          style={styles.cellInput}
-                          placeholder="e.g. Zelle"
-                          value={depositAccountDraft.tender_type}
-                          onChange={(e) => setDepositAccountDraft((d) => ({ ...d, tender_type: e.target.value }))}
-                        />
-                      </td>
-                      <td style={styles.td}>
-                        <input
-                          style={styles.cellInput}
-                          placeholder="e.g. Cash in Hand"
-                          value={depositAccountDraft.deposit_to_account}
-                          onChange={(e) => setDepositAccountDraft((d) => ({ ...d, deposit_to_account: e.target.value }))}
-                        />
-                      </td>
-                      <td style={styles.td}>
-                        <input
-                          style={styles.cellInput}
-                          placeholder="e.g. Bank"
-                          value={depositAccountDraft.payment_method}
-                          onChange={(e) => setDepositAccountDraft((d) => ({ ...d, payment_method: e.target.value }))}
-                        />
-                      </td>
-                      <td style={styles.td}>
-                        <input
-                          style={styles.cellInput}
-                          placeholder="(optional)"
-                          value={depositAccountDraft.notes}
-                          onChange={(e) => setDepositAccountDraft((d) => ({ ...d, notes: e.target.value }))}
-                        />
-                      </td>
-                      <td style={styles.td}>
-                        <button style={styles.addBtn} onClick={addDepositAccountRow}>
-                          + Add
-                        </button>
-                      </td>
-                    </tr>
                   </tbody>
                 </table>
               </div>
@@ -1937,6 +1937,57 @@ export default function MappingsPage() {
                     </tr>
                   </thead>
                   <tbody>
+                    <tr>
+                      <td style={styles.td}>
+                        <input
+                          style={styles.cellInput}
+                          placeholder="e.g. 228 Brownsville Rd"
+                          value={ondigoAddressDraft.street_address}
+                          onChange={(e) => setOndigoAddressDraft((d) => ({ ...d, street_address: e.target.value }))}
+                        />
+                      </td>
+                      <td style={styles.td}>
+                        <select
+                          style={styles.cellInput}
+                          value={ondigoAddressDraft.company_name}
+                          onChange={(e) => setOndigoAddressDraft((d) => ({ ...d, company_name: e.target.value }))}
+                        >
+                          <option value="">— Select —</option>
+                          {companyOptions.map((c) => (
+                            <option key={c} value={c}>
+                              {c}
+                            </option>
+                          ))}
+                        </select>
+                      </td>
+                      <td style={styles.td}>
+                        <select
+                          style={styles.cellInput}
+                          value={ondigoAddressDraft.qbo_class}
+                          onChange={(e) => setOndigoAddressDraft((d) => ({ ...d, qbo_class: e.target.value }))}
+                        >
+                          <option value="">— Select —</option>
+                          {qboClassOptions.map((c) => (
+                            <option key={c} value={c}>
+                              {c}
+                            </option>
+                          ))}
+                        </select>
+                      </td>
+                      <td style={styles.td}>
+                        <input
+                          style={styles.cellInput}
+                          placeholder="(optional)"
+                          value={ondigoAddressDraft.notes}
+                          onChange={(e) => setOndigoAddressDraft((d) => ({ ...d, notes: e.target.value }))}
+                        />
+                      </td>
+                      <td style={styles.td}>
+                        <button style={styles.addBtn} onClick={addOndigoAddressRow}>
+                          + Add
+                        </button>
+                      </td>
+                    </tr>
                     {sortedOndigoAddressRows.map((r) => (
                       <tr key={r.id} style={styles.tr}>
                         <td style={styles.td}>
@@ -2008,57 +2059,6 @@ export default function MappingsPage() {
                         </td>
                       </tr>
                     ))}
-                    <tr>
-                      <td style={styles.td}>
-                        <input
-                          style={styles.cellInput}
-                          placeholder="e.g. 228 Brownsville Rd"
-                          value={ondigoAddressDraft.street_address}
-                          onChange={(e) => setOndigoAddressDraft((d) => ({ ...d, street_address: e.target.value }))}
-                        />
-                      </td>
-                      <td style={styles.td}>
-                        <select
-                          style={styles.cellInput}
-                          value={ondigoAddressDraft.company_name}
-                          onChange={(e) => setOndigoAddressDraft((d) => ({ ...d, company_name: e.target.value }))}
-                        >
-                          <option value="">— Select —</option>
-                          {companyOptions.map((c) => (
-                            <option key={c} value={c}>
-                              {c}
-                            </option>
-                          ))}
-                        </select>
-                      </td>
-                      <td style={styles.td}>
-                        <select
-                          style={styles.cellInput}
-                          value={ondigoAddressDraft.qbo_class}
-                          onChange={(e) => setOndigoAddressDraft((d) => ({ ...d, qbo_class: e.target.value }))}
-                        >
-                          <option value="">— Select —</option>
-                          {qboClassOptions.map((c) => (
-                            <option key={c} value={c}>
-                              {c}
-                            </option>
-                          ))}
-                        </select>
-                      </td>
-                      <td style={styles.td}>
-                        <input
-                          style={styles.cellInput}
-                          placeholder="(optional)"
-                          value={ondigoAddressDraft.notes}
-                          onChange={(e) => setOndigoAddressDraft((d) => ({ ...d, notes: e.target.value }))}
-                        />
-                      </td>
-                      <td style={styles.td}>
-                        <button style={styles.addBtn} onClick={addOndigoAddressRow}>
-                          + Add
-                        </button>
-                      </td>
-                    </tr>
                   </tbody>
                 </table>
               </div>
@@ -2111,6 +2111,77 @@ export default function MappingsPage() {
                   ))}
                 </div>
               )}
+
+              <div style={styles.coaCategorySection}>
+                <div style={styles.coaCategoryHeader}>+ Add new rule</div>
+                <div style={styles.tableWrap}>
+                  <table style={styles.table}>
+                    <tbody>
+                      <tr>
+                        <td style={styles.td}>
+                          <input
+                            style={styles.cellInput}
+                            placeholder="e.g. Weekly Incentive Credit"
+                            value={creditNoteDraft.product_prefix}
+                            onChange={(e) => setCreditNoteDraft((d) => ({ ...d, product_prefix: e.target.value }))}
+                          />
+                        </td>
+                        <td style={styles.td}>
+                          <select
+                            style={styles.cellInput}
+                            value={creditNoteDraft.match_type}
+                            onChange={(e) => setCreditNoteDraft((d) => ({ ...d, match_type: e.target.value }))}
+                          >
+                            {MATCH_TYPE_OPTIONS.map((o) => (
+                              <option key={o.value} value={o.value}>
+                                {o.label}
+                              </option>
+                            ))}
+                          </select>
+                        </td>
+                        <td style={{ ...styles.td, textAlign: "center" }}>
+                          <input
+                            type="checkbox"
+                            checked={creditNoteDraft.ignore}
+                            onChange={(e) => setCreditNoteDraft((d) => ({ ...d, ignore: e.target.checked }))}
+                          />
+                        </td>
+                        <td style={styles.td}>
+                          <input
+                            style={styles.cellInput}
+                            placeholder={
+                              creditNoteDraft.ignore ? "(not needed — Ignore is checked)" : "e.g. Dealer Incentives"
+                            }
+                            value={creditNoteDraft.expense_account}
+                            onChange={(e) => setCreditNoteDraft((d) => ({ ...d, expense_account: e.target.value }))}
+                          />
+                        </td>
+                        <td style={styles.td}>
+                          <input
+                            style={styles.cellInput}
+                            placeholder="(optional)"
+                            value={creditNoteDraft.expense_memo}
+                            onChange={(e) => setCreditNoteDraft((d) => ({ ...d, expense_memo: e.target.value }))}
+                          />
+                        </td>
+                        <td style={styles.td}>
+                          <input
+                            style={styles.cellInput}
+                            placeholder="(optional)"
+                            value={creditNoteDraft.notes}
+                            onChange={(e) => setCreditNoteDraft((d) => ({ ...d, notes: e.target.value }))}
+                          />
+                        </td>
+                        <td style={styles.td}>
+                          <button style={styles.addBtn} onClick={addCreditNoteRow}>
+                            + Add
+                          </button>
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
 
               {[
                 {
@@ -2248,77 +2319,6 @@ export default function MappingsPage() {
                   </div>
                 </div>
               ))}
-
-              <div style={styles.coaCategorySection}>
-                <div style={styles.coaCategoryHeader}>+ Add new rule</div>
-                <div style={styles.tableWrap}>
-                  <table style={styles.table}>
-                    <tbody>
-                      <tr>
-                        <td style={styles.td}>
-                          <input
-                            style={styles.cellInput}
-                            placeholder="e.g. Weekly Incentive Credit"
-                            value={creditNoteDraft.product_prefix}
-                            onChange={(e) => setCreditNoteDraft((d) => ({ ...d, product_prefix: e.target.value }))}
-                          />
-                        </td>
-                        <td style={styles.td}>
-                          <select
-                            style={styles.cellInput}
-                            value={creditNoteDraft.match_type}
-                            onChange={(e) => setCreditNoteDraft((d) => ({ ...d, match_type: e.target.value }))}
-                          >
-                            {MATCH_TYPE_OPTIONS.map((o) => (
-                              <option key={o.value} value={o.value}>
-                                {o.label}
-                              </option>
-                            ))}
-                          </select>
-                        </td>
-                        <td style={{ ...styles.td, textAlign: "center" }}>
-                          <input
-                            type="checkbox"
-                            checked={creditNoteDraft.ignore}
-                            onChange={(e) => setCreditNoteDraft((d) => ({ ...d, ignore: e.target.checked }))}
-                          />
-                        </td>
-                        <td style={styles.td}>
-                          <input
-                            style={styles.cellInput}
-                            placeholder={
-                              creditNoteDraft.ignore ? "(not needed — Ignore is checked)" : "e.g. Dealer Incentives"
-                            }
-                            value={creditNoteDraft.expense_account}
-                            onChange={(e) => setCreditNoteDraft((d) => ({ ...d, expense_account: e.target.value }))}
-                          />
-                        </td>
-                        <td style={styles.td}>
-                          <input
-                            style={styles.cellInput}
-                            placeholder="(optional)"
-                            value={creditNoteDraft.expense_memo}
-                            onChange={(e) => setCreditNoteDraft((d) => ({ ...d, expense_memo: e.target.value }))}
-                          />
-                        </td>
-                        <td style={styles.td}>
-                          <input
-                            style={styles.cellInput}
-                            placeholder="(optional)"
-                            value={creditNoteDraft.notes}
-                            onChange={(e) => setCreditNoteDraft((d) => ({ ...d, notes: e.target.value }))}
-                          />
-                        </td>
-                        <td style={styles.td}>
-                          <button style={styles.addBtn} onClick={addCreditNoteRow}>
-                            + Add
-                          </button>
-                        </td>
-                      </tr>
-                    </tbody>
-                  </table>
-                </div>
-              </div>
             </div>
           </>
         ) : (
