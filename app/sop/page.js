@@ -354,6 +354,7 @@ export default function SopPage() {
               if (!activeGroup) return null;
               return (
                 <div style={styles.subTabRow}>
+                  <span style={styles.subTabGroupLabel}>{activeGroup.label} ›</span>
                   {activeGroup.children.map((childKey) => (
                     <button
                       key={childKey}
@@ -876,11 +877,24 @@ const styles = {
   },
   subTabRow: {
     display: "flex",
-    gap: 6,
+    alignItems: "center",
+    gap: 8,
     flexWrap: "wrap",
-    margin: "-8px 0 20px",
-    paddingLeft: 14,
-    borderLeft: "2px solid var(--line)",
+    margin: "-4px 0 20px",
+    padding: "9px 14px",
+    background: "var(--panel)",
+    border: "1px solid var(--line)",
+    borderLeft: "3px solid var(--ledger)",
+    borderRadius: 8,
+  },
+  subTabGroupLabel: {
+    fontSize: 11,
+    fontWeight: 700,
+    color: "var(--ink-soft)",
+    textTransform: "uppercase",
+    letterSpacing: "0.04em",
+    marginRight: 2,
+    whiteSpace: "nowrap",
   },
   subTab: {
     background: "transparent",
