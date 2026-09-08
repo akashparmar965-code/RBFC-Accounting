@@ -38,7 +38,10 @@ const MATCH_TYPE_OPTIONS = [
 // with their own sub-tab row, added 2026-09-08 -- Sales/AR Deposits/Shared
 // Concepts stay standalone (only 3 items, no need to nest them). Children
 // are either a real sop_sections `key`, or one of the special tab
-// constants above (Other Classifications has no DB section at all).
+// constants above (the "Bank Classification Rules" group -- Utilities +
+// the actual bank-rules table, relabeled "Other Classifications" as its
+// own sub-tab per explicit request -- has no DB section backing it at
+// all, it's purely these two special constants).
 const TAB_GROUPS = [
   { key: "bills", label: "Bills", children: ["bills-vip", "bills-epay", "bills-ondigo", "bills-creditnote"] },
   { key: "payroll", label: "Payroll", children: ["payroll-main", "payroll-arcade"] },
@@ -48,13 +51,13 @@ const TAB_GROUPS = [
     children: ["inventory-change", "devices-lost", "stock-transfer", "inventory-flow"],
   },
   { key: "manualjv", label: "Manual JV", children: ["manual-jv-main", "manual-jv-company-split"] },
-  { key: "otherclass", label: "Other Classifications", children: [UTILITIES_TAB, BANK_RULES_TAB] },
+  { key: "otherclass", label: "Bank Classification Rules", children: [UTILITIES_TAB, BANK_RULES_TAB] },
 ];
 
 /** "Bills -- VIP" -> "VIP" for the sub-tab button; titles with no " -- " (Inventory Flow etc.) pass through as-is. */
 function subTabLabel(sectionOrKey, sections) {
   if (sectionOrKey === UTILITIES_TAB) return "Utilities";
-  if (sectionOrKey === BANK_RULES_TAB) return "Bank Classification Rules";
+  if (sectionOrKey === BANK_RULES_TAB) return "Other Classifications";
   const s = sections.find((sec) => sec.key === sectionOrKey);
   if (!s) return sectionOrKey;
   const parts = s.title.split(" -- ");
