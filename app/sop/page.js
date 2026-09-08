@@ -888,7 +888,7 @@ const styles = {
     borderRadius: 8,
   },
   subTabGroupLabel: {
-    fontSize: 11,
+    fontSize: 13,
     fontWeight: 700,
     color: "var(--ink-soft)",
     textTransform: "uppercase",
@@ -901,8 +901,8 @@ const styles = {
     color: "var(--ink-soft)",
     border: "1px solid var(--line)",
     borderRadius: 6,
-    padding: "5px 12px",
-    fontSize: 11.5,
+    padding: "7px 15px",
+    fontSize: 13.5,
     fontWeight: 600,
   },
   subTabActive: {
@@ -910,8 +910,8 @@ const styles = {
     color: "#fff",
     border: "1px solid var(--ledger-dark)",
     borderRadius: 6,
-    padding: "5px 12px",
-    fontSize: 11.5,
+    padding: "7px 15px",
+    fontSize: 13.5,
     fontWeight: 600,
   },
 
