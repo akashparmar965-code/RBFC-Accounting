@@ -34,6 +34,33 @@ const MATCH_TYPE_OPTIONS = [
   { value: "exact", label: "Fully matching" },
 ];
 
+// Top-level tabs with too many flat entries got grouped into parent tabs
+// with their own sub-tab row, added 2026-09-08 -- Sales/AR Deposits/Shared
+// Concepts stay standalone (only 3 items, no need to nest them). Children
+// are either a real sop_sections `key`, or one of the special tab
+// constants above (Other Classifications has no DB section at all).
+const TAB_GROUPS = [
+  { key: "bills", label: "Bills", children: ["bills-vip", "bills-epay", "bills-ondigo", "bills-creditnote"] },
+  { key: "payroll", label: "Payroll", children: ["payroll-main", "payroll-arcade"] },
+  {
+    key: "inventory",
+    label: "Inventory",
+    children: ["inventory-change", "devices-lost", "stock-transfer", "inventory-flow"],
+  },
+  { key: "manualjv", label: "Manual JV", children: ["manual-jv-main", "manual-jv-company-split"] },
+  { key: "otherclass", label: "Other Classifications", children: [UTILITIES_TAB, BANK_RULES_TAB] },
+];
+
+/** "Bills -- VIP" -> "VIP" for the sub-tab button; titles with no " -- " (Inventory Flow etc.) pass through as-is. */
+function subTabLabel(sectionOrKey, sections) {
+  if (sectionOrKey === UTILITIES_TAB) return "Utilities";
+  if (sectionOrKey === BANK_RULES_TAB) return "Bank Classification Rules";
+  const s = sections.find((sec) => sec.key === sectionOrKey);
+  if (!s) return sectionOrKey;
+  const parts = s.title.split(" -- ");
+  return parts.length > 1 ? parts[1] : s.title;
+}
+
 function Bulleted({ text }) {
   const lines = (text || "").split("\n").map((l) => l.trim()).filter(Boolean);
   if (!lines.length) return <div style={styles.emptyField}>— nothing written yet —</div>;
@@ -297,24 +324,45 @@ export default function SopPage() {
               >
                 Shared Concepts
               </button>
-              {sections.map((s) => (
-                <button key={s.key} style={activeTab === s.key ? styles.tabActive : styles.tab} onClick={() => switchTab(s.key)}>
-                  {s.title}
+              {sections
+                .filter((s) => !TAB_GROUPS.some((g) => g.children.includes(s.key)))
+                .map((s) => (
+                  <button
+                    key={s.key}
+                    style={activeTab === s.key ? styles.tabActive : styles.tab}
+                    onClick={() => switchTab(s.key)}
+                  >
+                    {s.title}
+                  </button>
+                ))}
+              {TAB_GROUPS.map((g) => (
+                <button
+                  key={g.key}
+                  style={g.children.includes(activeTab) ? styles.tabActive : styles.tab}
+                  onClick={() => switchTab(g.children[0])}
+                >
+                  {g.label}
                 </button>
               ))}
-              <button
-                style={activeTab === UTILITIES_TAB ? styles.tabActive : styles.tab}
-                onClick={() => switchTab(UTILITIES_TAB)}
-              >
-                Utilities
-              </button>
-              <button
-                style={activeTab === BANK_RULES_TAB ? styles.tabActive : styles.tab}
-                onClick={() => switchTab(BANK_RULES_TAB)}
-              >
-                Bank Classification Rules
-              </button>
             </div>
+
+            {(() => {
+              const activeGroup = TAB_GROUPS.find((g) => g.children.includes(activeTab));
+              if (!activeGroup) return null;
+              return (
+                <div style={styles.subTabRow}>
+                  {activeGroup.children.map((childKey) => (
+                    <button
+                      key={childKey}
+                      style={activeTab === childKey ? styles.subTabActive : styles.subTab}
+                      onClick={() => switchTab(childKey)}
+                    >
+                      {subTabLabel(childKey, sections)}
+                    </button>
+                  ))}
+                </div>
+              );
+            })()}
 
             {activeTab === CONCEPTS_TAB && (
               <div style={styles.card}>
@@ -821,6 +869,32 @@ const styles = {
     borderRadius: 7,
     padding: "8px 16px",
     fontSize: 12.5,
+    fontWeight: 600,
+  },
+  subTabRow: {
+    display: "flex",
+    gap: 6,
+    flexWrap: "wrap",
+    margin: "-8px 0 20px",
+    paddingLeft: 14,
+    borderLeft: "2px solid var(--line)",
+  },
+  subTab: {
+    background: "transparent",
+    color: "var(--ink-soft)",
+    border: "1px solid var(--line)",
+    borderRadius: 6,
+    padding: "5px 12px",
+    fontSize: 11.5,
+    fontWeight: 600,
+  },
+  subTabActive: {
+    background: "var(--ledger-dark)",
+    color: "#fff",
+    border: "1px solid var(--ledger-dark)",
+    borderRadius: 6,
+    padding: "5px 12px",
+    fontSize: 11.5,
     fontWeight: 600,
   },
 
