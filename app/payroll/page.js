@@ -293,13 +293,27 @@ export default function PayrollPage() {
     });
   }
 
+  // Resets everything unsaved on this tab -- amounts grid, uploaded report
+  // results, timesheet, and any generated result -- back to a blank slate.
+  // Doesn't touch anything already Saved to Supabase; a Save after this
+  // would overwrite the DB with zeros, same risk any "clear form" button
+  // has.
   function handleClearAllPayrollAmounts() {
-    setCompanyRows((prev) => {
+    setCompanyRows(() => {
       const next = {};
       for (const company of companies) next[company] = emptyRow(PAYROLL_FIELDS);
       return next;
     });
     setPayrollReportResults([]);
+    setTimesheetFileName(null);
+    setTimesheetError("");
+    setStoreHours(null);
+    setResult(null);
+    setGenerateError("");
+    setPreviewOpen(false);
+    setSelectedCompanies(new Set());
+    setSaveMessage("");
+    setSaveError("");
   }
 
   function handleGridKeyDown(e, rowIndex, colIndex) {
@@ -523,6 +537,25 @@ export default function PayrollPage() {
     if (evaluated !== null && String(evaluated) !== String(raw ?? "")) {
       handleArcadeCellChange(company, key, String(evaluated));
     }
+  }
+
+  // Same full-reset as handleClearAllPayrollAmounts, for this tab's own
+  // state -- amounts grid, timesheet, and any generated result.
+  function handleClearAllArcadeData() {
+    setArcadeCompanyRows(() => {
+      const next = {};
+      for (const company of companies) next[company] = emptyRow(ARCADE_SUBCONTRACTOR_FIELDS);
+      return next;
+    });
+    setArcadeTimesheetFileName(null);
+    setArcadeTimesheetError("");
+    setArcadeStoreHours(null);
+    setArcadeResult(null);
+    setArcadeGenerateError("");
+    setArcadePreviewOpen(false);
+    setArcadeSelectedCompanies(new Set());
+    setArcadeSaveMessage("");
+    setArcadeSaveError("");
   }
 
   function handleArcadeGridKeyDown(e, rowIndex, colIndex) {
@@ -912,6 +945,9 @@ export default function PayrollPage() {
                     <button style={styles.saveBtn} onClick={handleSave} disabled={saving}>
                       {saving ? "Saving…" : "Save"}
                     </button>
+                    <button style={styles.clearAllBtn} onClick={handleClearAllPayrollAmounts}>
+                      Clear data
+                    </button>
                     {saveMessage && <span style={styles.info}>{saveMessage}</span>}
                   </div>
                 </>
@@ -1221,6 +1257,9 @@ export default function PayrollPage() {
                   <div style={styles.actionsRow}>
                     <button style={styles.saveBtn} onClick={handleArcadeSave} disabled={arcadeSaving}>
                       {arcadeSaving ? "Saving…" : "Save"}
+                    </button>
+                    <button style={styles.clearAllBtn} onClick={handleClearAllArcadeData}>
+                      Clear data
                     </button>
                     {arcadeSaveMessage && <span style={styles.info}>{arcadeSaveMessage}</span>}
                   </div>
