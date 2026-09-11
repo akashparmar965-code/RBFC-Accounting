@@ -97,7 +97,7 @@ export default function SopPage() {
 
   const [bankMemoRows, setBankMemoRows] = useState([]);
   const [bankMemoDraft, setBankMemoDraft] = useState(emptyBankMemoDraft);
-  const [accountOptions, setAccountOptions] = useState([]); // [{ account_name }] from chart_of_accounts, Expense category only
+  const [accountOptions, setAccountOptions] = useState([]); // [{ account_name }] from chart_of_accounts, all categories
   const [confirmDeleteBankMemoId, setConfirmDeleteBankMemoId] = useState(null);
   const [bankMemoSort, setBankMemoSort] = useState({ column: "bank_memo", direction: "asc" });
   const sortedBankMemoRows = useMemo(() => sortRows(bankMemoRows, bankMemoSort), [bankMemoRows, bankMemoSort]);
@@ -123,11 +123,10 @@ export default function SopPage() {
       supabase.from("sop_sections").select("*").order("sort_order", { ascending: true }),
       supabase.from("bank_memo_accounts").select("*").order("bank_memo", { ascending: true }),
       supabase.from("bank_classification_rules").select("*").order("bank_memo_prefix", { ascending: true }),
-      supabase
-        .from("chart_of_accounts")
-        .select("account_name")
-        .eq("category", "Expense")
-        .order("account_name"),
+      // All categories, not just Expense -- a bank memo can legitimately
+      // need to be bifurcated to a Balance Sheet account too (e.g. a loan
+      // principal payment, a transfer), not only P&L Expense accounts.
+      supabase.from("chart_of_accounts").select("account_name").order("account_name"),
     ]);
     if (conceptsRes.error) setError(conceptsRes.error.message);
     else setConcepts(conceptsRes.data || []);
@@ -495,9 +494,9 @@ export default function SopPage() {
                 <p style={styles.sectionSub}>
                   A personal reference: the description text a bank statement shows for a transaction (its
                   Bank Memo), mapped to which Account Name that transaction usually gets booked to — a quick
-                  lookup when bifurcating Expenses during reconciliation, not tied to any upload or JE
-                  generation elsewhere in the app. Account Name only lists accounts from Mapping Master's
-                  Accounts tab in the <strong>Expense</strong> category, since that's what this table is for.
+                  lookup when bifurcating transactions during reconciliation, not tied to any upload or JE
+                  generation elsewhere in the app. Account Name searches every account from Mapping Master's
+                  Accounts tab, across all categories (Expense and Balance Sheet accounts alike).
                 </p>
 
                 <div style={styles.tableWrap}>
@@ -631,9 +630,10 @@ export default function SopPage() {
                   Credit Note Mapping) instead of an exact 1:1 memo, so one rule can bucket a whole family of
                   memo text — e.g. &quot;SP FUEL DEPOT&quot; (Starts with) catches every &quot;SP FUEL DEPOT
                   #4412&quot;, &quot;#7789&quot;, etc. The first rule a memo matches (case-insensitive) determines
-                  the Account Name. Personal reference for bifurcating Expenses during reconciliation, same as
-                  Utilities — not tied to any upload or JE generation elsewhere in the app. Account Name only
-                  lists accounts from Mapping Master's Accounts tab in the <strong>Expense</strong> category.
+                  the Account Name. Personal reference for bifurcating transactions during reconciliation, same
+                  as Utilities — not tied to any upload or JE generation elsewhere in the app. Account Name
+                  searches every account from Mapping Master's Accounts tab, across all categories (Expense and
+                  Balance Sheet accounts alike).
                 </p>
 
                 <div style={styles.tableWrap}>
