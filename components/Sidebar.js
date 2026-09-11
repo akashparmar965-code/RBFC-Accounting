@@ -15,7 +15,6 @@ const NAV = [
   { href: "/inventory-flow", label: "Inventory Flow", ready: true },
   { href: "/inventory-ordering", label: "Inventory Ordering", ready: true },
   { href: "/manual-jv", label: "Manual JV", ready: true },
-  { href: "/balances-matching", label: "Balances Matching", ready: true },
 ];
 
 const UTILITY_NAV = [
