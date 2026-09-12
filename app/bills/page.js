@@ -725,17 +725,17 @@ export default function BillsPage() {
 
       const buffer = await file.arrayBuffer();
       const rawRows = parseVipIncentiveWorkbook(buffer);
-      if (!rawRows.length) throw new Error("No rows found in the Incentives sheet of this file.");
+      if (!rawRows.length) throw new Error("No rows found in the Credit Note sheet of this file.");
       if (!("Door Number" in rawRows[0])) {
         throw new Error(
-          "This file doesn't look like a VIP export — no 'Door Number' column found in the Incentives sheet."
+          "This file doesn't look like a VIP export — no 'Door Number' column found in the Credit Note sheet."
         );
       }
       const isNewIncFormat = isNewIncentiveFormat(rawRows);
       const usableIssue = checkRawRowsUsable(
         rawRows,
         ["Door Number", isNewIncFormat ? "Document" : "Invoice Number"],
-        "VIP Incentives sheet"
+        "VIP Credit Note sheet"
       );
       if (usableIssue) throw new Error(usableIssue);
       if (mode !== "reconciliation") {
@@ -894,7 +894,7 @@ export default function BillsPage() {
                 ? "Upload the Ondigo statement export — matched by Ondigo Number, one file per company"
                 : activeTab === "creditnote"
                 ? "Upload the VIP export's Credit Note sheet — classified by Credit Note Mapping, one file per company"
-                : "Upload the VIP export's Incentives sheet — classified by Incentive Mapping, one file per company"}
+                : "Upload the VIP export's Credit Note sheet — classified by Incentive Mapping, one file per company"}
             </p>
           </div>
         </div>
@@ -1857,7 +1857,7 @@ export default function BillsPage() {
               >
                 <div style={styles.dropzoneIcon}>📄</div>
                 <div style={styles.dropzoneText}>
-                  {incentiveFileName || "Choose or drop VIP export (reads the Incentives sheet)"}
+                  {incentiveFileName || "Choose or drop VIP export (reads the Credit Note sheet)"}
                 </div>
               </div>
               {incentivePeriodMode === "reconciliation" && (

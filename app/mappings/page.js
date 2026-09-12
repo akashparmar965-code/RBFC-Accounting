@@ -2423,8 +2423,11 @@ export default function MappingsPage() {
             <div style={styles.sectionCard}>
               <div style={styles.sectionTitle}>Incentive Mapping</div>
               <div style={styles.sectionSub}>
-                Same structure and formula as Credit Note Mapping, for the VIP export&apos;s{" "}
-                <strong>Incentives</strong> sheet. A line is classified by its <strong>Memo</strong> text
+                Same structure and formula as Credit Note Mapping, reading the{" "}
+                <strong>same VIP export Credit Note sheet</strong> — there&apos;s no separate Incentives
+                sheet, this is a second, parallel classification of that same data against its own rules
+                below (e.g. Weekly Incentive Credit memos), so it can produce its own separate output file.
+                A line is classified by its <strong>Memo</strong> text
                 when it has one — Memo is the same for every line of a given invoice, so the whole invoice
                 posts as one line. If an invoice has a <strong>blank Memo</strong>, it&apos;s classified{" "}
                 <strong>per line by Products</strong> instead against these same rules — Incentives is
