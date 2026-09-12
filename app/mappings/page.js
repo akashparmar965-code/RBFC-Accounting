@@ -14,6 +14,7 @@ import {
   removePendingTenderType,
   removePendingOndigoAddress,
   removePendingCreditNoteProductsMatching,
+  removePendingIncentiveProductsMatching,
   clearPendingList,
 } from "@/lib/pendingMappings";
 import { sortRows, toggleSort, sortArrow } from "@/lib/sorting";
@@ -30,6 +31,14 @@ const emptyStoreNameDraft = { raw_name: "", elevate_name: "", notes: "" };
 const emptyDepositAccountDraft = { tender_type: "", deposit_to_account: "", payment_method: "", notes: "" };
 const emptyOndigoAddressDraft = { street_address: "", company_name: "", qbo_class: "", notes: "" };
 const emptyCreditNoteDraft = {
+  product_prefix: "",
+  match_type: "starts_with",
+  expense_account: "",
+  expense_memo: "",
+  notes: "",
+  ignore: false,
+};
+const emptyIncentiveDraft = {
   product_prefix: "",
   match_type: "starts_with",
   expense_account: "",
@@ -95,6 +104,7 @@ export default function MappingsPage() {
   const [ondigoAddressRows, setOndigoAddressRows] = useState([]);
   const [ondigoDefaultRows, setOndigoDefaultRows] = useState([]);
   const [creditNoteRows, setCreditNoteRows] = useState([]);
+  const [incentiveRows, setIncentiveRows] = useState([]);
   const [chartOfAccountRows, setChartOfAccountRows] = useState([]);
 
   // Clickable-column sort state per table (null = natural DB .order()); see lib/sorting.js.
@@ -105,6 +115,7 @@ export default function MappingsPage() {
   const [depositAccountSort, setDepositAccountSort] = useState(null);
   const [ondigoAddressSort, setOndigoAddressSort] = useState(null);
   const [creditNoteSort, setCreditNoteSort] = useState(null);
+  const [incentiveSort, setIncentiveSort] = useState(null);
   const [chartOfAccountSort, setChartOfAccountSort] = useState(null);
 
   const sortedProductRows = useMemo(() => sortRows(productRows, productSort), [productRows, productSort]);
@@ -120,6 +131,7 @@ export default function MappingsPage() {
     [ondigoAddressRows, ondigoAddressSort]
   );
   const sortedCreditNoteRows = useMemo(() => sortRows(creditNoteRows, creditNoteSort), [creditNoteRows, creditNoteSort]);
+  const sortedIncentiveRows = useMemo(() => sortRows(incentiveRows, incentiveSort), [incentiveRows, incentiveSort]);
 
   const [elevateNameOptions, setElevateNameOptions] = useState([]); // [{ value, label }]
   const [companyOptions, setCompanyOptions] = useState([]);
@@ -133,6 +145,7 @@ export default function MappingsPage() {
   const [depositAccountDraft, setDepositAccountDraft] = useState(emptyDepositAccountDraft);
   const [ondigoAddressDraft, setOndigoAddressDraft] = useState(emptyOndigoAddressDraft);
   const [creditNoteDraft, setCreditNoteDraft] = useState(emptyCreditNoteDraft);
+  const [incentiveDraft, setIncentiveDraft] = useState(emptyIncentiveDraft);
   const [chartOfAccountDrafts, setChartOfAccountDrafts] = useState({}); // { [category]: { account_name, notes } }
   const [confirmDelete, setConfirmDelete] = useState(null); // { table, id }
   const [pendingDoors, setPendingDoors] = useState([]);
@@ -142,6 +155,7 @@ export default function MappingsPage() {
   const [pendingTenderTypes, setPendingTenderTypes] = useState([]);
   const [pendingOndigoAddresses, setPendingOndigoAddresses] = useState([]);
   const [pendingCreditNoteProducts, setPendingCreditNoteProducts] = useState([]);
+  const [pendingIncentiveProducts, setPendingIncentiveProducts] = useState([]);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
@@ -164,6 +178,7 @@ export default function MappingsPage() {
     setPendingTenderTypes(pending.unmatchedTenderTypes);
     setPendingOndigoAddresses(pending.unmatchedOndigoAddresses);
     setPendingCreditNoteProducts(pending.unmappedCreditNoteProducts);
+    setPendingIncentiveProducts(pending.unmappedIncentiveProducts);
   }, []);
 
   // Other pages link here with ?tab=<key> (e.g. Bills' "Add them in Door
@@ -176,7 +191,17 @@ export default function MappingsPage() {
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const tab = params.get("tab");
-    const validTabs = ["store", "vip", "epay", "storemap", "stocktransfer", "ardeposits", "ondigo", "creditnote"];
+    const validTabs = [
+      "store",
+      "vip",
+      "epay",
+      "storemap",
+      "stocktransfer",
+      "ardeposits",
+      "ondigo",
+      "creditnote",
+      "incentive",
+    ];
     if (tab && validTabs.includes(tab)) setActiveTab(tab);
   }, []);
 
@@ -207,6 +232,7 @@ export default function MappingsPage() {
       ondigoAddressRes,
       ondigoDefaultRes,
       creditNoteRes,
+      incentiveRes,
       chartOfAccountsRes,
     ] = await Promise.all([
       supabase.from("product_mappings").select("*").order("product_prefix", { ascending: true }),
@@ -224,6 +250,7 @@ export default function MappingsPage() {
       supabase.from("ondigo_address_mappings").select("*").order("street_address", { ascending: true }),
       supabase.from("ondigo_defaults").select("*").order("key", { ascending: true }),
       supabase.from("credit_note_mappings").select("*").order("product_prefix", { ascending: true }),
+      supabase.from("incentive_mappings").select("*").order("product_prefix", { ascending: true }),
       supabase.from("chart_of_accounts").select("*").order("category", { ascending: true }).order("account_name", { ascending: true }),
     ]);
     if (productRes.error) setError(productRes.error.message);
@@ -246,6 +273,8 @@ export default function MappingsPage() {
     else setOndigoDefaultRows(ondigoDefaultRes.data || []);
     if (creditNoteRes.error) setError(creditNoteRes.error.message);
     else setCreditNoteRows(creditNoteRes.data || []);
+    if (incentiveRes.error) setError(incentiveRes.error.message);
+    else setIncentiveRows(incentiveRes.data || []);
     if (chartOfAccountsRes.error) setError(chartOfAccountsRes.error.message);
     else setChartOfAccountRows(chartOfAccountsRes.data || []);
     if (!checklistRes.error) {
@@ -298,6 +327,16 @@ export default function MappingsPage() {
     const dbValue = field === "ignore" ? value : value || null;
     const { error } = await supabase
       .from("credit_note_mappings")
+      .update({ [field]: dbValue })
+      .eq("id", id);
+    if (error) setError(error.message);
+  }
+
+  async function updateIncentiveField(id, field, value) {
+    setIncentiveRows((prev) => prev.map((r) => (r.id === id ? { ...r, [field]: value } : r)));
+    const dbValue = field === "ignore" ? value : value || null;
+    const { error } = await supabase
+      .from("incentive_mappings")
       .update({ [field]: dbValue })
       .eq("id", id);
     if (error) setError(error.message);
@@ -372,6 +411,48 @@ export default function MappingsPage() {
     setCreditNoteDraft(emptyCreditNoteDraft);
     removePendingCreditNoteProductsMatching(addedPrefix, addedMatchType);
     setPendingCreditNoteProducts((prev) =>
+      prev.filter((p) => {
+        const productLower = p.product.toLowerCase();
+        const prefixLower = addedPrefix.toLowerCase();
+        if (addedMatchType === "exact") return productLower !== prefixLower;
+        if (addedMatchType === "contains") return !productLower.includes(prefixLower);
+        return !productLower.startsWith(prefixLower);
+      })
+    );
+  }
+
+  async function addIncentiveRow() {
+    if (!incentiveDraft.product_prefix.trim()) {
+      setError("Memo Prefix is required.");
+      return;
+    }
+    if (!incentiveDraft.ignore && !incentiveDraft.expense_account.trim()) {
+      setError("Expense Account is required unless Ignore is checked.");
+      return;
+    }
+    const { data, error } = await supabase
+      .from("incentive_mappings")
+      .insert([
+        {
+          product_prefix: incentiveDraft.product_prefix.trim(),
+          match_type: incentiveDraft.match_type || "starts_with",
+          expense_account: incentiveDraft.expense_account.trim() || null,
+          expense_memo: incentiveDraft.expense_memo.trim() || null,
+          notes: incentiveDraft.notes.trim() || null,
+          ignore: incentiveDraft.ignore,
+        },
+      ])
+      .select();
+    if (error) {
+      setError(error.message);
+      return;
+    }
+    setIncentiveRows((prev) => [...prev, ...(data || [])]);
+    const addedPrefix = incentiveDraft.product_prefix.trim();
+    const addedMatchType = incentiveDraft.match_type || "starts_with";
+    setIncentiveDraft(emptyIncentiveDraft);
+    removePendingIncentiveProductsMatching(addedPrefix, addedMatchType);
+    setPendingIncentiveProducts((prev) =>
       prev.filter((p) => {
         const productLower = p.product.toLowerCase();
         const prefixLower = addedPrefix.toLowerCase();
@@ -836,6 +917,15 @@ export default function MappingsPage() {
     setPendingCreditNoteProducts((prev) => prev.filter((p) => p !== item));
   }
 
+  function useIncentiveSuggestion(product) {
+    setIncentiveDraft((d) => ({ ...d, product_prefix: product }));
+  }
+
+  function dismissPendingIncentiveProduct(item) {
+    removePendingIncentiveProductsMatching(item.product);
+    setPendingIncentiveProducts((prev) => prev.filter((p) => p !== item));
+  }
+
   /** "Clear all" for one "From your last upload" row — empties just that list, not the other pending tables. */
   function clearAllPending(fieldName, setter) {
     clearPendingList(fieldName);
@@ -853,6 +943,7 @@ export default function MappingsPage() {
     else if (table === "deposit_account_mappings") setDepositAccountRows((prev) => prev.filter((r) => r.id !== id));
     else if (table === "ondigo_address_mappings") setOndigoAddressRows((prev) => prev.filter((r) => r.id !== id));
     else if (table === "credit_note_mappings") setCreditNoteRows((prev) => prev.filter((r) => r.id !== id));
+    else if (table === "incentive_mappings") setIncentiveRows((prev) => prev.filter((r) => r.id !== id));
     else if (table === "chart_of_accounts") setChartOfAccountRows((prev) => prev.filter((r) => r.id !== id));
     else setStoreNameRows((prev) => prev.filter((r) => r.id !== id));
     setConfirmDelete(null);
@@ -926,6 +1017,12 @@ export default function MappingsPage() {
             onClick={() => setActiveTab("creditnote")}
           >
             Credit Note
+          </button>
+          <button
+            style={activeTab === "incentive" ? styles.tabActive : styles.tab}
+            onClick={() => setActiveTab("incentive")}
+          >
+            Incentives
           </button>
           <button
             style={activeTab === "accounts" ? styles.tabActive : styles.tab}
@@ -2306,6 +2403,260 @@ export default function MappingsPage() {
                                   <button
                                     style={{ ...styles.linkBtn, color: "var(--danger)" }}
                                     onClick={() => setConfirmDelete({ table: "credit_note_mappings", id: r.id })}
+                                  >
+                                    Delete
+                                  </button>
+                                )}
+                              </td>
+                            </tr>
+                          ))
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </>
+        ) : activeTab === "incentive" ? (
+          <>
+            <div style={styles.sectionCard}>
+              <div style={styles.sectionTitle}>Incentive Mapping</div>
+              <div style={styles.sectionSub}>
+                Same structure and formula as Credit Note Mapping, for the VIP export&apos;s{" "}
+                <strong>Incentives</strong> sheet. A line is classified by its <strong>Memo</strong> text
+                when it has one — Memo is the same for every line of a given invoice, so the whole invoice
+                posts as one line. If an invoice has a <strong>blank Memo</strong>, it&apos;s classified{" "}
+                <strong>per line by Products</strong> instead against these same rules — Incentives is
+                matched only from this table, never from Credit Note Mapping or Bills&apos; own Product
+                Mapping. The first rule it matches (case-insensitive, per each rule&apos;s own Match Type:
+                Starts with / Contains / Fully matching) determines the Expense Account. Text matching no
+                rule is skipped and flagged. Check <strong>Ignore</strong> on a rule to drop it silently — no
+                Expense Account needed, and it won&apos;t show up as unmapped either. Rows below are split
+                into <strong>Included</strong> and <strong>Ignored</strong> sections so you can check at a
+                glance that the right ones are ignored.
+              </div>
+
+              {pendingIncentiveProducts.length > 0 && (
+                <div style={styles.pendingRow}>
+                  <span style={styles.pendingLabel}>From your last upload:</span>
+                  <button
+                    style={styles.clearAllBtn}
+                    onClick={() => clearAllPending("unmappedIncentiveProducts", setPendingIncentiveProducts)}
+                  >
+                    Clear all
+                  </button>
+                  {pendingIncentiveProducts.map((p, i) => (
+                    <span key={i} style={styles.chip}>
+                      <button
+                        style={styles.chipMain}
+                        title={`Door ${p.doorNumber} · ${p.invoiceNo}`}
+                        onClick={() => useIncentiveSuggestion(p.product)}
+                      >
+                        {p.product}
+                      </button>
+                      <button style={styles.chipDismiss} onClick={() => dismissPendingIncentiveProduct(p)}>
+                        ×
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              )}
+
+              <div style={styles.coaCategorySection}>
+                <div style={styles.coaCategoryHeader}>+ Add new rule</div>
+                <div style={styles.tableWrap}>
+                  <table style={styles.table}>
+                    <tbody>
+                      <tr>
+                        <td style={styles.td}>
+                          <input
+                            style={styles.cellInput}
+                            placeholder="e.g. Weekly Incentive"
+                            value={incentiveDraft.product_prefix}
+                            onChange={(e) => setIncentiveDraft((d) => ({ ...d, product_prefix: e.target.value }))}
+                          />
+                        </td>
+                        <td style={styles.td}>
+                          <select
+                            style={styles.cellInput}
+                            value={incentiveDraft.match_type}
+                            onChange={(e) => setIncentiveDraft((d) => ({ ...d, match_type: e.target.value }))}
+                          >
+                            {MATCH_TYPE_OPTIONS.map((o) => (
+                              <option key={o.value} value={o.value}>
+                                {o.label}
+                              </option>
+                            ))}
+                          </select>
+                        </td>
+                        <td style={{ ...styles.td, textAlign: "center" }}>
+                          <input
+                            type="checkbox"
+                            checked={incentiveDraft.ignore}
+                            onChange={(e) => setIncentiveDraft((d) => ({ ...d, ignore: e.target.checked }))}
+                          />
+                        </td>
+                        <td style={styles.td}>
+                          <input
+                            style={styles.cellInput}
+                            placeholder={
+                              incentiveDraft.ignore ? "(not needed — Ignore is checked)" : "e.g. Dealer Incentives"
+                            }
+                            value={incentiveDraft.expense_account}
+                            onChange={(e) => setIncentiveDraft((d) => ({ ...d, expense_account: e.target.value }))}
+                          />
+                        </td>
+                        <td style={styles.td}>
+                          <input
+                            style={styles.cellInput}
+                            placeholder="(optional)"
+                            value={incentiveDraft.expense_memo}
+                            onChange={(e) => setIncentiveDraft((d) => ({ ...d, expense_memo: e.target.value }))}
+                          />
+                        </td>
+                        <td style={styles.td}>
+                          <input
+                            style={styles.cellInput}
+                            placeholder="(optional)"
+                            value={incentiveDraft.notes}
+                            onChange={(e) => setIncentiveDraft((d) => ({ ...d, notes: e.target.value }))}
+                          />
+                        </td>
+                        <td style={styles.td}>
+                          <button style={styles.addBtn} onClick={addIncentiveRow}>
+                            + Add
+                          </button>
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              {[
+                {
+                  key: "included",
+                  label: "Included",
+                  sub: "posts to its own Expense Account",
+                  rows: sortedIncentiveRows.filter((r) => !r.ignore),
+                },
+                {
+                  key: "ignored",
+                  label: "Ignored",
+                  sub: "dropped from file generation entirely, never flagged",
+                  rows: sortedIncentiveRows.filter((r) => r.ignore),
+                },
+              ].map((section) => (
+                <div key={section.key} style={styles.coaCategorySection}>
+                  <div style={styles.coaCategoryHeader}>
+                    {section.label} ({section.rows.length}) — {section.sub}
+                  </div>
+                  <div style={styles.tableWrap}>
+                    <table style={styles.table}>
+                      <thead>
+                        <tr>
+                          <th style={styles.thSortable} onClick={() => toggleSort(setIncentiveSort, "product_prefix")}>
+                            Memo Prefix{sortArrow(incentiveSort, "product_prefix")}
+                          </th>
+                          <th style={styles.thSortable} onClick={() => toggleSort(setIncentiveSort, "match_type")}>
+                            Match Type{sortArrow(incentiveSort, "match_type")}
+                          </th>
+                          <th
+                            style={{ ...styles.thSortable, textAlign: "center" }}
+                            onClick={() => toggleSort(setIncentiveSort, "ignore")}
+                          >
+                            Ignore{sortArrow(incentiveSort, "ignore")}
+                          </th>
+                          <th style={styles.thSortable} onClick={() => toggleSort(setIncentiveSort, "expense_account")}>
+                            Expense Account{sortArrow(incentiveSort, "expense_account")}
+                          </th>
+                          <th style={styles.thSortable} onClick={() => toggleSort(setIncentiveSort, "expense_memo")}>
+                            Expense Memo (override){sortArrow(incentiveSort, "expense_memo")}
+                          </th>
+                          <th style={styles.thSortable} onClick={() => toggleSort(setIncentiveSort, "notes")}>
+                            Notes{sortArrow(incentiveSort, "notes")}
+                          </th>
+                          <th style={styles.th}></th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {section.rows.length === 0 ? (
+                          <tr>
+                            <td style={styles.coaEmptyNote} colSpan={7}>
+                              No rules here.
+                            </td>
+                          </tr>
+                        ) : (
+                          section.rows.map((r) => (
+                            <tr key={r.id} style={styles.tr}>
+                              <td style={styles.td}>
+                                <input
+                                  style={styles.cellInput}
+                                  defaultValue={r.product_prefix}
+                                  onBlur={(e) => updateIncentiveField(r.id, "product_prefix", e.target.value)}
+                                />
+                              </td>
+                              <td style={styles.td}>
+                                <select
+                                  style={styles.cellInput}
+                                  value={r.match_type || "starts_with"}
+                                  onChange={(e) => updateIncentiveField(r.id, "match_type", e.target.value)}
+                                >
+                                  {MATCH_TYPE_OPTIONS.map((o) => (
+                                    <option key={o.value} value={o.value}>
+                                      {o.label}
+                                    </option>
+                                  ))}
+                                </select>
+                              </td>
+                              <td style={{ ...styles.td, textAlign: "center" }}>
+                                <input
+                                  type="checkbox"
+                                  checked={!!r.ignore}
+                                  onChange={(e) => updateIncentiveField(r.id, "ignore", e.target.checked)}
+                                />
+                              </td>
+                              <td style={styles.td}>
+                                <input
+                                  style={styles.cellInput}
+                                  placeholder={r.ignore ? "(not needed — Ignore is checked)" : ""}
+                                  defaultValue={r.expense_account || ""}
+                                  onBlur={(e) => updateIncentiveField(r.id, "expense_account", e.target.value)}
+                                />
+                              </td>
+                              <td style={styles.td}>
+                                <input
+                                  style={styles.cellInput}
+                                  placeholder="(uses raw memo text)"
+                                  defaultValue={r.expense_memo || ""}
+                                  onBlur={(e) => updateIncentiveField(r.id, "expense_memo", e.target.value)}
+                                />
+                              </td>
+                              <td style={styles.td}>
+                                <input
+                                  style={styles.cellInput}
+                                  defaultValue={r.notes || ""}
+                                  onBlur={(e) => updateIncentiveField(r.id, "notes", e.target.value)}
+                                />
+                              </td>
+                              <td style={{ ...styles.td, whiteSpace: "nowrap" }}>
+                                {confirmDelete?.table === "incentive_mappings" && confirmDelete.id === r.id ? (
+                                  <>
+                                    <button
+                                      style={{ ...styles.linkBtn, color: "var(--danger)" }}
+                                      onClick={handleDelete}
+                                    >
+                                      Confirm
+                                    </button>
+                                    <button style={styles.linkBtn} onClick={() => setConfirmDelete(null)}>
+                                      Cancel
+                                    </button>
+                                  </>
+                                ) : (
+                                  <button
+                                    style={{ ...styles.linkBtn, color: "var(--danger)" }}
+                                    onClick={() => setConfirmDelete({ table: "incentive_mappings", id: r.id })}
                                   >
                                     Delete
                                   </button>

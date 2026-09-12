@@ -29,6 +29,12 @@ import {
   buildCreditNoteRows,
   isNewCreditNoteFormat,
 } from "@/lib/creditNoteProcessor";
+import {
+  parseVipIncentiveWorkbook,
+  aggregateIncentiveLines,
+  buildIncentiveRows,
+  isNewIncentiveFormat,
+} from "@/lib/incentiveProcessor";
 import { buildExportFileName, dateRangeFromRows, isFileRangeWithinMonth, currentMonthIso } from "@/lib/fileNaming";
 import { savePendingMappings } from "@/lib/pendingMappings";
 import { savePageState, loadPageState } from "@/lib/pageState";
@@ -101,6 +107,21 @@ export default function BillsPage() {
   const creditNoteFileInputRef = useRef(null);
   const lastCreditNoteFileRef = useRef(null);
 
+  // ---- Incentives tab state ----
+  const [incentiveFileName, setIncentiveFileName] = useState(saved?.incentiveFileName ?? null);
+  const [incentiveDragOver, setIncentiveDragOver] = useState(false);
+  const [incentiveProcessing, setIncentiveProcessing] = useState(false);
+  const [incentiveError, setIncentiveError] = useState("");
+  const [incentiveResult, setIncentiveResult] = useState(saved?.incentiveResult ?? null); // { byCompany, unmatched, unmappedProducts }
+  const [incentivePreviewOpen, setIncentivePreviewOpen] = useState(saved?.incentivePreviewOpen ?? false);
+  const [incentiveSelectedCompanies, setIncentiveSelectedCompanies] = useState(
+    new Set(saved?.incentiveSelectedCompanies ?? [])
+  );
+  const [incentivePeriodMonth, setIncentivePeriodMonth] = useState(saved?.incentivePeriodMonth ?? currentMonthIso());
+  const [incentivePeriodMode, setIncentivePeriodMode] = useState(saved?.incentivePeriodMode ?? "accounting");
+  const incentiveFileInputRef = useRef(null);
+  const lastIncentiveFileRef = useRef(null);
+
   useEffect(() => {
     const supabase = createClient();
     supabase.auth.getSession().then(({ data }) => {
@@ -136,6 +157,12 @@ export default function BillsPage() {
       creditNoteSelectedCompanies: Array.from(creditNoteSelectedCompanies),
       creditNotePeriodMonth,
       creditNotePeriodMode,
+      incentiveFileName,
+      incentiveResult,
+      incentivePreviewOpen,
+      incentiveSelectedCompanies: Array.from(incentiveSelectedCompanies),
+      incentivePeriodMonth,
+      incentivePeriodMode,
     });
   }, [
     activeTab,
@@ -163,6 +190,12 @@ export default function BillsPage() {
     creditNoteSelectedCompanies,
     creditNotePeriodMonth,
     creditNotePeriodMode,
+    incentiveFileName,
+    incentiveResult,
+    incentivePreviewOpen,
+    incentiveSelectedCompanies,
+    incentivePeriodMonth,
+    incentivePeriodMode,
   ]);
 
   // ===================== VIP =====================
@@ -672,6 +705,134 @@ export default function BillsPage() {
     setCreditNoteSelectedCompanies(checked ? new Set(allCompanyNames) : new Set());
   }
 
+  // ===================== Incentives =====================
+
+  const processIncentiveFile = useCallback(async (file, monthStr, mode) => {
+    setIncentiveProcessing(true);
+    setIncentiveError("");
+    setIncentiveResult(null);
+    setIncentivePreviewOpen(false);
+    try {
+      const supabase = createClient();
+      const { data: storeMaster, error: smError } = await supabase.from("stores").select("*");
+      if (smError) throw new Error("Could not load Store Master: " + smError.message);
+      const { data: incentiveMappings, error: imError } = await supabase
+        .from("incentive_mappings")
+        .select("*");
+      if (imError) throw new Error("Could not load Incentive mappings: " + imError.message);
+      const { data: doorMappings, error: dmError } = await supabase.from("door_mappings").select("*");
+      if (dmError) throw new Error("Could not load door mappings: " + dmError.message);
+
+      const buffer = await file.arrayBuffer();
+      const rawRows = parseVipIncentiveWorkbook(buffer);
+      if (!rawRows.length) throw new Error("No rows found in the Incentives sheet of this file.");
+      if (!("Door Number" in rawRows[0])) {
+        throw new Error(
+          "This file doesn't look like a VIP export — no 'Door Number' column found in the Incentives sheet."
+        );
+      }
+      const isNewIncFormat = isNewIncentiveFormat(rawRows);
+      const usableIssue = checkRawRowsUsable(
+        rawRows,
+        ["Door Number", isNewIncFormat ? "Document" : "Invoice Number"],
+        "VIP Incentives sheet"
+      );
+      if (usableIssue) throw new Error(usableIssue);
+      if (mode !== "reconciliation") {
+        const { start, end } = dateRangeFromRows(rawRows, isNewIncFormat ? "Date" : "Tran Date");
+        if (start && end && !isFileRangeWithinMonth(start, end, monthStr)) {
+          throw new Error(
+            `This file's dates (${start}–${end}) don't fall within the selected Month (${monthStr}) — not loaded. Pick the correct Month, upload the correct file, or switch to Reconciliation mode.`
+          );
+        }
+      }
+
+      const { groups: groupedLines } = aggregateIncentiveLines(rawRows, incentiveMappings || []);
+      const { byCompany, unmatchedDoors, unmappedProducts } = buildIncentiveRows(
+        groupedLines,
+        storeMaster,
+        doorMappings || []
+      );
+      setIncentiveResult({ byCompany, unmatched: unmatchedDoors, unmappedProducts });
+      setIncentiveSelectedCompanies(new Set(Object.keys(byCompany)));
+      savePendingMappings({ unmatchedDoors, unmappedIncentiveProducts: unmappedProducts });
+    } catch (e) {
+      setIncentiveError(e.message || String(e));
+    } finally {
+      setIncentiveProcessing(false);
+    }
+  }, []);
+
+  function handleIncentiveFile(file) {
+    if (!file) return;
+    setIncentiveFileName(file.name);
+    lastIncentiveFileRef.current = file;
+    processIncentiveFile(file, incentivePeriodMonth, incentivePeriodMode);
+  }
+
+  function handleIncentiveFileChange(e) {
+    handleIncentiveFile(e.target.files?.[0]);
+  }
+
+  function handleIncentiveDrop(e) {
+    e.preventDefault();
+    setIncentiveDragOver(false);
+    handleIncentiveFile(e.dataTransfer.files?.[0]);
+  }
+
+  function handleIncentiveMonthChange(e) {
+    const next = e.target.value;
+    setIncentivePeriodMonth(next);
+    if (lastIncentiveFileRef.current) processIncentiveFile(lastIncentiveFileRef.current, next, incentivePeriodMode);
+  }
+
+  function handleIncentiveModeChange(next) {
+    setIncentivePeriodMode(next);
+    if (lastIncentiveFileRef.current) processIncentiveFile(lastIncentiveFileRef.current, incentivePeriodMonth, next);
+  }
+
+  async function downloadIncentiveCompanyXlsx(company, rows) {
+    const buf = rowsToXlsxBuffer(rows, company);
+    triggerDownload(
+      new Blob([buf], { type: XLSX_MIME }),
+      buildExportFileName(company, "Incentive", rows, "Date", "xlsx")
+    );
+  }
+
+  function downloadIncentiveCompanyCsv(company, rows) {
+    triggerDownload(
+      new Blob([rowsToCsv(rows)], { type: CSV_MIME }),
+      buildExportFileName(company, "Incentive", rows, "Date", "csv")
+    );
+  }
+
+  async function downloadAllIncentiveZip(format) {
+    const JSZip = (await import("jszip")).default;
+    const zip = new JSZip();
+    for (const [company, rows] of Object.entries(incentiveResult.byCompany)) {
+      if (format === "xlsx") {
+        zip.file(buildExportFileName(company, "Incentive", rows, "Date", "xlsx"), rowsToXlsxBuffer(rows, company));
+      } else {
+        zip.file(buildExportFileName(company, "Incentive", rows, "Date", "csv"), rowsToCsv(rows));
+      }
+    }
+    const blob = await zip.generateAsync({ type: "blob" });
+    triggerDownload(blob, `Bills-Incentive-AllCompanies-${format}.zip`);
+  }
+
+  function toggleIncentiveCompany(company) {
+    setIncentiveSelectedCompanies((prev) => {
+      const next = new Set(prev);
+      if (next.has(company)) next.delete(company);
+      else next.add(company);
+      return next;
+    });
+  }
+
+  function toggleIncentiveSelectAll(allCompanyNames, checked) {
+    setIncentiveSelectedCompanies(checked ? new Set(allCompanyNames) : new Set());
+  }
+
   if (session === undefined) {
     return <div style={styles.loadingScreen}>Loading…</div>;
   }
@@ -712,6 +873,10 @@ export default function BillsPage() {
   const creditNoteTotalRows = creditNoteCompanyEntries.reduce((sum, [, rows]) => sum + rows.length, 0);
   const creditNoteGrandTotal = creditNoteCompanyEntries.reduce((sum, [, rows]) => sum + rowsTotal(rows), 0);
 
+  const incentiveCompanyEntries = incentiveResult ? Object.entries(incentiveResult.byCompany) : [];
+  const incentiveTotalRows = incentiveCompanyEntries.reduce((sum, [, rows]) => sum + rows.length, 0);
+  const incentiveGrandTotal = incentiveCompanyEntries.reduce((sum, [, rows]) => sum + rowsTotal(rows), 0);
+
   return (
     <div style={styles.shell}>
       <Sidebar userEmail={session.user.email} />
@@ -727,7 +892,9 @@ export default function BillsPage() {
                 ? "Upload the Epay invoices export — get income and purchase uploads, one pair per company"
                 : activeTab === "ondigo"
                 ? "Upload the Ondigo statement export — matched by Ondigo Number, one file per company"
-                : "Upload the VIP export's Credit Note sheet — classified by Credit Note Mapping, one file per company"}
+                : activeTab === "creditnote"
+                ? "Upload the VIP export's Credit Note sheet — classified by Credit Note Mapping, one file per company"
+                : "Upload the VIP export's Incentives sheet — classified by Incentive Mapping, one file per company"}
             </p>
           </div>
         </div>
@@ -756,6 +923,12 @@ export default function BillsPage() {
             onClick={() => setActiveTab("creditnote")}
           >
             Credit Note
+          </button>
+          <button
+            style={activeTab === "incentive" ? styles.tabActive : styles.tab}
+            onClick={() => setActiveTab("incentive")}
+          >
+            Incentives
           </button>
         </div>
 
@@ -1586,6 +1759,225 @@ export default function BillsPage() {
                   <div style={styles.previewGroups}>
                     {creditNoteCompanyEntries
                       .filter(([company]) => creditNoteSelectedCompanies.has(company))
+                      .map(([company, rows]) => (
+                        <div key={company} style={styles.previewGroup}>
+                          <div style={styles.previewGroupHeader}>
+                            <span style={styles.companyName}>{company}</span>
+                            <span style={styles.previewMeta}>
+                              {rows.length} line{rows.length === 1 ? "" : "s"} · ${rowsTotal(rows).toFixed(2)}
+                            </span>
+                          </div>
+                          <div style={styles.previewWrap}>
+                            <table style={styles.table}>
+                              <thead>
+                                <tr>
+                                  {CSV_COLUMNS.map((c) => (
+                                    <th key={c} style={styles.th}>
+                                      {c}
+                                    </th>
+                                  ))}
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {rows.map((r, i) => (
+                                  <tr key={i} style={styles.tr}>
+                                    {CSV_COLUMNS.map((c) => (
+                                      <td key={c} style={styles.td}>
+                                        {r[c]}
+                                      </td>
+                                    ))}
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        </div>
+                      ))}
+                  </div>
+                )}
+              </>
+            )}
+          </>
+        )}
+
+        {activeTab === "incentive" && (
+          <>
+            <div style={styles.card}>
+              <div style={styles.fieldRow}>
+                <label style={styles.fieldBlock}>
+                  <span style={styles.fieldLabel}>Month</span>
+                  <input
+                    type="month"
+                    style={styles.dateInput}
+                    value={incentivePeriodMonth}
+                    onChange={handleIncentiveMonthChange}
+                    disabled={incentivePeriodMode === "reconciliation"}
+                  />
+                </label>
+                <div style={styles.fieldBlock}>
+                  <span style={styles.fieldLabel}>Mode</span>
+                  <div style={styles.modeToggleRow}>
+                    <button
+                      style={{
+                        ...styles.modeBtn,
+                        ...(incentivePeriodMode === "accounting" ? styles.modeBtnActive : {}),
+                      }}
+                      onClick={() => handleIncentiveModeChange("accounting")}
+                    >
+                      Accounting
+                    </button>
+                    <button
+                      style={{
+                        ...styles.modeBtn,
+                        ...(incentivePeriodMode === "reconciliation" ? styles.modeBtnActive : {}),
+                      }}
+                      onClick={() => handleIncentiveModeChange("reconciliation")}
+                    >
+                      Reconciliation
+                    </button>
+                  </div>
+                </div>
+              </div>
+              <input
+                ref={incentiveFileInputRef}
+                type="file"
+                accept=".xlsx,.xls,.csv"
+                onChange={handleIncentiveFileChange}
+                style={{ display: "none" }}
+              />
+              <div
+                style={{ ...styles.dropzone, ...(incentiveDragOver ? styles.dropzoneActive : {}) }}
+                onClick={() => incentiveFileInputRef.current?.click()}
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  setIncentiveDragOver(true);
+                }}
+                onDragLeave={() => setIncentiveDragOver(false)}
+                onDrop={handleIncentiveDrop}
+              >
+                <div style={styles.dropzoneIcon}>📄</div>
+                <div style={styles.dropzoneText}>
+                  {incentiveFileName || "Choose or drop VIP export (reads the Incentives sheet)"}
+                </div>
+              </div>
+              {incentivePeriodMode === "reconciliation" && (
+                <div style={styles.reconciliationNote}>
+                  Reconciliation mode — the Month check is skipped, so a year-to-date or any-date-range file
+                  will load.
+                </div>
+              )}
+            </div>
+
+            {incentiveProcessing && <div style={styles.info}>Processing…</div>}
+            {incentiveError && <div style={styles.errorBanner}>{incentiveError}</div>}
+
+            {incentiveResult && incentiveResult.unmatched.length > 0 && (
+              <div style={styles.warnBanner}>
+                {incentiveResult.unmatched.length} door number(s) in the file don't match any store in your
+                Store Master, so they were skipped: <strong>{incentiveResult.unmatched.join(", ")}</strong>.
+                Add them in{" "}
+                <Link href="/mappings?tab=vip#door-mapping" style={styles.inlineLink}>
+                  Door Mapping
+                </Link>{" "}
+                or add the store in Store Master, then re-upload.
+              </div>
+            )}
+
+            {incentiveResult && incentiveResult.unmappedProducts.length > 0 && (
+              <div style={styles.errorBanner}>
+                {incentiveResult.unmappedProducts.length} line(s) have a Memo or Products value that doesn't
+                match a known mapping, so they were skipped (for a blank-Memo invoice, other lines on the
+                same invoice still posted). Add the text below to{" "}
+                <Link href="/mappings?tab=incentive" style={styles.inlineLink}>
+                  Incentive Mapping
+                </Link>{" "}
+                and re-upload:
+                <ul style={styles.unmappedList}>
+                  {incentiveResult.unmappedProducts.map((m, i) => (
+                    <li key={i}>
+                      Door {m.doorNumber} · {m.invoiceNo} · "{m.product}"
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {incentiveResult && incentiveTotalRows > 0 && (
+              <>
+                <div style={styles.actionsRow}>
+                  <button style={styles.previewBtn} onClick={() => setIncentivePreviewOpen((v) => !v)}>
+                    👁 {incentivePreviewOpen ? "Hide preview" : "Preview selected"}
+                  </button>
+                  <button style={styles.xlsxBtn} onClick={() => downloadAllIncentiveZip("xlsx")}>
+                    📘 Download all (XLSX)
+                  </button>
+                  <button style={styles.csvBtnMuted} onClick={() => downloadAllIncentiveZip("csv")}>
+                    Download all (CSV)
+                  </button>
+                </div>
+
+                <div style={styles.resultsHeader}>
+                  <h2 style={styles.h2}>
+                    {incentiveCompanyEntries.length} compan{incentiveCompanyEntries.length === 1 ? "y" : "ies"}{" "}
+                    · {incentiveTotalRows} line{incentiveTotalRows === 1 ? "" : "s"} · Total $
+                    {incentiveGrandTotal.toFixed(2)}
+                  </h2>
+                  <label style={styles.selectAllLabel}>
+                    <input
+                      type="checkbox"
+                      checked={
+                        incentiveSelectedCompanies.size === incentiveCompanyEntries.length &&
+                        incentiveCompanyEntries.length > 0
+                      }
+                      onChange={(e) =>
+                        toggleIncentiveSelectAll(
+                          incentiveCompanyEntries.map(([company]) => company),
+                          e.target.checked
+                        )
+                      }
+                    />
+                    Select all
+                  </label>
+                </div>
+
+                <div style={styles.companyGrid}>
+                  {incentiveCompanyEntries.map(([company, rows]) => (
+                    <div key={company} style={styles.companyCard}>
+                      <label style={styles.companyCheckLabel}>
+                        <input
+                          type="checkbox"
+                          checked={incentiveSelectedCompanies.has(company)}
+                          onChange={() => toggleIncentiveCompany(company)}
+                        />
+                        <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
+                          <span style={styles.companyName}>{company}</span>
+                          <span style={styles.companyMeta}>
+                            {rows.length} line(s) · ${rowsTotal(rows).toFixed(2)}
+                          </span>
+                        </div>
+                      </label>
+                      <div style={{ display: "flex", gap: 6 }}>
+                        <button
+                          style={styles.secondaryBtn}
+                          onClick={() => downloadIncentiveCompanyXlsx(company, rows)}
+                        >
+                          XLSX
+                        </button>
+                        <button
+                          style={styles.secondaryBtn}
+                          onClick={() => downloadIncentiveCompanyCsv(company, rows)}
+                        >
+                          CSV
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                {incentivePreviewOpen && (
+                  <div style={styles.previewGroups}>
+                    {incentiveCompanyEntries
+                      .filter(([company]) => incentiveSelectedCompanies.has(company))
                       .map(([company, rows]) => (
                         <div key={company} style={styles.previewGroup}>
                           <div style={styles.previewGroupHeader}>
