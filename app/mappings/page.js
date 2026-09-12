@@ -917,12 +917,12 @@ export default function MappingsPage() {
     setPendingCreditNoteProducts((prev) => prev.filter((p) => p !== item));
   }
 
-  function useIncentiveSuggestion(product) {
-    setIncentiveDraft((d) => ({ ...d, product_prefix: product }));
+  function useIncentiveSuggestion(memo) {
+    setIncentiveDraft((d) => ({ ...d, product_prefix: memo }));
   }
 
   function dismissPendingIncentiveProduct(item) {
-    removePendingIncentiveProductsMatching(item.product);
+    removePendingIncentiveProductsMatching(item.memo);
     setPendingIncentiveProducts((prev) => prev.filter((p) => p !== item));
   }
 
@@ -2423,21 +2423,23 @@ export default function MappingsPage() {
             <div style={styles.sectionCard}>
               <div style={styles.sectionTitle}>Incentive Mapping</div>
               <div style={styles.sectionSub}>
-                Same structure and formula as Credit Note Mapping, reading the{" "}
-                <strong>same VIP export Credit Note sheet</strong> — there&apos;s no separate Incentives
-                sheet, this is a second, parallel classification of that same data against its own rules
-                below (e.g. Weekly Incentive Credit memos), so it can produce its own separate output file.
-                A line is classified by its <strong>Memo</strong> text
-                when it has one — Memo is the same for every line of a given invoice, so the whole invoice
-                posts as one line. If an invoice has a <strong>blank Memo</strong>, it&apos;s classified{" "}
-                <strong>per line by Products</strong> instead against these same rules — Incentives is
-                matched only from this table, never from Credit Note Mapping or Bills&apos; own Product
-                Mapping. The first rule it matches (case-insensitive, per each rule&apos;s own Match Type:
-                Starts with / Contains / Fully matching) determines the Expense Account. Text matching no
-                rule is skipped and flagged. Check <strong>Ignore</strong> on a rule to drop it silently — no
-                Expense Account needed, and it won&apos;t show up as unmapped either. Rows below are split
-                into <strong>Included</strong> and <strong>Ignored</strong> sections so you can check at a
-                glance that the right ones are ignored.
+                For the Bills &gt; Incentives tab, which reads VIP&apos;s own separate{" "}
+                <strong>Credit Memo</strong> export (not the main VIP export/Credit Note sheet — a
+                different report entirely, one row per credit memo). Every credit memo already has a{" "}
+                <strong>Memo</strong> text (e.g. &quot;Weekly Incentive Credit - July 6th to July 12th
+                2026&quot;, &quot;Xfinity Activation Bounty $25 ...&quot;), matched only from this table,
+                never from Credit Note Mapping or Bills&apos; own Product Mapping. The first rule it
+                matches (case-insensitive, per each rule&apos;s own Match Type: Starts with / Contains /
+                Fully matching) determines the Expense Account, and the memo&apos;s own{" "}
+                <strong>Grand Total</strong> posts as-is (there are no line items, and no Other
+                Cost/Shipping/Discount/Deductions columns in this file, so there&apos;s no Other Services
+                VIP/Deductions split here unlike Credit Note). A Voided credit memo is always skipped.
+                Every Incentive credit memo posts to <strong>RBFC PA LLC</strong> regardless of which store
+                it came from (confirmed explicitly — this file has no Door Number to match a real store
+                with). Text matching no rule is skipped and flagged. Check <strong>Ignore</strong> on a
+                rule to drop it silently — no Expense Account needed, and it won&apos;t show up as unmapped
+                either. Rows below are split into <strong>Included</strong> and <strong>Ignored</strong>{" "}
+                sections so you can check at a glance that the right ones are ignored.
               </div>
 
               {pendingIncentiveProducts.length > 0 && (
@@ -2453,10 +2455,10 @@ export default function MappingsPage() {
                     <span key={i} style={styles.chip}>
                       <button
                         style={styles.chipMain}
-                        title={`Door ${p.doorNumber} · ${p.invoiceNo}`}
-                        onClick={() => useIncentiveSuggestion(p.product)}
+                        title={`Credit Memo ${p.creditMemoNumber}`}
+                        onClick={() => useIncentiveSuggestion(p.memo)}
                       >
-                        {p.product}
+                        {p.memo}
                       </button>
                       <button style={styles.chipDismiss} onClick={() => dismissPendingIncentiveProduct(p)}>
                         ×

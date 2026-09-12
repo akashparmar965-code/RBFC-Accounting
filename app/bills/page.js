@@ -33,7 +33,6 @@ import {
   parseVipIncentiveWorkbook,
   aggregateIncentiveLines,
   buildIncentiveRows,
-  isNewIncentiveFormat,
 } from "@/lib/incentiveProcessor";
 import { buildExportFileName, dateRangeFromRows, isFileRangeWithinMonth, currentMonthIso } from "@/lib/fileNaming";
 import { savePendingMappings } from "@/lib/pendingMappings";
@@ -112,7 +111,7 @@ export default function BillsPage() {
   const [incentiveDragOver, setIncentiveDragOver] = useState(false);
   const [incentiveProcessing, setIncentiveProcessing] = useState(false);
   const [incentiveError, setIncentiveError] = useState("");
-  const [incentiveResult, setIncentiveResult] = useState(saved?.incentiveResult ?? null); // { byCompany, unmatched, unmappedProducts }
+  const [incentiveResult, setIncentiveResult] = useState(saved?.incentiveResult ?? null); // { byCompany, unmappedProducts }
   const [incentivePreviewOpen, setIncentivePreviewOpen] = useState(saved?.incentivePreviewOpen ?? false);
   const [incentiveSelectedCompanies, setIncentiveSelectedCompanies] = useState(
     new Set(saved?.incentiveSelectedCompanies ?? [])
@@ -714,32 +713,27 @@ export default function BillsPage() {
     setIncentivePreviewOpen(false);
     try {
       const supabase = createClient();
-      const { data: storeMaster, error: smError } = await supabase.from("stores").select("*");
-      if (smError) throw new Error("Could not load Store Master: " + smError.message);
       const { data: incentiveMappings, error: imError } = await supabase
         .from("incentive_mappings")
         .select("*");
       if (imError) throw new Error("Could not load Incentive mappings: " + imError.message);
-      const { data: doorMappings, error: dmError } = await supabase.from("door_mappings").select("*");
-      if (dmError) throw new Error("Could not load door mappings: " + dmError.message);
 
       const buffer = await file.arrayBuffer();
       const rawRows = parseVipIncentiveWorkbook(buffer);
-      if (!rawRows.length) throw new Error("No rows found in the Credit Note sheet of this file.");
-      if (!("Door Number" in rawRows[0])) {
+      if (!rawRows.length) throw new Error("No rows found in this file.");
+      if (!("CreditMemoNumber" in rawRows[0])) {
         throw new Error(
-          "This file doesn't look like a VIP export — no 'Door Number' column found in the Credit Note sheet."
+          "This file doesn't look like a Credit Memo export — no 'CreditMemoNumber' column found."
         );
       }
-      const isNewIncFormat = isNewIncentiveFormat(rawRows);
       const usableIssue = checkRawRowsUsable(
         rawRows,
-        ["Door Number", isNewIncFormat ? "Document" : "Invoice Number"],
-        "VIP Credit Note sheet"
+        ["CreditMemoNumber", "Memo", "GrandTotal", "CreatedOn"],
+        "Credit Memo export"
       );
       if (usableIssue) throw new Error(usableIssue);
       if (mode !== "reconciliation") {
-        const { start, end } = dateRangeFromRows(rawRows, isNewIncFormat ? "Date" : "Tran Date");
+        const { start, end } = dateRangeFromRows(rawRows, "CreatedOn");
         if (start && end && !isFileRangeWithinMonth(start, end, monthStr)) {
           throw new Error(
             `This file's dates (${start}–${end}) don't fall within the selected Month (${monthStr}) — not loaded. Pick the correct Month, upload the correct file, or switch to Reconciliation mode.`
@@ -747,15 +741,11 @@ export default function BillsPage() {
         }
       }
 
-      const { groups: groupedLines } = aggregateIncentiveLines(rawRows, incentiveMappings || []);
-      const { byCompany, unmatchedDoors, unmappedProducts } = buildIncentiveRows(
-        groupedLines,
-        storeMaster,
-        doorMappings || []
-      );
-      setIncentiveResult({ byCompany, unmatched: unmatchedDoors, unmappedProducts });
+      const { groups: groupedLines, unmappedProducts } = aggregateIncentiveLines(rawRows, incentiveMappings || []);
+      const { byCompany } = buildIncentiveRows(groupedLines);
+      setIncentiveResult({ byCompany, unmappedProducts });
       setIncentiveSelectedCompanies(new Set(Object.keys(byCompany)));
-      savePendingMappings({ unmatchedDoors, unmappedIncentiveProducts: unmappedProducts });
+      savePendingMappings({ unmappedIncentiveProducts: unmappedProducts });
     } catch (e) {
       setIncentiveError(e.message || String(e));
     } finally {
@@ -894,7 +884,7 @@ export default function BillsPage() {
                 ? "Upload the Ondigo statement export — matched by Ondigo Number, one file per company"
                 : activeTab === "creditnote"
                 ? "Upload the VIP export's Credit Note sheet — classified by Credit Note Mapping, one file per company"
-                : "Upload the VIP export's Credit Note sheet — classified by Incentive Mapping, one file per company"}
+                : "Upload the VIP Credit Memo export — classified by Incentive Mapping, posts to RBFC PA LLC"}
             </p>
           </div>
         </div>
@@ -1857,7 +1847,7 @@ export default function BillsPage() {
               >
                 <div style={styles.dropzoneIcon}>📄</div>
                 <div style={styles.dropzoneText}>
-                  {incentiveFileName || "Choose or drop VIP export (reads the Credit Note sheet)"}
+                  {incentiveFileName || "Choose or drop the VIP Credit Memo export (e.g. \"Credit Memo.xlsx\")"}
                 </div>
               </div>
               {incentivePeriodMode === "reconciliation" && (
@@ -1871,23 +1861,10 @@ export default function BillsPage() {
             {incentiveProcessing && <div style={styles.info}>Processing…</div>}
             {incentiveError && <div style={styles.errorBanner}>{incentiveError}</div>}
 
-            {incentiveResult && incentiveResult.unmatched.length > 0 && (
-              <div style={styles.warnBanner}>
-                {incentiveResult.unmatched.length} door number(s) in the file don't match any store in your
-                Store Master, so they were skipped: <strong>{incentiveResult.unmatched.join(", ")}</strong>.
-                Add them in{" "}
-                <Link href="/mappings?tab=vip#door-mapping" style={styles.inlineLink}>
-                  Door Mapping
-                </Link>{" "}
-                or add the store in Store Master, then re-upload.
-              </div>
-            )}
-
             {incentiveResult && incentiveResult.unmappedProducts.length > 0 && (
               <div style={styles.errorBanner}>
-                {incentiveResult.unmappedProducts.length} line(s) have a Memo or Products value that doesn't
-                match a known mapping, so they were skipped (for a blank-Memo invoice, other lines on the
-                same invoice still posted). Add the text below to{" "}
+                {incentiveResult.unmappedProducts.length} credit memo(s) have a Memo that doesn't match a
+                known mapping, so they were skipped. Add the text below to{" "}
                 <Link href="/mappings?tab=incentive" style={styles.inlineLink}>
                   Incentive Mapping
                 </Link>{" "}
@@ -1895,7 +1872,7 @@ export default function BillsPage() {
                 <ul style={styles.unmappedList}>
                   {incentiveResult.unmappedProducts.map((m, i) => (
                     <li key={i}>
-                      Door {m.doorNumber} · {m.invoiceNo} · "{m.product}"
+                      Credit Memo {m.creditMemoNumber} · "{m.memo}"
                     </li>
                   ))}
                 </ul>
